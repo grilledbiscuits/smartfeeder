@@ -1,0 +1,257 @@
+# Training and runtime configuration.
+# Everything here is read at runtime. No hyperparameter is hardcoded in Python.
+
+version: 1
+
+# =============================================================================
+# COMPUTE
+# =============================================================================
+compute:
+  # PHYSICAL core count, not logical. Measured on the dev machine: AMD Ryzen 5
+  # 7520U, 4 cores / 8 threads. Setting torch threads to the logical count makes
+  # CPU inference SLOWER through hyperthread contention on this workload.
+  # Overridden automatically when running on Kaggle (see utils.runtime).
+  torch_num_threads: 4
+  # Kept low deliberately: the dev machine has ~2GB RAM free of 7GB total, and
+  # each worker forks a copy of the dataset state.
+  dataloader_num_workers: 2
+  pin_memory: false
+  seed: 20260731
+
+# =============================================================================
+# PATHS -- all relative to the repo root. No absolute paths anywhere.
+# =============================================================================
+paths:
+  data_root: data
+  raw_dir: data/raw
+  processed_dir: data/processed
+  quarantine_dir: data/quarantine
+  manifest_db: data/manifest.sqlite
+  manifest_parquet: data/manifest.parquet
+  embeddings_dir: data/embeddings
+  splits_file: data/splits.json
+  reports_dir: reports
+  checkpoints_dir: data/checkpoints
+  taxon_cache: config/taxon_cache.json
+
+# =============================================================================
+# DATA ACQUISITION
+# =============================================================================
+fetch:
+  # Licences we accept. Anything not on this list -- including images with NO
+  # licence stated, and every ND / all-rights-reserved variant -- is excluded.
+  # CC-BY and CC-BY-NC both REQUIRE attribution on downstream use, so the
+  # manifest carries rights_holder and attribution_text for every image.
+  allowed_licenses: [cc0, cc-by, cc-by-nc]
+
+  # Contact email goes into the User-Agent, read from env var BIRDCAM_CONTACT.
+  # Fetchers refuse to run without it: sending unidentified traffic at these
+  # volumes is a good way to get blocked, and rightly so.
+  contact_env_var: BIRDCAM_CONTACT
+  user_agent_template: "birdcam/{version} (research; +{contact})"
+
+  max_images_per_species: 1500   # cap the head of the distribution
+  request_timeout_s: 30
+  max_retries: 5
+  backoff_base_s: 2.0
+
+  inaturalist:
+    enabled: true
+    base_url: https://api.inaturalist.org/v1
+    # iNat asks for ~1 request/second. Honoured, with backoff on 429.
+    rate_limit_rps: 1.0
+    quality_grade: research
+    # MUST paginate with id_above: the API caps offset pagination at 10,000
+    # results, and Tier A species exceed that.
+    per_page: 200
+    # Photo size to download. NOT `original`: originals run to 4000px and several
+    # MB, we downsize to 256px short side anyway, and the dev machine has 28GB
+    # free. `large` is capped at 1024px -- ample headroom over 256.
+    photo_size: large
+    # Controlled-term IDs are LOOKED UP from /v1/controlled_terms at runtime and
+    # asserted against these known-good values (measured 2026-07-31). If the API
+    # disagrees, that is a hard error -- it means the terms were revised and the
+    # annotation mapping in taxonomy.yaml needs review.
+    expected_terms:
+      sex: { id: 9, values: { Female: 10, Male: 11, "Cannot Be Determined": 20 } }
+      life_stage: { id: 1, values: { Adult: 2, Juvenile: 8 } }
+
+  gbif:
+    enabled: true
+    base_url: https://api.gbif.org/v1
+    rate_limit_rps: 4.0
+    # Measured 2026-07-31: GBIF returns 6129 records for Cinnyris chalybeus in
+    # ZA against iNaturalist's 6203, from dataset 50c9509d-22c7-4a22-a47d-
+    # 8c48425ef4a7 -- which IS the iNaturalist research-grade export. GBIF is
+    # therefore ~95% redundant for these taxa. Its value is the OTHER datasets,
+    # so by default we skip the iNat mirror and let the iNat fetcher (which also
+    # gets annotations) handle those records.
+    exclude_dataset_keys:
+      - 50c9509d-22c7-4a22-a47d-8c48425ef4a7   # iNaturalist research-grade
+    # The async download endpoint needs a free GBIF account. At the volumes
+    # measured (a few thousand per species, minus the iNat mirror) the search
+    # API is sufficient, so we avoid the credential requirement entirely.
+    use_async_download: false
+
+  wikimedia:
+    enabled: true
+    base_url: https://commons.wikimedia.org/w/api.php
+    rate_limit_rps: 2.0
+
+  flickr:
+    # Skips gracefully when FLICKR_API_KEY is absent.
+    enabled: true
+    base_url: https://api.flickr.com/services/rest/
+    api_key_env_var: FLICKR_API_KEY
+    rate_limit_rps: 1.0
+    # Flickr licence IDs. Verified against flickr.photos.licenses.getInfo.
+    # 0 = All Rights Reserved and every ND licence are excluded.
+    allowed_license_ids: [1, 2, 4, 5, 7, 9, 10]
+
+# =============================================================================
+# PREPROCESSING
+# =============================================================================
+preprocess:
+  short_side_px: 256          # HARD REQUIREMENT: decode cost dominates forward
+                              # pass on a CPU-only machine.
+  jpeg_quality: 90
+  strip_exif: true            # orientation is APPLIED, then dropped
+  phash_hamming_threshold: 4  # <= this counts as duplicate; keeps highest res
+
+  split:
+    train: 0.70
+    val: 0.15
+    test: 0.15
+    # Grouped by observation AND observer. Photos of the same individual in one
+    # burst must never straddle a split, or the metrics are fiction. Grouping by
+    # observer additionally stops a single photographer's style leaking across.
+    group_keys: [observation_id, observer_id]
+    stratify_keys: [scientific_name, sex_plumage]
+
+# =============================================================================
+# BACKBONE
+# =============================================================================
+backbone:
+  # --- fast-loop / local embedding extraction --------------------------------
+  # Every iNat-2021 checkpoint in timm is ViT-L/336 or ConvNeXt-L (verified
+  # against the HuggingFace hub 2026-07-31). Both are far too slow for CPU
+  # embedding extraction here. So the LOCAL fast loop uses a mid-size CNN, and
+  # its separability verdicts are a LOWER BOUND.
+  local:
+    name: convnext_tiny.in12k_ft_in1k
+    pretrained: true
+    image_size: 224
+    batch_size: 8             # small: ~2GB RAM free on the dev machine
+  # --- teacher (Kaggle GPU) ---------------------------------------------------
+  # cache_embeddings.py is architecture-agnostic, so caching with the teacher on
+  # Kaggle and downloading the .npy (20k x 1024 float32 ~= 80MB) gives the fast
+  # loop teacher-grade features with no local GPU.
+  teacher:
+    name: vit_large_patch14_clip_336.laion2b_ft_augreg_inat21
+    pretrained: true
+    image_size: 336
+    batch_size: 32
+    # Fall back to ImageNet-21k and SAY SO IN THE LOG if the iNat checkpoint is
+    # unavailable in the installed timm version. Never fail silently.
+    fallback_name: convnext_base.fb_in22k_ft_in1k
+  # --- student (deployment) ---------------------------------------------------
+  # HAILO CONSTRAINT -- DO NOT CHANGE TO A TRANSFORMER.
+  # The Hailo-8L Dataflow Compiler supports standard CNN ops well but has
+  # limited and awkward support for ViT and ConvNeXt blocks (LayerNorm, GELU,
+  # attention). A transformer student will either fail to compile or fall back
+  # to CPU for large subgraphs, destroying the latency budget. Keep this a
+  # plain CNN.
+  student:
+    name: mobilenetv3_large_100
+    pretrained: true
+    image_size: 224
+    batch_size: 64
+
+# =============================================================================
+# PHASE 5 -- FAST ITERATION LOOP
+# =============================================================================
+fast_loop:
+  head_type: linear           # linear | mlp
+  mlp_hidden: 512
+  epochs: 60
+  lr: 0.01
+  weight_decay: 0.0001
+  # Target <10s per run. That is what makes this project tractable on this
+  # hardware, so it is a budget, not an aspiration.
+  target_seconds_per_run: 10
+  # Marginal accuracy gain per additional 100 images, per rare species.
+  # Explicit output: it tells us where to spend labelling effort.
+  learning_curve_fractions: [0.1, 0.25, 0.5, 0.75, 1.0]
+  bootstrap_iterations: 1000  # for Wilson / bootstrap CIs on small classes
+
+# =============================================================================
+# PHASE 6 -- FULL TRAINING
+# =============================================================================
+train:
+  epochs: 40
+  batch_size: 32
+  lr: 0.0003
+  weight_decay: 0.05
+  optimizer: adamw
+  scheduler: cosine
+  warmup_epochs: 2
+  label_smoothing: 0.1
+  amp: true                   # ignored on CPU
+
+  loss:
+    # The sex head acts as a regulariser on the taxon head, so its weight is
+    # non-trivial but below the taxon head's.
+    taxon_weight: 1.0
+    sex_weight: 0.4
+    # Both implemented, both configurable, and Phase 7 reports which helped.
+    use_focal: true
+    focal_gamma: 2.0
+    use_class_balanced_sampling: true
+    class_balanced_beta: 0.999
+
+  checkpoint:
+    every_epoch: true
+    resumable: true           # Kaggle sessions are capped at 12h
+    keep_last_n: 3
+
+  # --- augmentation ----------------------------------------------------------
+  # Mimics real DEPLOYMENT failure modes, not just flip-and-crop. The domain gap
+  # between clean field-guide photographs and a real feeder camera is the single
+  # biggest technical risk in this project, and augmentation is the only lever
+  # on it until real capture data exists.
+  augment:
+    hflip: 0.5
+    rotate_deg: 12
+    motion_blur: { p: 0.35, kernel_range: [3, 11] }      # birds move fast
+    exposure_shift: { p: 0.4, brightness: 0.4, contrast: 0.35 }  # backlight
+    occlusion_cutout: { p: 0.4, max_area_frac: 0.30 }    # head inside feeder port
+    jpeg_artifacts: { p: 0.3, quality_range: [30, 75] }
+    partial_crop: { p: 0.35, min_area_frac: 0.5 }        # bird half out of frame
+    scale_jitter: [0.6, 1.0]
+
+  tracking:
+    # Weights & Biases if WANDB_API_KEY is set, else TensorBoard.
+    wandb_project: birdcam
+    wandb_api_key_env_var: WANDB_API_KEY
+    tensorboard_dir: data/runs
+
+# =============================================================================
+# PHASE 8 -- EXPORT
+# =============================================================================
+export:
+  onnx_opset: 17
+  onnx_path: data/export/birdcam_student.onnx
+  quantize:
+    method: static            # INT8 post-training quantisation
+    calibration_size: 500
+    # THE CALIBRATION SET MUST BE REAL FEEDER CROPS ONCE THEY EXIST.
+    # Web images have a different noise, blur and exposure distribution to a Pi
+    # camera at a feeder. Until real crops exist this stays `provisional` and
+    # the export report says so on its face.
+    calibration_source: provisional_web_subset
+    # Fine-grained classification is unusually sensitive to INT8: nearly
+    # identical classes sit close in feature space and quantisation smears them.
+    # If the female classes degrade disproportionately, the report says so
+    # loudly rather than reporting a single averaged delta.
+    report_per_class_delta: true
+    flag_threshold_pct: 2.0

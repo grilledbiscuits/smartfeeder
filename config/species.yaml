@@ -1,0 +1,121 @@
+# Target species list. THREE TIERS.
+#
+# No taxon IDs here, by design. GBIF usageKey and iNaturalist taxon_id are
+# resolved at runtime by src/birdcam/data/taxa.py and cached to
+# config/taxon_cache.json. Hardcoding IDs is how you end up silently training on
+# the wrong taxon after a backbone revision.
+#
+# `fetch_scope` controls the geographic filter applied by the fetchers:
+#   za     -- restrict to South Africa (iNat place_id resolved at runtime;
+#             GBIF country=ZA)
+#   global -- no geographic filter
+# Tier B rare species are fetched globally: measured 2026-07-31, Cinnyris
+# manoensis and Cinnyris cupreus have ZERO research-grade ZA records, and
+# Anthreptes reichenowi has 11 ZA vs 33 global. Restricting them to ZA would
+# yield nothing. See ASSUMPTIONS.md.
+
+version: 1
+
+tiers:
+  # ---------------------------------------------------------------------------
+  # TIER A -- Cape Town core. The feeder will actually see these.
+  # Evaluation is weighted toward this tier.
+  # ---------------------------------------------------------------------------
+  A:
+    description: Cape Town core nectarivores; primary detection targets
+    fetch_scope: za
+    species:
+      - scientific_name: Cinnyris chalybeus
+        common_name: Southern Double-collared Sunbird
+      - scientific_name: Anthobaphes violacea
+        common_name: Orange-breasted Sunbird
+      - scientific_name: Nectarinia famosa
+        common_name: Malachite Sunbird
+      - scientific_name: Promerops cafer
+        common_name: Cape Sugarbird
+      - scientific_name: Chalcomitra amethystina
+        common_name: Amethyst Sunbird
+      - scientific_name: Cinnyris afer
+        common_name: Greater Double-collared Sunbird
+
+  # ---------------------------------------------------------------------------
+  # TIER B -- rest of South Africa. Redundancy layer.
+  # Species falling below `min_species_images` (config/taxonomy.yaml) are routed
+  # into their genus fallback class rather than trained as a species class.
+  # ---------------------------------------------------------------------------
+  B:
+    description: Wider South African nectarivores; redundancy layer
+    fetch_scope: global
+    species:
+      - scientific_name: Cinnyris fuscus
+        common_name: Dusky Sunbird
+      - scientific_name: Cinnyris mariquensis
+        common_name: Marico Sunbird
+      - scientific_name: Cinnyris talatala
+        common_name: White-bellied Sunbird
+      - scientific_name: Chalcomitra senegalensis
+        common_name: Scarlet-chested Sunbird
+      - scientific_name: Hedydipna collaris
+        common_name: Collared Sunbird
+      - scientific_name: Cyanomitra veroxii
+        common_name: Grey Sunbird
+      - scientific_name: Cyanomitra olivacea
+        common_name: Olive Sunbird
+      - scientific_name: Cinnyris bifasciatus
+        common_name: Purple-banded Sunbird
+      - scientific_name: Cinnyris neergaardi
+        common_name: Neergaard's Sunbird
+      - scientific_name: Cinnyris manoensis
+        common_name: Miombo Double-collared Sunbird
+      - scientific_name: Anthreptes reichenowi
+        common_name: Plain-backed Sunbird
+      - scientific_name: Cinnyris cupreus
+        common_name: Copper Sunbird
+      - scientific_name: Promerops gurneyi
+        common_name: Gurney's Sugarbird
+
+  # ---------------------------------------------------------------------------
+  # TIER C -- confusable non-target species. MANDATORY.
+  # Without these the model forces every visitor into a sunbird class. These are
+  # feeder-realistic for Cape Town plus common national equivalents.
+  # ---------------------------------------------------------------------------
+  C:
+    description: Confusable non-target species; negative-discrimination layer
+    fetch_scope: za
+    species:
+      - scientific_name: Zosterops virens
+        common_name: Cape White-eye
+      - scientific_name: Zosterops pallidus
+        common_name: Orange River White-eye
+      - scientific_name: Ploceus capensis
+        common_name: Cape Weaver
+      - scientific_name: Ploceus velatus
+        common_name: Southern Masked Weaver
+      - scientific_name: Pycnonotus capensis
+        common_name: Cape Bulbul
+      - scientific_name: Pycnonotus tricolor
+        common_name: Dark-capped Bulbul
+      - scientific_name: Pycnonotus nigricans
+        common_name: African Red-eyed Bulbul
+      - scientific_name: Passer melanurus
+        common_name: Cape Sparrow
+      - scientific_name: Passer domesticus
+        common_name: House Sparrow
+      - scientific_name: Sturnus vulgaris
+        common_name: Common Starling
+      - scientific_name: Onychognathus morio
+        common_name: Red-winged Starling
+      - scientific_name: Lamprotornis nitens
+        common_name: Cape Glossy Starling
+      - scientific_name: Colius striatus
+        common_name: Speckled Mousebird
+      - scientific_name: Urocolius indicus
+        common_name: Red-faced Mousebird
+      - scientific_name: Serinus canicollis
+        common_name: Cape Canary
+      - scientific_name: Prinia maculosa
+        common_name: Karoo Prinia
+      - scientific_name: Melaenornis silens
+        common_name: Fiscal Flycatcher
+      - scientific_name: Lanius collaris
+        common_name: Southern Fiscal

@@ -1,0 +1,82 @@
+[project]
+name = "birdcam"
+version = "0.1.0"
+description = "South African nectarivore feeder-cam classifier: two-head (taxon + sex/plumage) fine-grained bird ID for Raspberry Pi 5 + Hailo-8L"
+readme = "README.md"
+requires-python = ">=3.11"
+
+dependencies = [
+    # --- core numerics / config ---
+    "numpy>=1.26",
+    "pyyaml>=6.0",
+    "pydantic>=2.7",
+    # --- data layer ---
+    "requests>=2.32",
+    "pillow>=10.3",
+    "imagehash>=4.3",        # perceptual hashing for cross-source dedup
+    "pandas>=2.2",
+    "pyarrow>=16.0",         # parquet export of the manifest
+    "tqdm>=4.66",
+    # --- modelling ---
+    # NOTE: torch/torchvision resolve to the CPU-only index (see [tool.uv.sources]).
+    # Never let a CUDA wheel in: the dev laptop has no discrete GPU and the CUDA
+    # wheels are ~2.5GB of dead weight.
+    "torch>=2.3",
+    "torchvision>=0.18",
+    "timm>=1.0.7",
+    "scikit-learn>=1.5",
+    # --- reporting ---
+    "matplotlib>=3.8",
+    "jinja2>=3.1",
+]
+
+[project.optional-dependencies]
+# Faster CPU inference benchmarking only. NOT for latency claims -- see DECISIONS.md:
+# latency measured off-target (x86 laptop) is meaningless for a Pi 5 + Hailo-8L.
+openvino = ["openvino>=2024.2"]
+# Export path. Kept separate so the base install stays small.
+export = ["onnx>=1.16", "onnxruntime>=1.18"]
+# Experiment tracking; train_full.py falls back to TensorBoard when absent.
+tracking = ["wandb>=0.17", "tensorboard>=2.16"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.2",
+    "pytest-cov>=5.0",
+    "ruff>=0.5",
+]
+
+[project.scripts]
+birdcam-taxa = "birdcam.data.taxa:main"
+
+# --- CPU-only torch -----------------------------------------------------------
+# The dev machine is an AMD Ryzen 5 7520U, 4 physical cores, integrated graphics
+# only. Pulling the default (CUDA) wheels would waste ~2.5GB and gain nothing.
+# Full fine-tunes run on Kaggle, where the notebook environment supplies its own
+# GPU-enabled torch -- train_full.py must therefore never pin a torch version.
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+torchvision = { index = "pytorch-cpu" }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/birdcam"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

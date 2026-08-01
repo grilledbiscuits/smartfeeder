@@ -130,3 +130,46 @@ Motion blur kernel 3–11px, occlusion up to 30% area, JPEG quality 30–75. Cho
 to mimic the deployment failure modes you described. Until real feeder captures
 exist there is nothing to validate them against — the domain gap remains the
 project's largest technical risk, and these numbers are a hypothesis about it.
+
+---
+
+## 🔴 A11. First real scores: females are worse, but not in the way expected
+
+Vertical slice, 2026-08-01. Tier A only (6 species), 3,573 images after dedup,
+linear probe on frozen `convnext_tiny.in12k_ft_in1k` features. Taxon accuracy
+**0.684** [95% CI 0.644-0.722]. Test recall broken out by sex:
+
+| Species | Sex | n | Recall | 95% CI |
+|---|---|---|---|---|
+| *C. chalybeus* | male | 57 | 0.544 | 0.42-0.67 |
+| *C. chalybeus* | female | 39 | 0.359 | 0.23-0.52 |
+| *C. afer* | male | 63 | 0.667 | 0.54-0.77 |
+| *C. afer* | female | 28 | 0.250 | 0.13-0.43 |
+
+The male/female gap is real — the CIs for male and female *C. afer* do not
+overlap. But **where the errors go differs by sex**, and that was not expected:
+
+- **Male** errors concentrate on the sibling species (male *chalybeus* → *afer*
+  14 of 26 errors; male *afer* → *chalybeus* 14 of 21).
+- **Female** errors scatter across all species (female *chalybeus* → *afer* 11,
+  *famosa* 7, *amethystina* 5; female *afer* → *chalybeus* 6, *violacea* 5,
+  *famosa* 4).
+
+**This matters for the merge decision.** Merging *C. chalybeus* and *C. afer*
+into `cinnyris_double_collared_indet` would recover most *male* errors but only
+about a third of *female* errors. The female problem is not primarily
+sibling confusion — it looks like weak features from drab plumage. **Merging
+would not fix it.**
+
+Both female classes fall below `min_test_images_for_verdict: 50`, so the
+pipeline correctly refuses to issue a merge verdict. Treat the above as a
+direction, not a conclusion.
+
+**Caveats, all of which inflate or deflate this number:**
+- Linear probe on ImageNet features, not a fine-tune. A real fine-tune should
+  improve absolute accuracy substantially.
+- Six classes only. No Tier C, so the false-positive question is untested.
+- The corpus over-samples annotated observations (D12), so it is harder than the
+  wild distribution — the 0.684 is pessimistic as a deployment estimate and
+  meaningless as a class-prior estimate.
+- Still web photographs. The feeder-camera domain gap is entirely unmeasured.

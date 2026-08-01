@@ -154,3 +154,38 @@ rather than a verdict, and every reported figure carries a confidence interval.
 Merging *C. chalybeus* and *C. afer* females into `cinnyris_double_collared_indet`
 remains a correct outcome if the data supports it. It is not correct to claim
 it on the strength of 16 images.
+
+---
+
+## Vertical slice (Phases 2-5, narrow) — Tier A only
+
+### D12. Annotated observations fetched before unannotated ones
+
+Sex annotations, not photographs, are the scarce resource: 5-30% of
+research-grade observations carry one. The iNat fetcher therefore runs a `sexed`
+query variant (`term_id=9`) to exhaustion before falling back to `general`.
+
+Consequence to remember when reading any metric from this corpus: **it is
+deliberately not a representative sample of iNaturalist.** Females are massively
+over-represented relative to the wild distribution. That is correct for training
+the sex head and wrong for estimating real-world class priors, which must come
+from the deployment site instead.
+
+### D13. Split group key is (observer_id, scientific_name)
+
+Grouping by `observation_id` alone stops bursts straddling but not photographer
+style. Grouping by `observer_id` alone fixes style but spans species, which
+breaks per-species stratification and can push a rare class wholly into one
+split.
+
+The pair does both: every group holds one species, so stratification works, and
+since an observation has one observer and one species, no observation can
+straddle. Both properties are asserted in `tests/test_data.py`.
+
+### D14. Fast-loop head is converged, not undertrained
+
+Full-batch gradient descent at 60 steps looked suspiciously few. Measured:
+60 epochs -> 0.684, 200 -> 0.692, 600 -> 0.679, 1500 -> 0.677, 3000 -> 0.675.
+It plateaus by ~200 and then mildly overfits. Cross-checked against an
+independent solver (sklearn `LogisticRegression`, 0.690) and a 2-layer MLP head
+(0.705). The linear-probe figure is real, not an artefact of the optimiser.

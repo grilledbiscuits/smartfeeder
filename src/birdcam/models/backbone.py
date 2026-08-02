@@ -80,8 +80,18 @@ def build_transform(cfg: Config, model, role: str = "local", training: bool = Fa
     return create_transform(**data_cfg, is_training=training)
 
 
-def feature_dim(model) -> int:
-    return int(getattr(model, "num_features", 0))
+def feature_dim(model, image_size: int = 224) -> int:
+    """Actual embedding width, measured by a forward pass.
+
+    NOT `model.num_features`: that attribute disagrees with the real output on
+    several architectures (MobileNetV3 reports 960 but emits 1280, because
+    timm's conv head sits after the layer the attribute describes). Trusting it
+    corrupts the feature matrix silently instead of raising.
+    """
+    import torch
+
+    with torch.inference_mode():
+        return int(model(torch.zeros(1, 3, image_size, image_size)).shape[1])
 
 
 def main() -> None:

@@ -35,7 +35,8 @@ dependencies = [
 # latency measured off-target (x86 laptop) is meaningless for a Pi 5 + Hailo-8L.
 openvino = ["openvino>=2024.2"]
 # Export path. Kept separate so the base install stays small.
-export = ["onnx>=1.16", "onnxruntime>=1.18"]
+# onnxscript is required by torch>=2.9's ONNX exporter, not optional.
+export = ["onnx>=1.16", "onnxruntime>=1.18", "onnxscript>=0.1"]
 # Experiment tracking; train_full.py falls back to TensorBoard when absent.
 tracking = ["wandb>=0.17", "tensorboard>=2.16"]
 

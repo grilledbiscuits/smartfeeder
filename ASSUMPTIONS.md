@@ -173,3 +173,67 @@ direction, not a conclusion.
   wild distribution — the 0.684 is pessimistic as a deployment estimate and
   meaningless as a class-prior estimate.
 - Still web photographs. The feeder-camera domain gap is entirely unmeasured.
+
+---
+
+## 🔴 A12. CORRECTION to A11 — merging the double-collared pair IS now justified
+
+A11 concluded, on 3,573 images, that merging *C. chalybeus* and *C. afer* "would
+not fix" the female problem because female errors scattered rather than
+concentrating on the sibling. **With 9,318 images that conclusion is wrong and
+is withdrawn.**
+
+Measured on `tf_efficientnetv2_b0`, test split:
+
+| | before merge | after merge | gain |
+|---|---|---|---|
+| overall | 0.727 | 0.786 | +5.9pp |
+| **females only** (n=276) | 0.551 | 0.630 | **+8.0pp** |
+| males only (n=758) | 0.785 | 0.846 | +6.1pp |
+
+45% of all errors on the double-collared pair are mutual confusion between the
+two. Merging now helps females **more** than males, the reverse of A11.
+
+What changed is sample size, not the model. The earlier female error counts
+(11 and 6) were too small to distinguish "scattered" from "concentrated"; at
+n=48–58 per class the concentration is clear. This is precisely the failure mode
+`min_test_images_for_verdict` exists to prevent, and I drew a conclusion from
+under-powered data anyway. Treat A11's directional claim as retracted.
+
+**Recommendation:** add `cinnyris_double_collared_indet` as a merged class and
+let the rollup emit it when neither species clears its threshold. This is the
+brief's "correct outcome, not a failure" case.
+
+## 🔴 A13. *Cinnyris afer* is the single worst Tier A class
+
+Female recall 0.208 (`tf_efficientnetv2_b0`) and 0.167 (`convnext_tiny`), against
+0.552/0.621 for female *C. chalybeus*. The errors are overwhelmingly one-way:
+female *afer* → *chalybeus* (18 and 23 respectively), not the reverse.
+
+The classifier is collapsing *afer* into *chalybeus*. That asymmetry suggests a
+prior/imbalance effect on top of genuine visual similarity, so class-balanced
+sampling and focal loss (both already configurable, Phase 6) should be evaluated
+against it specifically before concluding the pair is inseparable.
+
+## 🟡 A14. EfficientNetV2 Hailo compatibility is UNVERIFIED
+
+`tf_efficientnetv2_b0` uses fused-MBConv blocks and squeeze-excite. Both are
+standard convolutional constructs and should compile, but **I have not run the
+Hailo Dataflow Compiler** — it is an x86 toolchain requiring a Developer Zone
+account, and is not installed here.
+
+If it turns out SE blocks compile poorly on the Hailo-8L, `efficientnet_b0`
+(0.39G MACs, 0.691 taxon) and `mobilenetv3_large_100` (0.21G, 0.690) are the
+fallbacks, at roughly -4pp taxon and -4 to -8pp female. Worth compiling all
+three early rather than discovering this at deployment.
+
+## 🟡 A15. More data helped substantially — and is probably still helping
+
+Tier A taxon accuracy on `convnext_tiny` went **0.684 → 0.788** when the corpus
+grew 3,573 → 9,318 images (+10.4pp for 2.6x data). The curve has not visibly
+flattened.
+
+The cap is now `max_images_per_species: 1500`, and several species hit it. Raising
+it is the cheapest remaining accuracy lever — cheaper than any architecture
+change measured so far — though it will not help the *sex* head, which is
+limited by annotation availability, not photograph availability.

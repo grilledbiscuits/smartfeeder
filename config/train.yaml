@@ -161,8 +161,28 @@ backbone:
   # attention). A transformer student will either fail to compile or fall back
   # to CPU for large subgraphs, destroying the latency budget. Keep this a
   # plain CNN.
+  # Selected by measurement, not by reputation. Full sweep 2026-08-01 over 9,318
+  # Tier A images (reports/backbone_sweep.json), linear probe on frozen features:
+  #
+  #   backbone                      MACs   params  taxon   female
+  #   tf_efficientnetv2_b0          0.72G   5.9M   0.734    0.577   <- selected
+  #   efficientnet_b0               0.39G   4.0M   0.691    0.537
+  #   mobilenetv3_large_100         0.21G   4.2M   0.690    0.495
+  #   efficientnet_lite0            0.38G   3.4M   0.681    0.492
+  #   mobilenetv4_conv_small        0.18G   2.5M   0.680    0.469
+  #   mobilenetv4_conv_medium       0.83G   8.4M   0.670    0.478
+  #   resnet50                      4.09G  23.5M   0.664    0.511
+  #   convnext_tiny (Hailo-ineligible, ceiling)  4.46G  0.788  0.681
+  #
+  # +4.4pp taxon and +8.2pp female over mobilenetv3 for 3.4x the MACs. That
+  # trade is worth taking because the absolute cost is negligible: 0.72 GMACs is
+  # a rounding error for a Hailo-8L, and the Pi-side bottleneck is the camera
+  # pipeline, not the accelerator. We classify sampled frames, not every frame.
+  #
+  # NOTE: resnet50 scores WORSE than mobilenetv3 at 20x the compute. More FLOPs
+  # is not more accuracy -- which is exactly why this is measured.
   student:
-    name: mobilenetv3_large_100
+    name: tf_efficientnetv2_b0
     pretrained: true
     image_size: 224
     batch_size: 64
@@ -241,6 +261,19 @@ train:
 export:
   onnx_opset: 17
   onnx_path: data/export/birdcam_student.onnx
+  # --- calibration ------------------------------------------------------------
+  # Confidence gates the video-capture decision, so a miscalibrated model is
+  # worse than a slightly less accurate one. Measured 2026-08-01: the raw head
+  # is ~2x overconfident (ECE 0.183). A single temperature fitted on the VAL
+  # split -- never on test -- cuts that to 0.062 and leaves argmax, and
+  # therefore accuracy, untouched.
+  #
+  # `temperature: null` means "fit it during export". A number here pins it.
+  calibration:
+    method: temperature
+    temperature: null
+    fit_split: val
+
   quantize:
     method: static            # INT8 post-training quantisation
     calibration_size: 500

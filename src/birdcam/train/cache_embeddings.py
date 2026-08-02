@@ -55,7 +55,7 @@ def cache(cfg: Config, role: str = "local", limit: int | None = None) -> Path:
 
     model, name = load_backbone(cfg, role, num_classes=0)
     transform = build_transform(cfg, model, role)
-    dim = feature_dim(model)
+    dim = feature_dim(model, cfg.train_cfg["backbone"][role]["image_size"])
     logger.info("extracting %d features/image from %d images using %s", dim, len(items), name)
 
     ds = ImageDataset(items, transform)

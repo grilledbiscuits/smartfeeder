@@ -189,3 +189,58 @@ Full-batch gradient descent at 60 steps looked suspiciously few. Measured:
 It plateaus by ~200 and then mildly overfits. Cross-checked against an
 independent solver (sklearn `LogisticRegression`, 0.690) and a 2-layer MLP head
 (0.705). The linear-probe figure is real, not an artefact of the optimiser.
+
+---
+
+## Backbone selection and calibration (2026-08-01)
+
+### D15. Student backbone chosen by measurement: `tf_efficientnetv2_b0`
+
+Eight backbones, 9,318 Tier A images, linear probe on frozen features. Cost is
+reported as params and MACs — architectural properties, identical on any
+machine. Latency is deliberately not measured: this is an x86 laptop and the
+target is a Pi 5 + Hailo-8L.
+
+| backbone | MACs | params | taxon | female |
+|---|---|---|---|---|
+| convnext_tiny *(Hailo-ineligible, ceiling)* | 4.46G | 27.8M | 0.788 | 0.681 |
+| **tf_efficientnetv2_b0** | **0.72G** | **5.9M** | **0.734** | **0.577** |
+| efficientnet_b0 | 0.39G | 4.0M | 0.691 | 0.537 |
+| mobilenetv3_large_100 | 0.21G | 4.2M | 0.690 | 0.495 |
+| efficientnet_lite0 | 0.38G | 3.4M | 0.681 | 0.492 |
+| mobilenetv4_conv_small | 0.18G | 2.5M | 0.680 | 0.469 |
+| mobilenetv4_conv_medium | 0.83G | 8.4M | 0.670 | 0.478 |
+| resnet50 | 4.09G | 23.5M | 0.664 | 0.511 |
+
+`tf_efficientnetv2_b0` buys +4.4pp taxon and **+8.2pp female** over the previous
+`mobilenetv3_large_100` default for 3.4x the MACs. Worth taking, because the
+absolute cost is negligible: 0.72 GMACs is a rounding error for a Hailo-8L, and
+the Pi-side bottleneck is the camera pipeline, not the accelerator — we classify
+sampled frames, not every frame.
+
+Two results worth keeping in view:
+
+* **ResNet-50 scores *worse* than MobileNetV3 at 20x the compute.** More FLOPs is
+  not more accuracy. This is exactly why the sweep exists rather than a guess.
+* **`mobilenetv4_conv_medium` is worse than `_small`** despite 4.6x the MACs, on
+  this data. Do not assume the bigger variant of a family wins.
+
+### D16. Temperature scaling, fitted on val
+
+The raw head is roughly 2x overconfident: ECE 0.183. A single scalar temperature
+(T = 1.97) fitted on the **validation** split — never on test — reduces ECE to
+**0.062**, and leaves argmax untouched, so accuracy is unchanged.
+
+This matters more than it looks. Confidence gates the video-capture decision, so
+a model that reports 0.95 on everything cannot drive a threshold at all. One
+scalar is essentially free at inference and is applied outside the ONNX graph,
+alongside rollup, so retuning never requires a Hailo recompile.
+
+### D17. Rollup, thresholds and softmax stay outside the exported graph
+
+The ONNX graph is: preprocessed tensor in, two logit tensors out. Softmax,
+temperature, rollup and per-class thresholds are all applied by the caller.
+
+Those values are tuned from precision-recall curves and change without
+retraining. Baking them into the graph would force a Hailo recompile — a slow
+step on a separate x86 toolchain — every time a threshold moved.

@@ -79,6 +79,125 @@ def _standardise(train: np.ndarray, *others: np.ndarray):
     return ((train - mu) / sd, *[(o - mu) / sd for o in others])
 
 
+def fit_and_eval(
+    cfg: Config,
+    feats: np.ndarray,
+    items: list[dict],
+    epochs: int = 200,
+    head_type: str = "linear",
+) -> dict:
+    """Train both heads on an in-memory feature matrix and evaluate on test.
+
+    Split out from `train_heads` so the backbone sweep can reuse it without
+    round-tripping features through disk.
+
+    Reports two headline numbers beyond overall accuracy:
+
+    * `tier_a_mean_recall` -- macro recall over Tier A species. Macro, not
+      micro, so an abundant species cannot mask a failing one.
+    * `female_mean_recall` -- macro recall over female-labelled test images.
+      This is the number that actually matters for deployment, and the one an
+      aggregate figure hides.
+    """
+    import torch
+    import torch.nn as nn
+
+    # Accept either the dicts from the embedding cache or LabelledImage
+    # dataclasses straight from the manifest. The two carry the same fields
+    # under slightly different names; normalising here keeps every caller from
+    # having to care.
+    def field(item, *names):
+        for n in names:
+            if isinstance(item, dict):
+                if n in item:
+                    return item[n]
+            elif hasattr(item, n):
+                return getattr(item, n)
+        raise KeyError(f"none of {names} present on {type(item).__name__}")
+
+    splits = np.array([field(i, "split") for i in items])
+    taxon_y = np.array([field(i, "taxon_index") for i in items], dtype=np.int64)
+    sex_mask = np.array([field(i, "sex_mask") for i in items], dtype=np.float32)
+    sex_lab = np.array([field(i, "sex_label", "sex_label_name") for i in items])
+    sci = np.array([field(i, "scientific_name") for i in items])
+
+    tr, te = (splits == "train"), (splits == "test")
+    if te.sum() == 0:
+        raise RuntimeError("test split is empty")
+
+    Xtr, Xte = _standardise(feats[tr], feats[te])
+    Xtr_t, Xte_t = torch.tensor(Xtr), torch.tensor(Xte)
+    ytr_t = torch.tensor(taxon_y[tr])
+    mtr_t = torch.tensor(sex_mask[tr])
+
+    dim = feats.shape[1]
+
+    def make_head(out_dim: int) -> nn.Module:
+        if head_type == "mlp":
+            h = cfg.train_cfg["fast_loop"]["mlp_hidden"]
+            return nn.Sequential(
+                nn.Linear(dim, h), nn.ReLU(), nn.Dropout(0.2), nn.Linear(h, out_dim)
+            )
+        return nn.Linear(dim, out_dim)
+
+    taxon_head = make_head(len(cfg.taxon_classes))
+    sex_head = make_head(len(cfg.sex_classes))
+    fl = cfg.train_cfg["fast_loop"]
+    opt = torch.optim.AdamW(
+        list(taxon_head.parameters()) + list(sex_head.parameters()),
+        lr=fl["lr"],
+        weight_decay=fl["weight_decay"],
+    )
+    sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=epochs)
+    ce = nn.CrossEntropyLoss()
+    sex_weight = cfg.train_cfg["train"]["loss"]["sex_weight"]
+
+    for _ in range(epochs):
+        taxon_head.train()
+        sex_head.train()
+        opt.zero_grad()
+        loss = ce(taxon_head(Xtr_t), ytr_t)
+        logp = torch.log_softmax(sex_head(Xtr_t), dim=1)
+        masked = logp.masked_fill(mtr_t == 0, float("-inf"))
+        loss = loss + sex_weight * (-torch.logsumexp(masked, dim=1)).mean()
+        loss.backward()
+        opt.step()
+        sched.step()
+
+    taxon_head.eval()
+    sex_head.eval()
+    with torch.inference_mode():
+        pred = taxon_head(Xte_t).argmax(1).numpy()
+        sex_pred = sex_head(Xte_t).argmax(1).numpy()
+
+    y_true = taxon_y[te]
+    n = int(te.sum())
+    correct = int((pred == y_true).sum())
+    te_mask = sex_mask[te]
+    sex_correct = int(te_mask[np.arange(len(sex_pred)), sex_pred].sum())
+
+    tier_a = {s.scientific_name for s in cfg.species_by_tier("A")}
+    te_sci, te_sex = sci[te], sex_lab[te]
+
+    def macro_recall(selector) -> float:
+        recalls = []
+        for name in sorted(tier_a):
+            sel = selector(name)
+            if sel.sum() == 0:
+                continue
+            recalls.append(float((pred[sel] == y_true[sel]).mean()))
+        return float(np.mean(recalls)) if recalls else 0.0
+
+    return {
+        "taxon_acc": correct / n,
+        "taxon_ci": wilson_interval(correct, n),
+        "sex_acc": sex_correct / n,
+        "tier_a_mean_recall": macro_recall(lambda nm: te_sci == nm),
+        "female_mean_recall": macro_recall(lambda nm: (te_sci == nm) & (te_sex == "female")),
+        "n_test": n,
+    }
+
+
 def train_heads(cfg: Config, stem: str, epochs: int | None = None, head_type: str | None = None):
     """Train both heads on cached features and evaluate on the test split."""
     import torch

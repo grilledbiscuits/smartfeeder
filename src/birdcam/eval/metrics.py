@@ -66,9 +66,7 @@ def per_class_metrics(y_true: np.ndarray, y_pred: np.ndarray, labels: list[str])
         prec = tp / (tp + fp) if tp + fp else 0.0
         rec = tp / support if support else 0.0
         f1 = 2 * prec * rec / (prec + rec) if prec + rec else 0.0
-        out.append(
-            PerClass(name, support, tp, fp, fn, prec, rec, f1, wilson_interval(tp, support))
-        )
+        out.append(PerClass(name, support, tp, fp, fn, prec, rec, f1, wilson_interval(tp, support)))
     return out
 
 

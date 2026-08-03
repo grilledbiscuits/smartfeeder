@@ -244,3 +244,74 @@ temperature, rollup and per-class thresholds are all applied by the caller.
 Those values are tuned from precision-recall curves and change without
 retraining. Baking them into the graph would force a Hailo recompile — a slow
 step on a separate x86 toolchain — every time a threshold moved.
+
+---
+
+## Tier C and the open-set failsafe (2026-08-02)
+
+### D18. The failsafe is fitted on target birds only, never on intruders
+
+A softmax over the label space always returns one of its classes. Pointed at a
+squirrel it reports a bird, often confidently, because nothing in training ever
+offered "none of the above" as an option.
+
+The detector is fitted on **in-distribution training features only**. It never
+sees an out-of-distribution example, at fit time or calibration time.
+
+That is the whole design. A detector trained on squirrels learns *squirrel*, and
+the next intruder is a mongoose, a hand, a blown leaf, or rain on the lens.
+Fitting only on what the target birds look like means anything sufficiently
+unlike them is flagged — including things nobody enumerated. The OOD taxa in
+`config/ood.yaml` exist to *measure* the detector, never to build it.
+
+### D19. kNN scorer, full-width features, 1000 references
+
+Measured over 18,146 target-bird images against 2,486 real photographs of
+squirrels, mice, cats, rats, baboons, carpenter bees, honey bees, butterflies,
+agamas and skinks, at a 5% false-alarm rate:
+
+| scorer | AUROC | intruders caught | cost |
+|---|---|---|---|
+| **kNN** | **0.979** | **90.9%** | ~5 MB, 2.6 MFLOPs |
+| energy | 0.927 | 68.1% | free (logits) |
+| mahalanobis | 0.876 | 29.2% | ~66 KB, 1 matmul |
+| max_softmax | 0.714 | 17.8% | free (logits) |
+
+**A naive confidence threshold catches under a fifth.** That is the single most
+important number here: the obvious solution does not work, because OOD inputs
+frequently produce *confident* predictions rather than uncertain ones.
+
+Two tuning results, both counter-intuitive:
+
+* **Cutting references from 5000 to 1000 costs nothing** — AUROC 0.979 → 0.981.
+  Take the cheap one.
+* **PCA wrecks it.** 1280 dims → 90.9% caught; 256 → 57.3%; 128 → 47.5%; 64 →
+  34.3%. The novelty signal lives in the low-variance directions PCA discards,
+  which makes sense: the high-variance directions encode what separates bird
+  species *from each other*, not what separates birds from squirrels.
+
+Final cost: 2.6 MFLOPs per frame against the backbone's 1440. **0.18% overhead.**
+
+### D20. `unknown` and `uncertain` are different labels
+
+* `unknown` — "not a thing I know about" (squirrel, hand, rain)
+* `uncertain` — "probably a bird, but I cannot pin it down"
+
+They need different downstream behaviour. `uncertain` visits are the valuable
+ones for the data flywheel: real birds worth a human look. `unknown` triggers are
+mostly noise — though a sustained run of them usually means something changed at
+the feeder, which is itself worth a notification.
+
+### D21. Novelty runs BEFORE the taxonomic rollup, and short-circuits
+
+Order is load-bearing. The rollup cannot express "not a bird" — given a squirrel
+it will return the least-bad species, or roll up to `nectarivore_indet`, which is
+worse than useless because it looks like a confident functional identification.
+The novelty check therefore runs first and returns immediately. Asserted in
+`tests/test_openset.py::test_novelty_short_circuits_before_any_species_is_named`.
+
+### D22. A minority of unknown frames does not veto a visit
+
+Track voting counts `unknown` frames but only calls the whole visit unknown if
+they are the *majority*. A squirrel crossing behind a feeding sunbird should not
+suppress the sunbird.

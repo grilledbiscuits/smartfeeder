@@ -32,8 +32,9 @@ class TwoHeadNet(nn.Module):
     applied by the caller, not here -- see module docstring.
     """
 
-    def __init__(self, backbone: nn.Module, feature_dim: int, n_taxon: int, n_sex: int,
-                 dropout: float = 0.2) -> None:
+    def __init__(
+        self, backbone: nn.Module, feature_dim: int, n_taxon: int, n_sex: int, dropout: float = 0.2
+    ) -> None:
         super().__init__()
         self.backbone = backbone
         self.dropout = nn.Dropout(dropout)
@@ -72,8 +73,12 @@ def masked_partial_label_loss(logits: torch.Tensor, mask: torch.Tensor) -> torch
     return (-torch.logsumexp(masked, dim=1)).mean()
 
 
-def focal_loss(logits: torch.Tensor, target: torch.Tensor, gamma: float = 2.0,
-               weight: torch.Tensor | None = None) -> torch.Tensor:
+def focal_loss(
+    logits: torch.Tensor,
+    target: torch.Tensor,
+    gamma: float = 2.0,
+    weight: torch.Tensor | None = None,
+) -> torch.Tensor:
     """Focal loss for the long tail.
 
     Down-weights easy examples so the abundant, visually obvious classes stop
@@ -98,7 +103,10 @@ def build_model(cfg, role: str = "student"):
     model = TwoHeadNet(backbone, dim, len(cfg.taxon_classes), len(cfg.sex_classes))
     logger.info(
         "built two-head model on %s: features=%d, taxon=%d, sex=%d",
-        name, dim, len(cfg.taxon_classes), len(cfg.sex_classes),
+        name,
+        dim,
+        len(cfg.taxon_classes),
+        len(cfg.sex_classes),
     )
     return model, name
 

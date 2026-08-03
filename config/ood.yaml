@@ -1,0 +1,85 @@
+# Out-of-distribution evaluation set: things that will trigger the motion gate
+# but are not target birds.
+#
+# ============================ EVALUATION ONLY ================================
+# These taxa are NOT added to the label space and are NOT used to fit the
+# novelty detector. That is deliberate.
+#
+# The detector is fitted on in-distribution features alone, so it flags anything
+# unlike the training distribution -- including things nobody thought to list.
+# If it were trained on these taxa it would become a closed-set classifier for
+# *known* intruders and would fail on the first novel one, which defeats the
+# purpose of a failsafe.
+#
+# Their job is to MEASURE the detector honestly: real photographs of real
+# animals, held out entirely, scored by a detector that has never seen them.
+# =============================================================================
+#
+# Selection criteria: actually plausible at a Cape Town nectar feeder, and
+# present in sufficient numbers on iNaturalist for South Africa (counts verified
+# 2026-08-02, research grade, with photos).
+
+version: 1
+
+fetch_scope: za
+per_taxon: 150
+
+taxa:
+  # --- mammals: the classic false trigger -----------------------------------
+  - scientific_name: Sciurus carolinensis
+    common_name: Eastern Grey Squirrel
+    group: mammal
+    note: introduced and abundant in Cape Town; 1661 ZA records
+  - scientific_name: Rhabdomys pumilio
+    common_name: Four-striped Grass Mouse
+    group: mammal
+    note: 1609 ZA records; small and fast, will trip a motion gate
+  - scientific_name: Felis catus
+    common_name: Domestic Cat
+    group: mammal
+    note: 268 ZA records; the reason a feeder needs a predator log
+  - scientific_name: Rattus rattus
+    common_name: Black Rat
+    group: mammal
+    note: 126 ZA records
+  - scientific_name: Papio ursinus
+    common_name: Chacma Baboon
+    group: mammal
+    note: 7710 ZA records; a real feeder hazard on the Peninsula
+
+  # --- insects: these genuinely compete for the nectar -----------------------
+  - scientific_name: Xylocopa caffra
+    common_name: African Carpenter Bee
+    group: insect
+    note: 1862 ZA records; feeds at the same flowers and feeders
+  - scientific_name: Apis mellifera
+    common_name: Western Honey Bee
+    group: insect
+    note: 11506 ZA records; will swarm a sugar-water feeder
+  - scientific_name: Papilio demodocus
+    common_name: Citrus Swallowtail
+    group: insect
+    note: 4382 ZA records; large enough to trigger motion
+
+  # --- reptiles: sun themselves on feeder posts ------------------------------
+  - scientific_name: Agama atra
+    common_name: Southern Rock Agama
+    group: reptile
+    note: 10409 ZA records
+  - scientific_name: Trachylepis capensis
+    common_name: Cape Skink
+    group: reptile
+    note: 2489 ZA records
+
+# Not fetched, and worth stating plainly:
+#
+# * Homo sapiens -- 0 research-grade ZA observations (people do not photograph
+#   each other onto iNaturalist as observations). Hands and faces WILL appear in
+#   real feeder footage, so this is a real gap in the evaluation set, not an
+#   omission. Fill it from actual capture data.
+# * Empty feeder, rain, blown leaves, shadow transitions, lens flare. These are
+#   probably the most common real false triggers of all and cannot be sourced
+#   from iNaturalist at all -- nobody photographs an empty feeder as a wildlife
+#   observation. They must come from the deployed camera.
+#
+# So: a good score here is necessary but not sufficient. See ASSUMPTIONS.md.

@@ -31,8 +31,13 @@ from birdcam.config import Config, load_config
 logger = logging.getLogger(__name__)
 
 
-def export(cfg: Config, role: str = "student", checkpoint: Path | None = None,
-           out_path: Path | None = None, verify: bool = True) -> Path:
+def export(
+    cfg: Config,
+    role: str = "student",
+    checkpoint: Path | None = None,
+    out_path: Path | None = None,
+    verify: bool = True,
+) -> Path:
     """Export the two-head model to ONNX.
 
     Exports randomly-initialised weights when no checkpoint is supplied. That is
@@ -137,8 +142,9 @@ def verify_export(path: Path, size: int, n_taxon: int, n_sex: int) -> None:
         import onnx
         import onnxruntime as ort
     except ImportError:
-        logger.warning("onnx/onnxruntime not installed; skipping verification "
-                       "(uv sync --extra export)")
+        logger.warning(
+            "onnx/onnxruntime not installed; skipping verification (uv sync --extra export)"
+        )
         return
 
     onnx.checker.check_model(onnx.load(str(path)))

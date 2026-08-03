@@ -180,9 +180,14 @@ def make_splits(cfg: Config, m: Manifest, seed: int | None = None) -> dict[str, 
     seed = seed if seed is not None else cfg.train_cfg["compute"]["seed"]
     rng = random.Random(seed)
 
-    rows = list(m.iter_rows("status='downloaded'"))
+    # OOD rows are EXCLUDED from the splits entirely. They are an evaluation
+    # set for the open-set failsafe, not training data -- a novelty detector
+    # fitted on the intruders it is meant to reject would just be a closed-set
+    # classifier for known intruders, and would fail on the first novel one.
+    rows = list(m.iter_rows("status='downloaded' AND tier != 'OOD'"))
     if not rows:
         raise RuntimeError("no downloaded images to split")
+    m.conn.execute("UPDATE images SET split=NULL WHERE tier='OOD'")
 
     groups: dict[tuple[str, str], list] = defaultdict(list)
     for r in rows:

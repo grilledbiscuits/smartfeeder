@@ -256,6 +256,46 @@ train:
     tensorboard_dir: data/runs
 
 # =============================================================================
+# OPEN-SET FAILSAFE
+# =============================================================================
+# A softmax over the label space always returns one of its classes. Pointed at a
+# squirrel, the classifier reports a bird -- often confidently. This layer lets
+# the system answer "I don't know what that is", which is a different and more
+# useful answer than a wrong species.
+#
+# The detector is fitted on IN-DISTRIBUTION TRAINING FEATURES ONLY and never
+# sees an out-of-distribution example. Training it on known intruders would make
+# it a closed-set classifier for those intruders and leave it helpless against
+# the first novel one.
+#
+# Measured 2026-08-02, 18,146 target-bird images vs 2,486 real photographs of
+# squirrels, mice, cats, rats, baboons, carpenter bees, honey bees, butterflies,
+# agamas and skinks (config/ood.yaml), at a 5% false-alarm rate:
+#
+#   knn          AUROC 0.979   catches 90.9%   ~5MB,  2.6 MFLOPs   <- selected
+#   energy       AUROC 0.927   catches 68.1%   free (logits only)
+#   mahalanobis  AUROC 0.876   catches 29.2%   ~66KB, 1 matmul
+#   max_softmax  AUROC 0.714   catches 17.8%   free (logits only)
+#
+# The naive confidence threshold (max_softmax) catches under a fifth. It is not
+# an adequate failsafe on its own, which is the reason this section exists.
+open_set:
+  enabled: true
+  scorer: knn
+  knn_k: 10
+  knn_max_reference: 1000
+  # Operator-facing knob: the fraction of GENUINE bird frames we accept losing
+  # in order to reject intruders. Calibrated on the validation split, never on
+  # test. Raise it if squirrels are getting through; lower it if real visits are
+  # being dropped.
+  target_false_alarm_rate: 0.05
+  # Emitted when the novelty score clears the threshold. Distinct from
+  # `uncertain` (rollup abstain): `unknown` means "not a thing I know about",
+  # `uncertain` means "probably a bird, cannot pin it down". They deserve
+  # different downstream handling -- uncertain visits are worth human review.
+  unknown_label: unknown
+
+# =============================================================================
 # PHASE 8 -- EXPORT
 # =============================================================================
 export:

@@ -237,3 +237,73 @@ The cap is now `max_images_per_species: 1500`, and several species hit it. Raisi
 it is the cheapest remaining accuracy lever — cheaper than any architecture
 change measured so far — though it will not help the *sex* head, which is
 limited by annotation availability, not photograph availability.
+
+---
+
+## 🔴 A16. Adding Tier C cost Tier A accuracy — as expected, and it was worth it
+
+With Tier A alone (6 classes): Tier A macro recall **0.735**, female **0.577**.
+With Tier C added (24 classes): Tier A macro recall **0.686**, female **0.471**.
+
+That is −4.9pp on Tier A and −10.6pp on females. The drop is real and is the
+price of the model being *able* to say "not a sunbird". The earlier Tier-A-only
+number was flattering because the model was never asked to reject anything.
+
+What Tier C buys, measured on the test split:
+
+* Tier C bird called a nectarivore: **9.4%** [7.9–11.1]
+* Tier A bird called a non-target: **10.4%** [8.9–12.1]
+
+Worst offender by a distance: **Speckled Mousebird (*Colius striatus*), 40%
+called a nectarivore** (n=60). Plausible — long tail and slender body read like a
+Cape Sugarbird. Karoo Prinia (18.5%) and Cape Bulbul (17.6%) follow.
+
+**Recommendation:** *Colius striatus* needs more data before deployment; at 40%
+it is a live false-positive source at a Cape Town feeder, where mousebirds are
+common.
+
+## 🔴 A17. The OOD evaluation set is missing its most common members
+
+`config/ood.yaml` covers animals. Real feeder footage will be dominated by
+things iNaturalist cannot supply, because nobody uploads them as wildlife
+observations:
+
+* **empty feeder** — by far the most common motion trigger
+* **rain, blown leaves, moving shadows, lens flare**
+* **human hands and faces** (refilling the feeder; *Homo sapiens* has 0
+  research-grade ZA records)
+
+So the 90.9% catch rate is measured against the *animal* subset of the problem
+only. It is necessary evidence, not sufficient. **The first week of real capture
+data should be used to re-measure this**, and those frames are exactly what the
+`unknown` log will collect automatically.
+
+## 🟡 A18. Weakest OOD classes are the ones that matter most at a feeder
+
+Per-taxon catch rate at 5% false alarm:
+
+| taxon | caught |
+|---|---|
+| Agama atra | 0.982 |
+| Trachylepis capensis | 0.974 |
+| Rattus rattus / Papio ursinus / Felis catus | 0.955–0.958 |
+| Papilio demodocus | 0.952 |
+| **Sciurus carolinensis** (grey squirrel) | **0.930** |
+| Apis mellifera | 0.916 |
+| **Rhabdomys pumilio** (grass mouse) | **0.816** |
+| **Xylocopa caffra** (carpenter bee) | **0.794** |
+
+The two weakest are both small animals photographed at flowers — the same
+context, scale and background as a feeding sunbird. Carpenter bees in particular
+*share the feeder*, so they will be over-represented in real triggers relative to
+this evaluation set. Expect the real-world figure to be worse than 90.9%.
+
+## 🟡 A19. The 5% false-alarm rate is a placeholder
+
+`target_false_alarm_rate: 0.05` means 5% of genuine bird frames are discarded as
+unknown. End to end that yields: 69.1% of real bird frames trigger capture, 4.0%
+of intruder frames do.
+
+This is an operator preference, not a derived value. Track-level voting also
+softens it — a visit yields many frames and only needs some to pass. Revisit once
+you know whether you would rather miss visits or store squirrels.

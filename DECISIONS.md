@@ -500,3 +500,13 @@ At n=250 the 95% CIs overlap almost entirely (Percentile 0.620–0.735, MinMax
 sample.** Percentile is chosen because it clips activation tails rather than
 taking raw extremes, which is the better choice for outlier-heavy activations,
 and because it did not measure worse — not because the data separates them.
+
+### D33. FP32 predictions cached across quantisation runs
+
+`compare()` recomputes the FP32 baseline on every invocation, but it is identical
+for every calibration setting. Caching it to
+`birdcam_student_fp32preds_{n}.npz` halves the wall clock of a sweep, which is
+what made the matched sweep affordable after three OOM-killed attempts.
+
+Results are keyed `{method}_calib{n}` so a sweep accumulates rather than
+overwriting itself.

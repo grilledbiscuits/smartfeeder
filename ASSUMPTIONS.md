@@ -403,7 +403,40 @@ back at 0.05.
 heads, folding the feature standardisation into the linear layer. Anything that
 evaluates the exported artefact must use that path until `train_full.py` exists.
 
-## 🟡 A24. The INT8 numbers are not yet pinned down
+## 🔴 A24. RESOLVED — INT8 costs 3–5 accuracy points, and calibration cannot fix it
+
+The matched sweep is done: identical 800-image evaluation set, varying only
+calibration size, Percentile calibration.
+
+| calibration images | FP32 | INT8 | delta | INT8 95% CI |
+|---|---|---|---|---|
+| 32 | 0.6412 | 0.6075 | **−3.4pp** | 0.573–0.641 |
+| 64 | 0.6412 | 0.5988 | **−4.2pp** | 0.564–0.632 |
+| 500 (MinMax) | 0.6412 | 0.5900 | **−5.1pp** | — |
+
+**Calibration size is not the explanation, and neither is method.** Across 32 to
+500 calibration images and across MinMax and Percentile, INT8 costs between 3.4
+and 5.1 points. There is no setting in this range that makes it free.
+
+**The +1.6pp result was small-sample noise.** It came from a 250-image
+evaluation, where the 95% CI spans roughly ±6 points — wide enough to swallow the
+entire effect. Measured on 800 images the same configuration gives −3.4pp. That
+is a cautionary result about my own earlier reporting, not about the method.
+
+**Consequence for deployment.** INT8 is a real 3–5 point cost, not a free
+optimisation:
+
+* **Pi 5 + AI HAT+** — quantisation is mandatory, so this is a cost to engineer
+  around, not a choice. Quantisation-aware training or keeping the final layers
+  in higher precision are the remaining levers.
+* **Pi 4B (CPU)** — it is a dial you control. Given that only ~23% of genuine
+  bird visits currently clear a threshold (A20), spending another 3–5 points on
+  speed is probably the wrong trade until confidence improves.
+
+Not attempted: mixed precision, and quantisation-aware training. Both are real
+options and both are more work than a calibration flag.
+
+## 🟢 A24b. Superseded note — the original uncertainty
 
 Two runs, not comparable:
 

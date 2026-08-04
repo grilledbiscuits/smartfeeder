@@ -564,3 +564,23 @@ That is the number that decides whether a run is safe on this machine, and it is
 why batch size stays at 8 with gradient accumulation rather than a larger batch.
 Per-epoch checkpointing means an OOM kill costs at most one epoch, and
 `--resume` continues — the protection that four earlier OOM kills argued for.
+
+### D38. Per-epoch results are written every epoch, and stamped
+
+Three reporting faults, found by asking where the results actually were:
+
+1. **`training_history.json` was written only at the end of the run.** A 6-hour
+   run that is inspectable only once it finishes is not inspectable. Now written
+   after every epoch.
+2. **The file left on disk was from a 900-image smoke run** and looked exactly
+   like a real result — same schema, plausible numbers. It is now stamped with
+   run metadata (backbone, freeze_blocks, n_train, `subsampled` flag, start
+   time) so a stale or toy run cannot be mistaken for a real one.
+3. **TensorBoard was not installed**, so `_make_tracker` silently fell through
+   to stdout. The fallback logged its own failure at INFO, which is easy to miss.
+   Added to the environment; the `tracking` extra is now annotated in
+   `pyproject.toml` to say it is load-bearing rather than optional.
+
+`--history` reads the **checkpoint** rather than the JSON, because the checkpoint
+is written at the end of every epoch and therefore works on a run still in
+flight.

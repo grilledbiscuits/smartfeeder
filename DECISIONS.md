@@ -554,3 +554,13 @@ bird's head is inside a feeder port.
 
 Verified stochastic in training (std 0.816 across five draws of one image) and
 exactly deterministic in evaluation (std 0.000).
+
+### D37. Measured peak memory of a full fine-tune: 1.7 GB
+
+Batch 8, `freeze_blocks=0`, 2 dataloader workers, 224px. Peak RSS across the
+process tree was **1,715 MB** against ~2,450 MB available.
+
+That is the number that decides whether a run is safe on this machine, and it is
+why batch size stays at 8 with gradient accumulation rather than a larger batch.
+Per-epoch checkpointing means an OOM kill costs at most one epoch, and
+`--resume` continues — the protection that four earlier OOM kills argued for.

@@ -315,3 +315,71 @@ The novelty check therefore runs first and returns immediately. Asserted in
 Track voting counts `unknown` frames but only calls the whole visit unknown if
 they are the *majority*. A squirrel crossing behind a feeding sunbird should not
 suppress the sunbird.
+
+---
+
+## Re-prioritisation: confidence and false triggers (2026-08-04)
+
+### D23. Sex/plumage head demoted to auxiliary
+
+`sex_weight` 0.4 → 0.1. Sex is a bonus, not a requirement, so the head is kept
+only for its regularising effect on the shared trunk and for the label when it
+happens to be right. It no longer influences backbone selection, thresholds, or
+any headline metric.
+
+Not removed outright: a small auxiliary loss on a correlated task is cheap
+regularisation, and the six-class output space is already wired end to end.
+Deleting it would be work now and work again later if it ever matters.
+
+### D24. Hardware decision deferred; the export is board-neutral
+
+The board is undecided between Pi 4B and Pi 5. The exported ONNX runs on both
+and nothing in the model needs to change to switch, so the architecture stays as
+it is and `reports/deployment.md` documents both paths instead of picking one.
+
+Facts that will decide it, both verified 2026-08-04:
+
+* **The AI HAT+ (Hailo-8L) connects over the Pi 5's PCIe port and does not work
+  on a Pi 4.** Choosing the 4B means CPU-only inference.
+* **The Pi 5 has no hardware H.264 encoder** — it was removed from the BCM2712;
+  the Pi 4 retains one. So continuous encoding for the pre-roll buffer costs CPU
+  on a Pi 5 and almost nothing on a Pi 4, and the Pi 4's encoder also exposes
+  motion vectors that could replace frame differencing for free.
+
+The Pi 5 is the better inference machine and the worse video machine; the Pi 4B
+is the reverse. With sampled-frame classification and track voting, continuous
+encoding is the larger constant load — which is not the obvious answer.
+
+If the Pi 4B is chosen, revisit the backbone: MACs predict NPU cost well and ARM
+CPU cost poorly (SE blocks stall the pipeline, swish is transcendental where
+ReLU6 is a clamp). `efficientnet_lite0` exists for that case.
+
+### D25. Per-class thresholds fitted for target precision, not accuracy
+
+`per_class_thresholds` in `taxonomy.yaml` is now populated from real
+precision-recall curves rather than a single global guess. Each Tier A species
+gets the lowest threshold reaching the target precision on the **validation**
+split; test precision and the recall paid for it are recorded inline.
+
+Lowest rather than highest: among thresholds meeting the target we want the one
+keeping the most recall.
+
+### D26. Novelty false-alarm rate raised 0.05 → 0.15
+
+Measured over 534 real bird visits and 540 OOD visits, reconstructed from
+observation IDs so a "visit" is a genuine photo burst of one individual:
+
+| novelty FAR | bird visits fire | OOD visits fire |
+|---|---|---|
+| 2% | 27.3% | 2.8% |
+| 5% | 27.0% | 0.9% |
+| **15%** | **22.9%** | **0.4%** |
+| 20% | 22.1% | 0.0% |
+
+Going from 5% to 15% removes three quarters of the remaining false triggers for
+four percentage points of bird visits. Beyond 20% the OOD rate is already zero
+and further sensitivity only loses birds.
+
+**Visit level is the number that matters.** A visit is many frames and the track
+vote decides, so frame-level rates systematically overstate the problem — 0.6%
+of OOD *frames* versus 0.4% of OOD *visits* at the same setting.

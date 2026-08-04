@@ -219,10 +219,19 @@ train:
   amp: true                   # ignored on CPU
 
   loss:
-    # The sex head acts as a regulariser on the taxon head, so its weight is
-    # non-trivial but below the taxon head's.
     taxon_weight: 1.0
-    sex_weight: 0.4
+    # DEMOTED 2026-08-04. Sex/plumage is a nice-to-have, not a requirement, so
+    # the head is kept only for its regularising effect on the shared trunk and
+    # for the bonus label when it happens to be right.
+    #
+    # It is NOT dropped entirely, for two reasons: a small auxiliary loss on a
+    # correlated task is cheap regularisation, and the six-class output space is
+    # already wired end to end -- removing it would be work now and work again
+    # later if it ever matters.
+    #
+    # It no longer influences backbone selection, thresholds, or any headline
+    # metric. If it degrades, that is acceptable.
+    sex_weight: 0.1
     # Both implemented, both configurable, and Phase 7 reports which helped.
     use_focal: true
     focal_gamma: 2.0
@@ -288,7 +297,20 @@ open_set:
   # in order to reject intruders. Calibrated on the validation split, never on
   # test. Raise it if squirrels are getting through; lower it if real visits are
   # being dropped.
-  target_false_alarm_rate: 0.05
+  # Raised 0.05 -> 0.15 on evidence 2026-08-04. Visit-level false triggers by
+  # novelty sensitivity, over 534 real bird visits and 540 OOD visits (visits
+  # reconstructed from observation IDs -- genuine photo bursts):
+  #
+  #   FAR    bird visits fire   OOD visits fire
+  #   2%           27.3%             2.8%
+  #   5%           27.0%             0.9%
+  #   15%          22.9%             0.4%
+  #   20%          22.1%             0.0%
+  #
+  # Going from 5% to 15% removes three quarters of the remaining false triggers
+  # and costs 4 percentage points of bird visits. Cheap. Beyond 20% the OOD rate
+  # is already zero and further sensitivity only loses birds.
+  target_false_alarm_rate: 0.15
   # Emitted when the novelty score clears the threshold. Distinct from
   # `uncertain` (rollup abstain): `unknown` means "not a thing I know about",
   # `uncertain` means "probably a bird, cannot pin it down". They deserve

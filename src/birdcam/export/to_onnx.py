@@ -1,10 +1,9 @@
 """PyTorch -> ONNX export for the two-head deployment model.
 
-Kept working from early on, because ONNX is the pivot point for BOTH runtimes we
-care about: ONNX Runtime (for CPU sanity checks and INT8 calibration) and the
-Hailo Dataflow Compiler (which consumes ONNX to build a .hef for the Hailo-8L).
-A break here blocks the entire deployment path, so it is exercised well before
-there is a trained checkpoint to export.
+Kept working from early on, because ONNX is the pivot point for every runtime
+under consideration: ONNX Runtime on a Pi 4B CPU, and the Hailo Dataflow
+Compiler on a Pi 5 + AI HAT+. The board is not yet decided and this file does
+not care -- which is the point. A break here blocks deployment either way.
 
 What is deliberately NOT in the graph:
 
@@ -156,32 +155,75 @@ def verify_export(path: Path, size: int, n_taxon: int, n_sex: int) -> None:
     logger.info("verified: taxon%s sex%s", taxon.shape, sex.shape)
 
 
-HAILO_NOTE = """\
-# Hailo-8L compilation (run separately, on x86 Linux)
+DEPLOY_NOTE = """\
+# Deployment notes -- Raspberry Pi 4B and Pi 5
 
-The Hailo Dataflow Compiler is not a Python dependency of this repo and does not
-run on the Pi. It is an x86-64 Linux toolchain, installed separately from the
-Hailo Developer Zone (account required). Compilation happens on a workstation;
-only the resulting .hef is copied to the Pi.
+The board is not yet decided. The exported ONNX runs on both; what differs is
+where it runs and how fast. Nothing in the model or this repo needs to change to
+switch between them -- this note exists so the decision can be made on facts.
 
-Outline (verify against the DFC version you install -- this has NOT been run):
+## Pi 5 + AI HAT+ (Hailo-8L)
 
-    hailo parser onnx birdcam_student.onnx --hw-arch hailo8l
-    hailo optimize birdcam_student.har --calib-set-path calib/ --hw-arch hailo8l
-    hailo compiler birdcam_student_optimized.har --hw-arch hailo8l
+* The AI HAT+ connects over the Pi 5's **PCIe port and requires a Pi 5**. It is
+  not compatible with a Pi 4.
+* Inference moves off the CPU entirely. 0.72 GMACs is a rounding error against
+  13 TOPS, so the classifier stops being the bottleneck.
+* Requires the Hailo Dataflow Compiler: an x86-64 Linux toolchain, separate
+  account, run on a workstation. Outline (NOT run or verified here):
 
-Notes that matter:
+      hailo parser onnx birdcam_student.onnx --hw-arch hailo8l
+      hailo optimize birdcam_student.har --calib-set-path calib/ --hw-arch hailo8l
+      hailo compiler birdcam_student_optimized.har --hw-arch hailo8l
 
-* `hailo optimize` performs INT8 quantisation and needs a representative
-  calibration set. That set MUST be real feeder crops once they exist -- web
-  photographs have different noise, blur and exposure statistics than a Pi
-  camera at a feeder, and calibrating on the wrong distribution is how
-  fine-grained classes get smeared together.
-* The student must remain a plain CNN. ViT and ConvNeXt blocks (LayerNorm,
-  GELU, attention) either fail to compile or fall back to CPU for large
-  subgraphs.
-* Expect per-class accuracy loss from INT8 concentrated in the visually similar
-  classes. Measure it per class, not as an average.
+* Keep the student a plain CNN. ViT and ConvNeXt blocks (LayerNorm, GELU,
+  attention) compile poorly or fall back to CPU for large subgraphs.
+* **The Pi 5 has no hardware H.264 encoder** -- it was removed from the BCM2712.
+  Video encoding falls to software (libav), consuming CPU that the accelerator
+  was supposed to free up.
+
+## Pi 4B 8GB (CPU only)
+
+* No accelerator option. Inference runs on 4x Cortex-A72 @ 1.5GHz with NEON.
+* INT8 quantisation becomes mandatory rather than an optimisation. Prefer ONNX
+  Runtime with the XNNPACK execution provider, which has NEON INT8 kernels:
+
+      onnxruntime.InferenceSession(
+          "birdcam_student.onnx",
+          providers=["XnnpackExecutionProvider", "CPUExecutionProvider"],
+      )
+
+* Classify SAMPLED frames only, never every frame. A visit lasting seconds
+  yields plenty; the track vote does the rest.
+* **The Pi 4 retains the hardware H.264 encoder.** `CircularOutput` pre-roll
+  costs almost no CPU, and the encoder's motion vectors are essentially free --
+  they can drive the motion gate instead of frame differencing, saving more CPU.
+
+## The trade, stated plainly
+
+The Pi 5 + HAT is the better inference machine and the worse video machine. The
+Pi 4B is the reverse. Which matters more depends on whether the bottleneck turns
+out to be classification or continuous encoding -- and with sampled-frame
+classification plus track voting, continuous encoding is the larger constant
+load. Measure both on real hardware before committing.
+
+## MACs are a weak proxy on a CPU, a good one on an NPU
+
+If the Pi 4B is chosen, revisit the backbone. MAC count predicts NPU cost well
+and ARM CPU cost poorly: squeeze-and-excite blocks stall the pipeline with a
+full-tensor reduction, and swish is transcendental where ReLU6 is a clamp.
+`efficientnet_lite0` exists for exactly this case -- EfficientNet-B0 with the SE
+blocks removed and swish replaced, for mobile CPU INT8. Similar MACs, different
+CPU behaviour.
+
+## Quantisation
+
+`birdcam.export.quantize` performs INT8 post-training quantisation and reports
+per-class accuracy delta. Read it before shipping either way: fine-grained
+classes sit close together in feature space and INT8 can smear them, rarely
+evenly across classes.
+
+The calibration set MUST be real feeder crops once they exist. Web photographs
+have different noise, blur and exposure statistics than a camera at a feeder.
 """
 
 
@@ -196,12 +238,12 @@ def main() -> None:
 
     cfg = load_config()
     path = export(cfg, role=args.role, checkpoint=args.checkpoint)
-    note = cfg.path("reports_dir") / "hailo_compilation.md"
+    note = cfg.path("reports_dir") / "deployment.md"
     note.parent.mkdir(parents=True, exist_ok=True)
-    note.write_text(HAILO_NOTE, encoding="utf-8")
+    note.write_text(DEPLOY_NOTE, encoding="utf-8")
     print(f"\nONNX:     {path}")
     print(f"metadata: {path.with_suffix('.json')}")
-    print(f"Hailo note: {note}")
+    print(f"deploy note: {note}")
 
 
 if __name__ == "__main__":

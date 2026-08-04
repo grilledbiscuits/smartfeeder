@@ -391,9 +391,13 @@ def train(
     params = [p for p in model.parameters() if p.requires_grad]
     opt = torch.optim.AdamW(params, lr=tc["lr"], weight_decay=tc["weight_decay"])
     steps_per_epoch = max(1, len(train_loader) // accum)
+    # pct_start must lie in (0, 1). warmup_epochs/epochs exceeds 1 on any run
+    # shorter than the warmup -- which is every smoke run -- so clamp it rather
+    # than letting a short run die on a scheduler argument.
+    pct_start = min(0.3, max(0.01, tc["warmup_epochs"] / max(epochs, 1)))
     sched = torch.optim.lr_scheduler.OneCycleLR(
         opt, max_lr=tc["lr"], total_steps=epochs * steps_per_epoch,
-        pct_start=tc["warmup_epochs"] / max(epochs, 1),
+        pct_start=pct_start,
     )
 
     state = load_checkpoint(cfg, model, opt, sched) if resume else RunState()

@@ -338,7 +338,26 @@ export:
 
   quantize:
     method: static            # INT8 post-training quantisation
-    calibration_size: 500
+    # Percentile, not MinMax. MinMax takes raw activation extremes and is
+    # outlier-sensitive; Percentile clips the tails. Measured 2026-08-04 at 64
+    # calibration images on 250 test images: Percentile +1.6pp, MinMax and
+    # Entropy both -0.8pp against FP32.
+    #
+    # HONEST CAVEAT: at n=250 those 95% CIs overlap almost completely
+    # (0.620-0.735 vs 0.595-0.712), so the three methods are statistically
+    # indistinguishable here. Percentile is chosen because it is the
+    # theoretically better choice for outlier-heavy activations and it did not
+    # measure worse -- not because the data separates them.
+    calibrate_method: Percentile
+    # 64, not 500: ORT buffers every intermediate tensor across the whole
+    # calibration set and hit 4.5GB resident at 500 images, which the Linux OOM
+    # killer ended. Raise deliberately with --calib-size on a machine with RAM.
+    # 64, not 500. ONNX Runtime buffers every intermediate tensor across the
+    # whole calibration set (no incremental flush in 1.28), which reached 4.5GB
+    # resident at 500 images and was ended by the Linux OOM killer on this 7GB
+    # machine. 64 is below ORT's recommended 100-500 so ranges are noisier --
+    # raise it deliberately with --calib-size where there is RAM to spare.
+    calibration_size: 64
     # THE CALIBRATION SET MUST BE REAL FEEDER CROPS ONCE THEY EXIST.
     # Web images have a different noise, blur and exposure distribution to a Pi
     # camera at a feeder. Until real crops exist this stays `provisional` and

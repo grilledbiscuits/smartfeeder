@@ -402,3 +402,24 @@ back at 0.05.
 `export_from_frozen_head` now builds a genuinely trained model from the fast-loop
 heads, folding the feature standardisation into the linear layer. Anything that
 evaluates the exported artefact must use that path until `train_full.py` exists.
+
+## 🟡 A24. The INT8 numbers are not yet pinned down
+
+Two runs, not comparable:
+
+| run | calib images | test images | delta |
+|---|---|---|---|
+| first | 500 | 800 | −5.1pp |
+| second | 64 | 250 | −0.8 to +1.6pp |
+
+They differ in **both** variables, so neither explains the gap. And at n=250 the
+95% CIs across the three calibration methods overlap almost completely, so that
+sweep cannot rank them either.
+
+What would settle it: one evaluation set (ideally the full 2,674 test images),
+varying only calibration size, one method per process. That is roughly six
+short runs and was not attempted here because each earlier long run was being
+OOM-killed. It is now safe to do with the memory guard in place.
+
+Until then, treat INT8 as "probably cheap, possibly costly" and re-measure
+before shipping.

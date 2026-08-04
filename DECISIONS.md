@@ -461,3 +461,42 @@ put mass directly on `cinnyris_indet`, competing with the species it is meant to
 aggregate. Revisit at fine-tune time.
 
 **INT8 quantisation — WORKS, but is not free.** See A22.
+
+### D31. Quantisation calibration set cut 500 → 64, and why
+
+ONNX Runtime's static quantiser instruments every intermediate tensor and
+buffers their outputs across the whole calibration set before reducing them to
+ranges. There is no incremental-flush option in onnxruntime 1.28.
+
+At 500 calibration images this reached **4.1–4.5 GB resident and was terminated
+by the Linux OOM killer** on this 7 GB machine — three times, taking unrelated
+processes with it. The runs were not crashing on a bug; they were being killed
+for memory.
+
+Fixes applied:
+
+* `calibration_size: 64` by default. Below ORT's recommended 100–500, so ranges
+  are noisier, but a quantised model that exists beats a perfect one that gets
+  killed. `--calib-size` raises it where there is RAM.
+* `_warn_if_memory_tight()` estimates need (~9 MB per calibration image,
+  measured) against `MemAvailable` and warns before starting.
+* Results accumulate per method into `reports/quantisation.json`, so a killed
+  run loses only its own result rather than the whole sweep.
+* One calibration method per process invocation.
+
+The general lesson: heavy work belongs in a checkpointing script invoked once
+per unit of work, not in a long inline command with no memory ceiling.
+
+### D32. Percentile calibration selected — on theory, not on data
+
+| method | FP32 | INT8 | delta |
+|---|---|---|---|
+| **Percentile** | 0.6640 | **0.6800** | **+1.6pp** |
+| MinMax | 0.6640 | 0.6560 | −0.8pp |
+| Entropy | 0.6640 | 0.6560 | −0.8pp |
+
+At n=250 the 95% CIs overlap almost entirely (Percentile 0.620–0.735, MinMax
+0.595–0.712). **The three methods are statistically indistinguishable on this
+sample.** Percentile is chosen because it clips activation tails rather than
+taking raw extremes, which is the better choice for outlier-heavy activations,
+and because it did not measure worse — not because the data separates them.

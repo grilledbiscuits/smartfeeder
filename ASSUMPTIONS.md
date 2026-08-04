@@ -307,3 +307,51 @@ of intruder frames do.
 This is an operator preference, not a derived value. Track-level voting also
 softens it — a visit yields many frames and only needs some to pass. Revisit once
 you know whether you would rather miss visits or store squirrels.
+
+---
+
+## 🔴 A20. False triggers are close to solved. Confidence on real birds is not.
+
+This inverts the priority. Measured 2026-08-04 at the chosen operating point
+(novelty FAR 15%, per-class thresholds fitted for 80% precision):
+
+* **OOD visits that trigger a capture: 0.4%.** At 20% FAR it is 0.0%.
+* **Real bird visits that trigger a capture: 22.9%.**
+
+The system is not recording squirrels. It is failing to record birds — roughly
+three quarters of genuine visits never clear a threshold.
+
+The cause is that frozen-feature confidence is poor on the hardest classes. At a
+90% precision target the double-collared sunbirds only fire on 3–9% of their
+frames; relaxing to 80% gets them to 20–37%:
+
+| Tier A species (80% target) | threshold | test precision | recall |
+|---|---|---|---|
+| Amethyst Sunbird | 0.41 | 0.881 | 0.601 |
+| Nectarinia famosa | 0.69 | 0.875 | 0.477 |
+| Cinnyris afer | 0.56 | 0.841 | 0.406 |
+| Anthobaphes violacea | 0.51 | 0.831 | 0.729 |
+| Promerops cafer | 0.32 | 0.759 | 0.811 |
+| **Cinnyris chalybeus** | **0.82** | **0.742** | **0.223** |
+
+***Cinnyris chalybeus* is the worst case and also the most likely visitor** —
+the commonest sunbird at a Cape Town feeder is the one the model is least
+confident about. It cannot reach 80% precision at any threshold, and at 0.82 it
+fires on under a quarter of its frames.
+
+**The fix is not more thresholding.** These numbers come from a linear probe on
+frozen ImageNet features; the ceiling is set by the features, not the head. The
+highest-value next step is a real fine-tune (Phase 6, `train_full.py`, still
+unwritten), which is now feasible locally — you have said you can train on the
+laptop. Expect the biggest gain there, not from further tuning of what exists.
+
+## 🟡 A21. "Highly likely visitor" is not yet encoded anywhere
+
+The range prior exists in `inference.py` and is **empty**. Nothing currently
+tells the model that a Cape Town feeder sees six species routinely and
+*Cinnyris neergaardi* essentially never.
+
+Populating it would raise precision on the real visitors for free — no
+retraining, one config block. It needs your input, though: the weights should
+reflect what your feeder actually sees, and I would be guessing. A first pass
+could come from iNaturalist observation density within ~25km of the site.

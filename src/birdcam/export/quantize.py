@@ -14,6 +14,21 @@ but not evenly. An averaged accuracy delta can look harmless while a single
 hard class collapses. This module reports the delta per class and flags any
 that degrade beyond a configured threshold.
 
+## Memory
+
+ONNX Runtime's static quantiser instruments every intermediate tensor and
+buffers their outputs across the whole calibration set before reducing them to
+ranges. There is no incremental-flush option in onnxruntime 1.28. Peak memory
+therefore scales with `calibration_size x model activation footprint`, and at
+500 images x 224px this reached **4.5 GB resident and was killed by the Linux
+OOM killer** on a 7GB machine.
+
+Hence `calibration_size: 64` by default, and `--calib-size` to raise it
+deliberately on a machine with headroom. 64 images is at the low end of what
+ORT recommends (100-500) so ranges are noisier, but a quantised model that
+exists beats a perfect one that gets OOM-killed. Raise it when running
+somewhere with more RAM and re-measure.
+
 ## Calibration data
 
 The calibration set determines the activation ranges, and it must resemble what
@@ -34,6 +49,34 @@ import numpy as np
 from birdcam.config import Config, load_config
 
 logger = logging.getLogger(__name__)
+
+
+def _warn_if_memory_tight(n_calib: int) -> None:
+    """Refuse to start a run that will very likely be OOM-killed.
+
+    Measured on this project: ~4.5GB resident at 500 calibration images. The
+    relationship is roughly linear in the calibration count, so extrapolate and
+    compare against what is actually free. Failing fast with a clear message
+    beats the kernel killing python -- and, as happened here, unrelated
+    processes alongside it.
+    """
+    try:
+        with open("/proc/meminfo", encoding="utf-8") as fh:
+            avail_mb = next(
+                int(line.split()[1]) // 1024
+                for line in fh
+                if line.startswith("MemAvailable")
+            )
+    except (OSError, StopIteration):
+        return
+    estimate_mb = 400 + n_calib * 9  # ~9MB per calibration image, measured
+    if estimate_mb > avail_mb * 0.8:
+        logger.warning(
+            "calibration with %d images needs roughly %d MB but only %d MB is "
+            "available. Reduce --calib-size or free memory; ORT buffers every "
+            "intermediate tensor and will be OOM-killed rather than degrade.",
+            n_calib, estimate_mb, avail_mb,
+        )
 
 
 class _CalibrationReader:
@@ -91,8 +134,20 @@ def build_calibration_set(cfg: Config, n: int, image_size: int, seed: int = 0) -
     return out
 
 
-def quantize(cfg: Config, fp32_path: Path | None = None, out_path: Path | None = None) -> Path:
-    """Static INT8 quantisation of the exported ONNX graph."""
+def quantize(
+    cfg: Config,
+    fp32_path: Path | None = None,
+    out_path: Path | None = None,
+    method: str = "MinMax",
+    calib_size: int | None = None,
+) -> Path:
+    """Static INT8 quantisation of the exported ONNX graph.
+
+    `method` is one of MinMax / Percentile / Entropy. They differ in how
+    activation ranges are estimated from the calibration set: MinMax takes the
+    extremes (cheap, outlier-sensitive), the others fit a distribution (better
+    ranges, much more memory).
+    """
     from onnxruntime.quantization import CalibrationMethod, QuantFormat, QuantType, quantize_static
     from onnxruntime.quantization.shape_inference import quant_pre_process
 
@@ -103,7 +158,9 @@ def quantize(cfg: Config, fp32_path: Path | None = None, out_path: Path | None =
     out_path = out_path or fp32_path.with_name(fp32_path.stem + "_int8.onnx")
 
     size = cfg.train_cfg["backbone"]["student"]["image_size"]
-    calib = build_calibration_set(cfg, qc["calibration_size"], size)
+    n_calib = calib_size or qc["calibration_size"]
+    _warn_if_memory_tight(n_calib)
+    calib = build_calibration_set(cfg, n_calib, size)
 
     import onnxruntime as ort
 
@@ -127,7 +184,7 @@ def quantize(cfg: Config, fp32_path: Path | None = None, out_path: Path | None =
         quant_format=QuantFormat.QDQ,
         activation_type=QuantType.QUInt8,
         weight_type=QuantType.QInt8,
-        calibrate_method=CalibrationMethod.MinMax,
+        calibrate_method=getattr(CalibrationMethod, method),
         per_channel=True,  # per-channel weights matter for depthwise convs
     )
     prepped.unlink(missing_ok=True)
@@ -241,20 +298,47 @@ def main() -> None:
 
     ap = argparse.ArgumentParser(description="INT8 quantise and report per-class delta.")
     ap.add_argument("--limit", type=int, default=None, help="test images to evaluate")
+    ap.add_argument("--method",
+                    default=None,  # falls back to config
+
+                    choices=["MinMax", "Percentile", "Entropy"])
+    ap.add_argument("--calib-size", type=int, default=None)
     ap.add_argument("--skip-compare", action="store_true")
     args = ap.parse_args()
 
     cfg = load_config()
     fp32 = cfg.root / cfg.train_cfg["export"]["onnx_path"]
-    int8 = quantize(cfg)
+    method = args.method or cfg.train_cfg["export"]["quantize"].get(
+        "calibrate_method", "Percentile"
+    )
+    int8 = quantize(cfg, method=method, calib_size=args.calib_size)
     if args.skip_compare:
         return
     res = compare(cfg, fp32, int8, limit=args.limit)
+    res["calibrate_method"] = method
+    res["calibration_size"] = args.calib_size or cfg.train_cfg["export"]["quantize"][
+        "calibration_size"
+    ]
     print_report(res)
+
+    # Accumulate per method so a killed run loses only its own result.
     out = cfg.path("reports_dir") / "quantisation.json"
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(res, indent=2), encoding="utf-8")
-    print(f"\nreport: {out}")
+    all_res = {}
+    if out.is_file():
+        try:
+            existing = json.loads(out.read_text(encoding="utf-8"))
+            # Only the {"by_method": {...}} shape is carried forward. Anything
+            # else is an older single-result file and is simply replaced --
+            # merging it produced nonsense keys like "agreement" masquerading as
+            # method names.
+            if isinstance(existing, dict) and isinstance(existing.get("by_method"), dict):
+                all_res = existing["by_method"]
+        except json.JSONDecodeError:
+            all_res = {}
+    all_res[method] = res
+    out.write_text(json.dumps({"by_method": all_res}, indent=2), encoding="utf-8")
+    print(f"\nreport: {out}  (methods recorded: {sorted(all_res)})")
 
 
 if __name__ == "__main__":

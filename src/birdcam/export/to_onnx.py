@@ -110,6 +110,119 @@ def export(
     return out_path
 
 
+def export_from_frozen_head(
+    cfg: Config, feature_file: str, out_path: Path | None = None, epochs: int = 200
+) -> Path:
+    """Export a genuinely trained model built from the fast-loop head.
+
+    Phase 6 (`train_full.py`) does not exist yet, so there is no fine-tuned
+    checkpoint. But the fast loop DOES produce real trained heads on frozen
+    features, and backbone + that head is a real, working classifier -- exactly
+    the thing the frozen-feature metrics describe.
+
+    Exporting random weights and quantising them measures nothing: noise
+    quantises to noise. This gives quantisation something real to degrade.
+
+    The feature standardisation (subtract mu, divide by sd) is FOLDED into the
+    linear layer rather than shipped as a separate step:
+
+        W((x - mu) / sd) + b  ==  (W / sd) x + (b - W (mu / sd))
+
+    so the exported graph needs no preprocessing beyond the usual image
+    normalisation.
+    """
+    import numpy as np
+    import torch
+    import torch.nn as nn
+
+    from birdcam.data.dataset import load_labelled
+    from birdcam.data.manifest import open_manifest
+    from birdcam.models.backbone import load_backbone
+    from birdcam.models.heads import TwoHeadNet, masked_partial_label_loss
+
+    X = np.load(cfg.path("embeddings_dir") / "sweep" / feature_file)
+    with open_manifest(cfg.path("manifest_db")) as m:
+        items = load_labelled(cfg, m)
+    if len(X) != len(items):
+        raise RuntimeError(f"misalignment: {len(X)} features vs {len(items)} items")
+
+    split = np.array([i.split for i in items])
+    y = np.array([i.taxon_index for i in items])
+    masks = np.stack([i.sex_mask for i in items])
+    tr = split == "train"
+
+    mu, sd = X[tr].mean(0), X[tr].std(0) + 1e-6
+    xt = torch.tensor((X[tr] - mu) / sd, dtype=torch.float32)
+    yt = torch.tensor(y[tr])
+    mt = torch.tensor(masks[tr], dtype=torch.float32)
+
+    taxon = nn.Linear(X.shape[1], len(cfg.taxon_classes))
+    sex = nn.Linear(X.shape[1], len(cfg.sex_classes))
+    opt = torch.optim.AdamW(
+        list(taxon.parameters()) + list(sex.parameters()), lr=0.01, weight_decay=1e-4
+    )
+    ce = nn.CrossEntropyLoss()
+    sex_w = cfg.train_cfg["train"]["loss"]["sex_weight"]
+    for _ in range(epochs):
+        opt.zero_grad()
+        loss = ce(taxon(xt), yt) + sex_w * masked_partial_label_loss(sex(xt), mt)
+        loss.backward()
+        opt.step()
+    logger.info("trained heads on frozen features (%d train images)", int(tr.sum()))
+
+    # Fold standardisation into the linear layers.
+    scale = torch.tensor(1.0 / sd, dtype=torch.float32)
+    shift = torch.tensor(mu / sd, dtype=torch.float32)
+    for layer in (taxon, sex):
+        with torch.no_grad():
+            layer.bias -= layer.weight @ shift
+            layer.weight *= scale
+
+    role = "student"
+    backbone, name = load_backbone(cfg, role, num_classes=0)
+    model = TwoHeadNet(backbone, X.shape[1], len(cfg.taxon_classes), len(cfg.sex_classes),
+                       dropout=0.0)
+    model.taxon_head, model.sex_head = taxon, sex
+    model.eval()
+
+    size = cfg.train_cfg["backbone"][role]["image_size"]
+    out_path = out_path or (cfg.root / cfg.train_cfg["export"]["onnx_path"])
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    torch.onnx.export(
+        model,
+        torch.randn(1, 3, size, size),
+        str(out_path),
+        input_names=["image"],
+        output_names=["taxon_logits", "sex_logits"],
+        dynamic_axes={"image": {0: "batch"}, "taxon_logits": {0: "batch"},
+                      "sex_logits": {0: "batch"}},
+        opset_version=cfg.train_cfg["export"]["onnx_opset"],
+        do_constant_folding=True,
+    )
+    _consolidate_external_data(out_path)
+
+    meta = {
+        "backbone": name,
+        "role": role,
+        "trained": True,
+        "training": "frozen-feature linear heads, standardisation folded in",
+        "feature_file": feature_file,
+        "image_size": size,
+        "opset": cfg.train_cfg["export"]["onnx_opset"],
+        "taxon_classes": cfg.taxon_classes,
+        "sex_classes": cfg.sex_classes,
+        "partial_label_groups": cfg.partial_label_groups,
+        "notes": (
+            "Logits only. Softmax, range prior, temperature, rollup and "
+            "thresholding are applied by the caller."
+        ),
+    }
+    out_path.with_suffix(".json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
+    verify_export(out_path, size, len(cfg.taxon_classes), len(cfg.sex_classes))
+    logger.info("exported TRAINED model to %s", out_path)
+    return out_path
+
+
 def _consolidate_external_data(path: Path) -> None:
     """Fold external weight files back into a single .onnx.
 
@@ -234,10 +347,15 @@ def main() -> None:
     ap = argparse.ArgumentParser(description="Export the two-head model to ONNX.")
     ap.add_argument("--role", default="student", choices=["student", "teacher", "local"])
     ap.add_argument("--checkpoint", type=Path, default=None)
+    ap.add_argument("--from-frozen-head", default=None,
+                    help="feature .npy stem to train real heads from")
     args = ap.parse_args()
 
     cfg = load_config()
-    path = export(cfg, role=args.role, checkpoint=args.checkpoint)
+    if args.from_frozen_head:
+        path = export_from_frozen_head(cfg, args.from_frozen_head)
+    else:
+        path = export(cfg, role=args.role, checkpoint=args.checkpoint)
     note = cfg.path("reports_dir") / "deployment.md"
     note.parent.mkdir(parents=True, exist_ok=True)
     note.write_text(DEPLOY_NOTE, encoding="utf-8")

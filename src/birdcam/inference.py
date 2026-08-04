@@ -8,9 +8,12 @@ and the order matters:
    taxonomic logic, because that logic is incapable of expressing "not a bird" --
    it will always return the least-bad species.
 
-2. **Temperature scaling.** Calibrates confidence before any threshold sees it.
-   The raw head is roughly 2x overconfident, so uncalibrated probabilities would
-   make every threshold below meaningless.
+2. **Range prior, then temperature scaling.** The prior is added to the logits
+   in log space -- NOT multiplied into probabilities afterwards, which would
+   renormalise the distribution the temperature was fitted against and wreck
+   calibration (measured: ECE 0.017 -> 0.080 the wrong way round, 0.021 the
+   right way). The raw head is roughly 2x overconfident, so uncalibrated
+   probabilities would make every threshold below meaningless.
 
 3. **Rollup.** Species -> genus -> family -> guild. If no species clears its
    threshold but the summed genus probability does, emit the genus. The model
@@ -29,8 +32,10 @@ valuable ones for the data flywheel: they are birds worth a human look.
 ``unknown`` triggers are mostly noise, though a sustained run of them is itself
 informative -- it usually means something has changed at the feeder.
 
-All of this runs OUTSIDE the exported ONNX graph, so thresholds can be retuned
-without a Hailo recompile.
+All of this runs OUTSIDE the exported ONNX graph. Thresholds, the prior and the
+temperature are therefore retunable without touching the model artefact -- which
+matters on either candidate board, and matters a great deal on a Pi 5 + Hailo
+where changing the graph means a recompile on a separate x86 toolchain.
 """
 
 from __future__ import annotations
@@ -94,9 +99,21 @@ class Classifier:
         self.rollup = cfg.taxonomy_cfg["rollup"]
         self.thresholds = self.rollup["thresholds"]
         self.per_class = self.rollup.get("per_class_thresholds") or {}
-        # Range prior: multiplicative per-species weight, so a species that does
-        # not occur at this site is downweighted rather than banned outright.
+        # Range prior: a per-class weight, applied as an additive log offset on
+        # the logits (see decide()). Soft, never a filter -- a species that does
+        # not occur here is downweighted, not banned, so a vagrant remains
+        # detectable.
         self.range_prior = range_prior or {}
+        self._log_prior = None
+        if self.range_prior:
+            w = np.ones(len(cfg.taxon_classes), dtype=np.float64)
+            for label, weight in self.range_prior.items():
+                idx = cfg.taxon_class_index.get(label)
+                if idx is not None:
+                    # Floor the weight: log(0) is -inf and would make the class
+                    # permanently unreachable, which is a filter, not a prior.
+                    w[idx] = max(float(weight), 1e-6)
+            self._log_prior = np.log(w)
 
         self._species_idx = {
             s.slug: cfg.taxon_class_index[s.slug]
@@ -154,17 +171,20 @@ class Classifier:
                     is_unknown=True,
                 )
 
-        # --- 2. calibrated probabilities -------------------------------------
-        probs = softmax(taxon_logits, self.temperature)
+        # --- 2. range prior, IN LOG SPACE, BEFORE temperature -----------------
+        # Order matters and getting it wrong is expensive. Multiplying the prior
+        # into probabilities *after* softmax renormalises a distribution the
+        # temperature was fitted against, and wrecks calibration: measured
+        # 2026-08-04, ECE 0.017 -> 0.080. Adding log(prior) to the logits and
+        # fitting the temperature on the adjusted logits keeps it at 0.021.
+        #
+        # This is also the principled form -- a prior over classes is additive
+        # in log space, which is what a logit is.
+        if self._log_prior is not None:
+            taxon_logits = taxon_logits + self._log_prior
 
-        # --- range prior ------------------------------------------------------
-        if self.range_prior:
-            adj = probs.copy()
-            for slug, idx in self._species_idx.items():
-                adj[idx] *= self.range_prior.get(slug, 1.0)
-            total = adj.sum()
-            if total > 0:
-                probs = adj / total
+        # --- 3. calibrated probabilities -------------------------------------
+        probs = softmax(taxon_logits, self.temperature)
 
         order = np.argsort(probs)[::-1][:5]
         top_k = [(self.taxon_classes[i], float(probs[i])) for i in order]
@@ -186,7 +206,7 @@ class Classifier:
                 top_k=top_k,
             )
 
-        # --- 3. rollup: species -> genus -> family -> guild -------------------
+        # --- 4. rollup: species -> genus -> family -> guild -------------------
         best = int(np.argmax(probs))
         best_label = self.taxon_classes[best]
         species_thr = self.per_class.get(best_label, self.thresholds["species"])
@@ -215,7 +235,7 @@ class Classifier:
                     if mass >= self.thresholds["guild"]:
                         return out(f"{guild}_indet", "guild", mass)
 
-        # --- 4. abstain -------------------------------------------------------
+        # --- 5. abstain -------------------------------------------------------
         return out(UNCERTAIN, "uncertain", float(probs[best]))
 
     def vote(self, decisions: list[Decision]) -> Decision:

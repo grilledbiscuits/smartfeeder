@@ -355,3 +355,50 @@ Populating it would raise precision on the real visitors for free — no
 retraining, one config block. It needs your input, though: the weights should
 reflect what your feeder actually sees, and I would be guessing. A first pass
 could come from iNaturalist observation density within ~25km of the site.
+
+---
+
+## 🔴 A22. INT8 quantisation costs 5.1 accuracy points — not free
+
+Measured 2026-08-04 on 800 test images, against a genuinely trained model
+(backbone + frozen-feature heads, standardisation folded into the linear layer).
+MinMax calibration, per-channel weights, 500 calibration images from train.
+
+* **24.4 MB → 7.5 MB** (3.3x smaller)
+* **accuracy 0.641 → 0.590 (−5.1pp)**
+* the two models agree on only 72.2% of test images
+
+Five of six Tier A classes degraded past the 2% flag threshold:
+
+| class | FP32 | INT8 | delta |
+|---|---|---|---|
+| *Chalcomitra amethystina* | 0.714 | 0.607 | −10.7pp |
+| *Anthobaphes violacea* | 0.803 | 0.697 | −10.6pp |
+| *Promerops cafer* | 0.820 | 0.746 | −7.4pp |
+| *Cinnyris afer* | 0.509 | 0.456 | −5.3pp |
+| *Cinnyris chalybeus* | 0.554 | 0.523 | −3.2pp |
+
+This is exactly the failure the brief predicted: nearly-identical classes sit
+close together in feature space and INT8 smears them, **unevenly**. An averaged
+delta would have hidden that *amethystina* and *violacea* took the worst of it.
+
+**Not yet exhausted.** Only MinMax calibration was measured. Percentile and
+Entropy calibration are usually kinder to outlier activations and often recover
+much of the loss; that comparison was started and interrupted, and is the first
+thing to finish. Mixed precision — keeping the final layers in FP32 — is the
+next lever after that.
+
+**Do not ship INT8 on these numbers.** If the board turns out to be a Pi 5 with
+the AI HAT+, quantisation is mandatory anyway and this becomes a hard constraint
+to engineer around. If it is a Pi 4B, it is a speed/accuracy dial you control.
+
+## 🟡 A23. The first export with real weights was only just now possible
+
+Every earlier ONNX export carried **randomly-initialised heads** — the graph was
+valid, the cost figures were real, but the predictions were noise. Quantising it
+measured noise against noise, which I caught only when the reported accuracy came
+back at 0.05.
+
+`export_from_frozen_head` now builds a genuinely trained model from the fast-loop
+heads, folding the feature standardisation into the linear layer. Anything that
+evaluates the exported artefact must use that path until `train_full.py` exists.

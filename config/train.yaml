@@ -208,7 +208,20 @@ fast_loop:
 # PHASE 6 -- FULL TRAINING
 # =============================================================================
 train:
-  epochs: 40
+  # 15, not 40. Fine-tuning a pretrained backbone on 12,776 images converges
+  # long before 40 epochs and then overfits, and on this laptop each epoch costs
+  # 16-23 minutes. Measured throughput (batch 8, CPU, 4 cores):
+  #
+  #   freeze_blocks  trainable  img/s  min/epoch  15 epochs
+  #   6 (heads only)     0.34M   24.4        8.7      2.2 h
+  #   4 (default)        5.52M   13.0       16.3      4.1 h
+  #   2                  5.89M   11.6       18.4      4.6 h
+  #   0 (full)           5.95M    9.4       22.6      5.6 h
+  #
+  # Note freezing 4 blocks saves only 7% of PARAMETERS but 28% of TIME:
+  # EfficientNet's parameter mass is in the late blocks while its compute is in
+  # the early, spatially-large ones. Freeze for speed, not for size.
+  epochs: 15
   batch_size: 32
   lr: 0.0003
   weight_decay: 0.05

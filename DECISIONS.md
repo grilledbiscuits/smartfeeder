@@ -510,3 +510,47 @@ what made the matched sweep affordable after three OOM-killed attempts.
 
 Results are keyed `{method}_calib{n}` so a sweep accumulates rather than
 overwriting itself.
+
+---
+
+## Phase 6 — end-to-end fine-tune (2026-08-04)
+
+### D34. `freeze_blocks` is the laptop-feasibility lever, and it is about time not size
+
+Measured on this machine (batch 8, CPU, 4 physical cores, 12,776 train images):
+
+| freeze_blocks | trainable | img/s | min/epoch | 15 epochs |
+|---|---|---|---|---|
+| 6 (heads only) | 0.34M | 24.4 | 8.7 | 2.2 h |
+| **4 (default)** | **5.52M** | **13.0** | **16.3** | **4.1 h** |
+| 2 | 5.89M | 11.6 | 18.4 | 4.6 h |
+| 0 (full) | 5.95M | 9.4 | 22.6 | 5.6 h |
+
+The counter-intuitive part: freezing 4 of 6 blocks saves only **7% of
+parameters** but **28% of time**. EfficientNet's parameter mass sits in the late
+blocks; its *compute* sits in the early ones, where spatial dimensions are
+largest. Freeze for speed, not for model size.
+
+`--estimate` measures this on whatever machine it runs on and prints an ETA
+before committing hours. Given this project has already lost four runs to the
+OOM killer, knowing the cost up front is worth the two minutes.
+
+### D35. Epochs cut 40 → 15
+
+Fine-tuning a pretrained backbone on 12,776 images converges well before 40
+epochs and then overfits, and at 16 min/epoch the difference is 4 hours versus
+11. OneCycleLR is scheduled against the configured epoch count, so this is a
+real change to the schedule, not just an early stop.
+
+### D36. Augmentation implements deployment failure modes, not photography
+
+`train/augment.py`. Directional motion blur is custom: torchvision's
+`GaussianBlur` is isotropic and looks like defocus, whereas a bird crossing
+frame smears along its direction of travel, so the kernel is a line at a random
+angle. `v2.JPEG` gives real compression artefacts. `RandomErasing` runs *after*
+normalisation so an occluded region reads as the dataset mean — which is what an
+absent region should look like to the network — matching the case where the
+bird's head is inside a feeder port.
+
+Verified stochastic in training (std 0.816 across five draws of one image) and
+exactly deterministic in evaluation (std 0.000).

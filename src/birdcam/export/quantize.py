@@ -217,22 +217,39 @@ def compare(cfg: Config, fp32_path: Path, int8_path: Path, limit: int | None = N
     dc["input_size"] = (3, size, size)
     tf = timm.data.create_transform(**dc, is_training=False)
 
-    s32 = ort.InferenceSession(str(fp32_path), providers=["CPUExecutionProvider"])
+    # FP32 predictions are identical across every calibration setting, so cache
+    # them. Halves the wall clock of a calibration-size sweep, which is what
+    # makes the sweep affordable at all.
+    cache = fp32_path.with_name(f"{fp32_path.stem}_fp32preds_{len(items)}.npz")
     s8 = ort.InferenceSession(str(int8_path), providers=["CPUExecutionProvider"])
-    name32 = s32.get_inputs()[0].name
     name8 = s8.get_inputs()[0].name
 
-    y, p32, p8 = [], [], []
-    for k, it in enumerate(items):
-        with Image.open(it.path) as im:
-            x = tf(im.convert("RGB")).numpy()[None]
-        p32.append(int(s32.run(None, {name32: x})[0].argmax()))
-        p8.append(int(s8.run(None, {name8: x})[0].argmax()))
-        y.append(it.taxon_index)
-        if (k + 1) % 200 == 0:
-            logger.info("  %d/%d", k + 1, len(items))
-
-    y, p32, p8 = np.array(y), np.array(p32), np.array(p8)
+    if cache.is_file():
+        cached = np.load(cache)
+        y, p32 = cached["y"], cached["p32"]
+        logger.info("reusing cached FP32 predictions (%d images)", len(y))
+        p8 = []
+        for k, it in enumerate(items):
+            with Image.open(it.path) as im:
+                x = tf(im.convert("RGB")).numpy()[None]
+            p8.append(int(s8.run(None, {name8: x})[0].argmax()))
+            if (k + 1) % 200 == 0:
+                logger.info("  %d/%d", k + 1, len(items))
+        p8 = np.array(p8)
+    else:
+        s32 = ort.InferenceSession(str(fp32_path), providers=["CPUExecutionProvider"])
+        name32 = s32.get_inputs()[0].name
+        y, p32, p8 = [], [], []
+        for k, it in enumerate(items):
+            with Image.open(it.path) as im:
+                x = tf(im.convert("RGB")).numpy()[None]
+            p32.append(int(s32.run(None, {name32: x})[0].argmax()))
+            p8.append(int(s8.run(None, {name8: x})[0].argmax()))
+            y.append(it.taxon_index)
+            if (k + 1) % 200 == 0:
+                logger.info("  %d/%d", k + 1, len(items))
+        y, p32, p8 = np.array(y), np.array(p32), np.array(p8)
+        np.savez(cache, y=y, p32=p32)
     flag = cfg.train_cfg["export"]["quantize"]["flag_threshold_pct"] / 100.0
 
     per_class = []
@@ -336,7 +353,7 @@ def main() -> None:
                 all_res = existing["by_method"]
         except json.JSONDecodeError:
             all_res = {}
-    all_res[method] = res
+    all_res[f"{method}_calib{res['calibration_size']}"] = res
     out.write_text(json.dumps({"by_method": all_res}, indent=2), encoding="utf-8")
     print(f"\nreport: {out}  (methods recorded: {sorted(all_res)})")
 

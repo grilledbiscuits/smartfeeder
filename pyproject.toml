@@ -38,7 +38,7 @@ openvino = ["openvino>=2024.2"]
 # onnxscript is required by torch>=2.9's ONNX exporter, not optional.
 export = ["onnx>=1.16", "onnxruntime>=1.18", "onnxscript>=0.1"]
 # Experiment tracking; train_full.py falls back to TensorBoard when absent.
-tracking = ["wandb>=0.17", "tensorboard>=2.16"]
+tracking = ["wandb>=0.17", "tensorboard>=2.16"]  # tensorboard is the no-key fallback; install it or you get stdout only
 
 [dependency-groups]
 dev = [

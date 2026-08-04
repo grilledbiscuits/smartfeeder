@@ -237,6 +237,20 @@ def evaluate(cfg: Config, model, loader, device):
 # --- checkpointing ------------------------------------------------------------
 
 
+def _write_history(cfg: Config, state: RunState, meta: dict) -> None:
+    """Write the epoch history after EVERY epoch, not at the end of the run.
+
+    A 6-hour run that is only inspectable once it finishes is not inspectable.
+    The file is stamped with the run configuration because an earlier version
+    left a smoke-run history on disk looking exactly like a real result.
+    """
+    path = cfg.path("reports_dir") / "training_history.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps({"run": meta, "epochs": state.history}, indent=2), encoding="utf-8"
+    )
+
+
 def _ckpt_path(cfg: Config) -> Path:
     d = cfg.path("checkpoints_dir")
     d.mkdir(parents=True, exist_ok=True)
@@ -400,6 +414,18 @@ def train(
         pct_start=pct_start,
     )
 
+    run_meta = {
+        "backbone": name,
+        "freeze_blocks": freeze_blocks,
+        "epochs_planned": epochs,
+        "batch_size": batch_size,
+        "grad_accum": accum,
+        "n_train": n_train,
+        "n_val": n_val,
+        "subsampled": limit is not None,
+        "device": str(device),
+        "started": time.strftime("%Y-%m-%dT%H:%M:%S"),
+    }
     state = load_checkpoint(cfg, model, opt, sched) if resume else RunState()
     track = _make_tracker(cfg, f"{name}_fb{freeze_blocks}")
     logger.info(
@@ -447,6 +473,7 @@ def train(
         if is_best:
             state.best_val = tier_a
         save_checkpoint(cfg, model, opt, sched, state, best=is_best)
+        _write_history(cfg, state, run_meta)
         track(
             {"train/loss": st.train_loss, "val/taxon_acc": acc,
              "val/tier_a_recall": tier_a, "val/ece": ece, "lr": st.lr},
@@ -458,10 +485,37 @@ def train(
             "  <- best" if is_best else "",
         )
 
-    hist = cfg.path("reports_dir") / "training_history.json"
-    hist.parent.mkdir(parents=True, exist_ok=True)
-    hist.write_text(json.dumps(state.history, indent=2), encoding="utf-8")
     return out
+
+
+def print_history(cfg: Config) -> None:
+    """Show per-epoch results from the last checkpoint.
+
+    Reads the checkpoint rather than the JSON because the checkpoint is written
+    at the end of every epoch -- so this works on a run that is still going.
+    """
+    import torch
+
+    path = _ckpt_path(cfg)
+    if not path.is_file():
+        print(f"No checkpoint at {path}.")
+        print("The first one appears when epoch 0 finishes (~18 min into a full run).")
+        return
+    payload = torch.load(path, map_location="cpu", weights_only=False)
+    hist = payload["state"]["history"]
+    if not hist:
+        print("Checkpoint exists but holds no completed epochs yet.")
+        return
+    print(f"\n{'epoch':>6}{'train loss':>12}{'val acc':>10}{'Tier A':>9}{'ECE':>8}{'min':>7}")
+    print("-" * 52)
+    best = max(hist, key=lambda h: h["val_tier_a_recall"])
+    for h in hist:
+        mark = "  <- best" if h is best else ""
+        print(f"{h['epoch']:>6}{h['train_loss']:>12.4f}{h['val_taxon_acc']:>10.4f}"
+              f"{h['val_tier_a_recall']:>9.4f}{h['val_ece']:>8.4f}"
+              f"{h['seconds'] / 60:>7.1f}{mark}")
+    print(f"\n{len(hist)} epoch(s) complete. Best Tier A recall "
+          f"{best['val_tier_a_recall']:.4f} at epoch {best['epoch']}.")
 
 
 def main() -> None:
@@ -480,9 +534,15 @@ def main() -> None:
     ap.add_argument("--limit", type=int, default=None, help="subsample, for smoke runs")
     ap.add_argument("--estimate", action="store_true",
                     help="measure throughput and print an ETA, then exit")
+    ap.add_argument("--history", action="store_true",
+                    help="print per-epoch results from the checkpoint, including "
+                         "for a run still in progress")
     args = ap.parse_args()
 
     cfg = load_config()
+    if args.history:
+        print_history(cfg)
+        return
     if args.estimate:
         estimate(cfg, args.freeze_blocks, args.batch_size or 12)
         return

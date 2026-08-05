@@ -488,3 +488,72 @@ OOM-killed. It is now safe to do with the memory guard in place.
 
 Until then, treat INT8 as "probably cheap, possibly costly" and re-measure
 before shipping.
+
+## 🔴 A25. Fine-tuning improved classification and *broke* open-set detection
+
+Measured 2026-08-05 on `student_best.pt` (epoch 16), test set n=2,674 in-distribution
+and 2,486 OOD, via `eval/extract.py` + `eval/thresholds.py --checkpoint`.
+
+**Classification improved on every axis.** Temperature fell from 2.332 to **0.986** —
+the fine-tuned model is essentially calibrated as trained and needs almost no
+softening. Per-class recall at the 80% precision target:
+
+| Tier A species | frozen recall | fine-tuned recall | frozen prec | fine-tuned prec |
+|---|---|---|---|---|
+| Amethyst Sunbird | 0.601 | **0.853** | 0.881 | 0.800 |
+| Orange-breasted Sunbird | 0.729 | **0.921** | 0.831 | 0.847 |
+| Malachite Sunbird | 0.477 | **0.770** | 0.875 | 0.830 |
+| Cape Sugarbird | 0.811 | **0.917** | 0.759 | 0.729 |
+| *Cinnyris afer* | 0.406 | **0.641** | 0.841 | 0.781 |
+| ***Cinnyris chalybeus*** | 0.223 | **0.386** | 0.742 | **0.833** |
+
+A20 said *C. chalybeus* "cannot reach 80% precision at any threshold". It now
+reaches 0.833 at threshold 0.74, with recall up 16pp. That was the headline
+problem class and it is substantially better.
+
+**Open-set detection degraded badly.** The kNN novelty scorer refitted on
+fine-tuned features:
+
+| scorer | frozen AUROC | fine-tuned AUROC |
+|---|---|---|
+| kNN | **0.979** | **0.9032** |
+| energy | 0.9273 | 0.8318 |
+| mahalanobis | — | 0.8752 |
+| max_softmax | 0.7139 | 0.7912 |
+
+kNN's catch rate at 5% FPR fell from 0.909 to 0.431. Only max_softmax improved,
+and only because the model is now calibrated.
+
+This is representation collapse, and it is expected in hindsight: fine-tuning
+specialises the feature geometry to the 22 trained classes and discards the
+generic visual structure that made a distance-based novelty test work. The
+scorer ranking is unchanged — kNN is still best of the four — but its absolute
+performance is not what the deployment assumed.
+
+**End to end this was nearly a wash**, at 15% FAR: bird visits 41.95% → 51.1%,
+but OOD visits 1.3% → **11.1%**. Nine points of real birds bought at the price
+of ten points of squirrels, against a stated priority of minimising false
+triggers.
+
+### The fix is measured and works: split the two jobs
+
+Novelty on **frozen** ImageNet features, classification on the **fine-tuned**
+model. Same corpus, same thresholds, same scorer — only the feature space the
+kNN sees changes:
+
+| novelty FAR | bird visits (FT feats) | OOD visits (FT feats) | bird visits (FROZEN feats) | OOD visits (FROZEN feats) |
+|---|---|---|---|---|
+| 5% | 0.560 | 0.274 | **0.569** | **0.061** |
+| 10% | 0.530 | 0.163 | **0.549** | **0.020** |
+| 15% | 0.511 | 0.111 | **0.521** | **0.015** |
+| 20% | 0.485 | 0.056 | **0.496** | **0.011** |
+
+**Better on both axes simultaneously at every operating point.** Against the
+original frozen-everything baseline at 15% FAR, the hybrid gives 52.1% of bird
+visits versus 41.95% — **+10.2pp** — at 1.5% OOD versus 1.3%, which is inside noise.
+
+**Unresolved: this costs two backbone passes on the Pi.** Both are
+`tf_efficientnetv2_b0`, one ImageNet-pretrained and one fine-tuned, so it is
+2× inference. Untested cheaper option: tap an *intermediate* block of the
+fine-tuned network for the novelty features, since early layers retain generic
+structure. One forward pass, no second model. That experiment has not been run.

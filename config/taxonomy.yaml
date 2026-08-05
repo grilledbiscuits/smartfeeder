@@ -194,12 +194,18 @@ rollup:
   # Tier A species get their own thresholds, tuned per-class from the
   # precision-recall curves in Phase 7. Populated by the report, not by hand.
   per_class_thresholds:
-    anthobaphes_violacea: 0.51   # test precision 0.831, recall 0.729
-    chalcomitra_amethystina: 0.41   # test precision 0.881, recall 0.601
-    cinnyris_afer: 0.56   # test precision 0.841, recall 0.406
-    cinnyris_chalybeus: 0.82   # test precision 0.742, recall 0.223
-    nectarinia_famosa: 0.69   # test precision 0.875, recall 0.477
-    promerops_cafer: 0.32   # test precision 0.759, recall 0.811
+    # Fitted 2026-08-05 from: fine-tuned checkpoint student_best.pt @ a71e95cca471
+    # Chosen as the lowest threshold reaching 80% precision on VAL;
+    # the precision and recall below are the resulting TEST figures, which
+    # are what actually hold. A class can miss the target on test.
+    # INTERIM -- refit required once the Tier A capture allowlist and the
+    # novelty feature source are settled. See ASSUMPTIONS.md A25.
+    anthobaphes_violacea: 0.28   # test precision 0.847, recall 0.921
+    chalcomitra_amethystina: 0.25   # test precision 0.800, recall 0.853
+    cinnyris_afer: 0.42   # test precision 0.781, recall 0.641  MISSED TARGET
+    cinnyris_chalybeus: 0.74   # test precision 0.833, recall 0.386
+    nectarinia_famosa: 0.43   # test precision 0.830, recall 0.770
+    promerops_cafer: 0.18   # test precision 0.729, recall 0.917  MISSED TARGET
   # Below the guild threshold the model emits this and the capture app declines
   # to record.
   abstain_label: uncertain

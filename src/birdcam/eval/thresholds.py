@@ -219,18 +219,41 @@ def false_trigger_curve(
     return rows
 
 
-def write_thresholds_to_config(cfg: Config, rows: list[dict]) -> None:
+def write_thresholds_to_config(cfg: Config, res: dict) -> None:
     """Write fitted per-class thresholds into config/taxonomy.yaml.
 
     Text-level edit of the existing block so comments elsewhere survive.
+
+    The block is stamped with the model that produced it. Thresholds are the
+    only config the capture decision reads directly, so a set fitted against a
+    checkpoint nobody runs any more is a silent, live wrongness -- exactly how
+    the 22.9% figure in A20 survived being superseded. Provenance in the file
+    makes the mismatch visible instead of inferable.
+
+    Comment lines are indented four spaces so the replace regex below reclaims
+    them on the next write rather than accumulating stale headers.
     """
+    from datetime import date
+
+    rows = res["per_class"]
+    target = res["target_precision"]
     path = cfg.root / "config" / "taxonomy.yaml"
     text = path.read_text(encoding="utf-8")
-    block = ["  per_class_thresholds:"]
+
+    block = [
+        "  per_class_thresholds:",
+        f"    # Fitted {date.today().isoformat()} from: {res['source']}",
+        f"    # Chosen as the lowest threshold reaching {target:.0%} precision on VAL;",
+        "    # the precision and recall below are the resulting TEST figures, which",
+        "    # are what actually hold. A class can miss the target on test.",
+        "    # INTERIM -- refit required once the Tier A capture allowlist and the",
+        "    # novelty feature source are settled. See ASSUMPTIONS.md A25.",
+    ]
     for r in sorted(rows, key=lambda x: x["label"]):
+        miss = "  MISSED TARGET" if r["test_precision"] < target else ""
         block.append(
             f"    {r['label']}: {r['threshold']}"
-            f"   # test precision {r['test_precision']:.3f}, recall {r['test_recall']:.3f}"
+            f"   # test precision {r['test_precision']:.3f}, recall {r['test_recall']:.3f}{miss}"
         )
     new = "\n".join(block)
     old_marker = "  per_class_thresholds: {}"
@@ -505,7 +528,7 @@ def main() -> None:
     print(f"\nsource: {res['source']}")
     print_report(res)
     if args.write_config:
-        write_thresholds_to_config(cfg, res["per_class"])
+        write_thresholds_to_config(cfg, res)
         print("\nwrote per_class_thresholds to config/taxonomy.yaml")
 
 

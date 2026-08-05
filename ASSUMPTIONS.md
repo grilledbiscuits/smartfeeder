@@ -312,14 +312,39 @@ you know whether you would rather miss visits or store squirrels.
 
 ## 🔴 A20. False triggers are close to solved. Confidence on real birds is not.
 
-This inverts the priority. Measured 2026-08-04 at the chosen operating point
-(novelty FAR 15%, per-class thresholds fitted for 80% precision):
+**CORRECTED 2026-08-05.** This entry previously claimed 22.9% of bird visits and
+0.4% of OOD visits trigger. Those figures were stale: `reports/operating_points.json`
+had been regenerated and the prose was never updated. The numbers below are read
+directly from that file, at the stated operating point (novelty FAR 15%,
+per-class thresholds fitted for 80% precision):
 
-* **OOD visits that trigger a capture: 0.4%.** At 20% FAR it is 0.0%.
-* **Real bird visits that trigger a capture: 22.9%.**
+* **OOD visits that trigger a capture: 1.3%.** At 30% FAR it is 0.6%.
+* **Real bird visits that trigger a capture: 41.95%** (224 of 534 test visits).
 
-The system is not recording squirrels. It is failing to record birds — roughly
-three quarters of genuine visits never clear a threshold.
+Two things make even that figure hard to interpret, so treat it as an upper
+bound on the problem rather than a measurement:
+
+1. **The denominator is contaminated.** `frame_triggers` only checks Tier A
+   class thresholds, but the rate is computed over every in-distribution test
+   visit. 234 of the 534 (43.8%) are Tier C and cannot fire by construction, so
+   the metric's ceiling is 56.2%, not 100%. Against the 300 Tier A visits, 224
+   fires is 74.7% — but fired-frame precision is 0.868, so some of those are
+   Tier C birds misread as Tier A. The true Tier A trigger rate lies somewhere
+   between 42% and 75%.
+2. **The metric does not execute production inference.** It fires when any Tier A
+   probability crosses its threshold even if that class is not the argmax, and
+   it uses "any frame fires" rather than `Classifier.vote()`. `should_record`
+   meanwhile fires on *any* species- or genus-level result, including Tier C.
+
+**So the size of this problem is currently unknown.** It is smaller than the
+22.9% figure that drove planning through 2026-08-04, and it may not be a problem
+at all. Resolving it requires an evaluation path that calls `decide()`, `vote()`
+and `should_record` on the real checkpoint. See RUNNING.md.
+
+What the FAR sweep does show clearly is a real trade: moving 2% → 15% FAR costs
+6.7pp of bird visits (48.7% → 42.0%) to gain 6.3pp on OOD (7.6% → 1.3%). The
+novelty gate and the classifier are competing, and they were fitted
+independently. A joint re-tune remains the cheapest available lever.
 
 The cause is that frozen-feature confidence is poor on the hardest classes. At a
 90% precision target the double-collared sunbirds only fire on 3–9% of their
@@ -340,10 +365,17 @@ confident about. It cannot reach 80% precision at any threshold, and at 0.82 it
 fires on under a quarter of its frames.
 
 **The fix is not more thresholding.** These numbers come from a linear probe on
-frozen ImageNet features; the ceiling is set by the features, not the head. The
-highest-value next step is a real fine-tune (Phase 6, `train_full.py`, still
-unwritten), which is now feasible locally — you have said you can train on the
-laptop. Expect the biggest gain there, not from further tuning of what exists.
+frozen ImageNet features; the ceiling is set by the features, not the head.
+
+**Confirmed 2026-08-05.** The full fine-tune ran 20 epochs on CPU (5.3 h) and
+lifted val taxon accuracy from 0.684 to 0.7875 with Tier A macro-recall 0.7782
+at the selected epoch 16. The diagnosis was right: the features were the ceiling.
+
+**But none of the per-class numbers in the table above have been recomputed on
+the fine-tuned model.** Until 2026-08-05, `eval/` loaded frozen sweep embeddings
+and never read a checkpoint, so re-running it would have reported the pre-fine-tune
+model under the new model's name. `eval/extract.py` now exists to close that gap;
+this table stands only until it is rerun.
 
 ## 🟡 A21. "Highly likely visitor" is not yet encoded anywhere
 

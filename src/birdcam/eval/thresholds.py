@@ -247,47 +247,33 @@ def write_thresholds_to_config(cfg: Config, rows: list[dict]) -> None:
 # --- driver -------------------------------------------------------------------
 
 
-def run(cfg: Config, feature_file: str, target_precision: float = 0.90, epochs: int = 200):
+def _calibrate_and_measure(
+    cfg: Config,
+    X: np.ndarray,
+    logits: np.ndarray,
+    y: np.ndarray,
+    split: np.ndarray,
+    obs: np.ndarray,
+    ood_feats: np.ndarray,
+    ood_logits: np.ndarray,
+    ood_obs: np.ndarray,
+    target_precision: float,
+    source: str,
+    out_name: str,
+):
+    """Temperature, per-class thresholds, novelty scorer and the trigger curve.
+
+    Shared by both entry points so the frozen-probe path and the fine-tuned
+    checkpoint path cannot drift apart in how they calibrate or measure.
+    """
     import torch
     import torch.nn as nn
 
-    from birdcam.data.dataset import load_labelled
-    from birdcam.data.manifest import open_manifest
     from birdcam.models.novelty import KNNScorer
 
-    emb = cfg.path("embeddings_dir") / "sweep"
-    X = np.load(emb / feature_file)
-    ood = np.load(emb / f"ood_{feature_file}")
-
-    with open_manifest(cfg.path("manifest_db")) as m:
-        items = load_labelled(cfg, m)
-        ood_rows = list(m.iter_rows("tier='OOD' AND status='downloaded'"))
-    if len(X) != len(items):
-        raise RuntimeError(f"misalignment: {len(X)} features vs {len(items)} items")
-
-    split = np.array([i.split for i in items])
-    y = np.array([i.taxon_index for i in items])
-    obs = np.array([i.observation_id or "" for i in items])
-    tr, va, te = split == "train", split == "val", split == "test"
-
-    mu, sd = X[tr].mean(0), X[tr].std(0) + 1e-6
-    Xtr, Xva, Xte, ood_z = ((a - mu) / sd for a in (X[tr], X[va], X[te], ood))
-
-    head = nn.Linear(X.shape[1], len(cfg.taxon_classes))
-    opt = torch.optim.AdamW(head.parameters(), lr=0.01, weight_decay=1e-4)
     ce = nn.CrossEntropyLoss()
-    xt, yt = torch.tensor(Xtr, dtype=torch.float32), torch.tensor(y[tr])
-    for _ in range(epochs):
-        opt.zero_grad()
-        ce(head(xt), yt).backward()
-        opt.step()
-    head.eval()
-
-    def lg(a):
-        with torch.no_grad():
-            return head(torch.tensor(a, dtype=torch.float32)).numpy()
-
-    lva, lte, lood = lg(Xva), lg(Xte), lg(ood_z)
+    tr, va, te = split == "train", split == "val", split == "test"
+    lva, lte, lood = logits[va], logits[te], ood_logits
 
     # Temperature on val -- calibrated probabilities are the point of this whole
     # exercise, since the thresholds below are read off them.
@@ -326,24 +312,128 @@ def run(cfg: Config, feature_file: str, target_precision: float = 0.90, epochs: 
         p_te,
         y[te],
         obs[te],
-        ood,
+        ood_feats,
         lood,
         p_ood,
-        np.array([r["observation_id"] or "" for r in ood_rows]),
+        ood_obs,
         {r["label"]: r["threshold"] for r in rows},
     )
 
     out = {
-        "feature_file": feature_file,
+        "source": source,
         "temperature": round(temp, 3),
         "target_precision": target_precision,
         "per_class": rows,
         "false_trigger_curve": curve,
     }
-    path = cfg.path("reports_dir") / "operating_points.json"
+    # Keyed by source: the frozen-probe result is the only "before" we have, and
+    # overwriting it would destroy the comparison this work exists to make.
+    path = cfg.path("reports_dir") / out_name
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(out, indent=2), encoding="utf-8")
+    logger.info("wrote %s", path)
     return out
+
+
+def run(cfg: Config, feature_file: str, target_precision: float = 0.90, epochs: int = 200):
+    """Frozen-backbone path: train a linear probe over cached sweep embeddings.
+
+    This does NOT evaluate a fine-tuned checkpoint. Use `run_from_extraction`
+    for that.
+    """
+    import torch
+    import torch.nn as nn
+
+    from birdcam.data.dataset import load_labelled
+    from birdcam.data.manifest import open_manifest
+
+    emb = cfg.path("embeddings_dir") / "sweep"
+    X = np.load(emb / feature_file)
+    ood = np.load(emb / f"ood_{feature_file}")
+
+    with open_manifest(cfg.path("manifest_db")) as m:
+        items = load_labelled(cfg, m)
+        ood_rows = list(m.iter_rows("tier='OOD' AND status='downloaded'"))
+    if len(X) != len(items):
+        raise RuntimeError(f"misalignment: {len(X)} features vs {len(items)} items")
+
+    split = np.array([i.split for i in items])
+    y = np.array([i.taxon_index for i in items])
+    obs = np.array([i.observation_id or "" for i in items])
+    tr = split == "train"
+
+    mu, sd = X[tr].mean(0), X[tr].std(0) + 1e-6
+    Xz = (X - mu) / sd
+    ood_z = (ood - mu) / sd
+
+    head = nn.Linear(X.shape[1], len(cfg.taxon_classes))
+    opt = torch.optim.AdamW(head.parameters(), lr=0.01, weight_decay=1e-4)
+    ce = nn.CrossEntropyLoss()
+    xt, yt = torch.tensor(Xz[tr], dtype=torch.float32), torch.tensor(y[tr])
+    for _ in range(epochs):
+        opt.zero_grad()
+        ce(head(xt), yt).backward()
+        opt.step()
+    head.eval()
+
+    def lg(a):
+        with torch.no_grad():
+            return head(torch.tensor(a, dtype=torch.float32)).numpy()
+
+    return _calibrate_and_measure(
+        cfg,
+        X,
+        lg(Xz),
+        y,
+        split,
+        obs,
+        ood,
+        lg(ood_z),
+        np.array([r["observation_id"] or "" for r in ood_rows]),
+        target_precision,
+        source=f"frozen probe over {feature_file}",
+        out_name="operating_points.json",
+    )
+
+
+def run_from_extraction(
+    cfg: Config, checkpoint_name: str = "student_best.pt", target_precision: float = 0.90
+):
+    """Fine-tuned path: use the checkpoint's own features and logits.
+
+    No probe is trained here. The logits are the deployed model's logits, so
+    temperature, thresholds and novelty all describe the model that will ship.
+    """
+    from birdcam.data.dataset import load_labelled
+    from birdcam.data.manifest import open_manifest
+    from birdcam.eval.extract import load_extraction, ood_items
+
+    stem = checkpoint_name.replace(".pt", "")
+    emb = cfg.path("embeddings_dir") / "finetuned"
+
+    with open_manifest(cfg.path("manifest_db")) as m:
+        items = load_labelled(cfg, m)
+        ood_rows = list(m.iter_rows("tier='OOD' AND status='downloaded'"))
+        ood_it = ood_items(cfg, m)
+
+    idx = load_extraction(cfg, emb / f"{stem}_id.npz", [i.image_id for i in items])
+    ood = load_extraction(cfg, emb / f"{stem}_ood.npz", [i.image_id for i in ood_it])
+    logger.info("using %s (checkpoint sha %s)", idx.checkpoint, idx.checkpoint_sha[:12])
+
+    return _calibrate_and_measure(
+        cfg,
+        idx.features,
+        idx.taxon_logits,
+        np.array([i.taxon_index for i in items]),
+        np.array([i.split for i in items]),
+        np.array([i.observation_id or "" for i in items]),
+        ood.features,
+        ood.taxon_logits,
+        np.array([r["observation_id"] or "" for r in ood_rows]),
+        target_precision,
+        source=f"fine-tuned checkpoint {checkpoint_name} @ {idx.checkpoint_sha[:12]}",
+        out_name="operating_points_finetuned.json",
+    )
 
 
 def print_report(res: dict) -> None:
@@ -389,6 +479,16 @@ def main() -> None:
         description="Fit confidence thresholds and measure false triggers."
     )
     ap.add_argument("--features", default="tf_efficientnetv2_b0.in1k_18146.npy")
+    ap.add_argument(
+        "--checkpoint",
+        default=None,
+        help=(
+            "evaluate a fine-tuned checkpoint (e.g. student_best.pt) using its own "
+            "features and logits. Requires birdcam.eval.extract to have been run. "
+            "Without this flag a linear probe is trained over frozen sweep "
+            "embeddings, which does NOT measure any fine-tuned model."
+        ),
+    )
     ap.add_argument("--target-precision", type=float, default=0.90)
     ap.add_argument(
         "--write-config",
@@ -398,7 +498,11 @@ def main() -> None:
     args = ap.parse_args()
 
     cfg = load_config()
-    res = run(cfg, args.features, args.target_precision)
+    if args.checkpoint:
+        res = run_from_extraction(cfg, args.checkpoint, args.target_precision)
+    else:
+        res = run(cfg, args.features, args.target_precision)
+    print(f"\nsource: {res['source']}")
     print_report(res)
     if args.write_config:
         write_thresholds_to_config(cfg, res["per_class"])

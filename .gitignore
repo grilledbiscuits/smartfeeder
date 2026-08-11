@@ -49,3 +49,10 @@ htmlcov/
 
 # --- secrets: API keys live in the environment, never on disk
 .env
+.env.*
+!.env.example
+
+# --- local agent/editor state. Contains a contact email, absolute workstation
+# paths and local command permissions. Ignored by this repo rather than relying
+# on a personal global gitignore, which a fresh clone would not have.
+.claude/settings.local.json

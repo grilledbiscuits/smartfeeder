@@ -557,3 +557,43 @@ visits versus 41.95% — **+10.2pp** — at 1.5% OOD versus 1.3%, which is insid
 2× inference. Untested cheaper option: tap an *intermediate* block of the
 fine-tuned network for the novelty features, since early layers retain generic
 structure. One forward pass, no second model. That experiment has not been run.
+
+## 🔴 A26. The exported ONNX and the configured thresholds are different models
+
+Found by external audit, verified 2026-08-11.
+
+`ml/data/export/birdcam_student.json` describes the exported graph as:
+
+```json
+"training": "frozen-feature linear heads, standardisation folded in",
+"feature_file": "tf_efficientnetv2_b0.in1k_18146.npy"
+```
+
+written 12:12 on 2026-08-04. The fine-tune that produced `student_best.pt`
+finished at 23:21 the same day, and `config/taxonomy.yaml` now carries
+per-class thresholds fitted against checkpoint `a71e95cca471`.
+
+**Shipping the current `data/export/` alongside the current config would apply
+fine-tuned thresholds and temperature to a frozen-feature model.** Both
+artefacts are individually valid, which is what makes the pairing dangerous:
+nothing fails, the numbers are simply wrong.
+
+The INT8 export (`birdcam_student_int8.onnx`, 17:45) has the same problem —
+it was quantised from the frozen FP32 graph, so the 3–5pp INT8 penalty in A24
+is also a measurement of the superseded model.
+
+### Required before any deployment
+
+1. Re-export from `student_best.pt` and stamp the checkpoint SHA into the
+   sidecar, exactly as `write_thresholds_to_config` now stamps `taxonomy.yaml`.
+   Provenance in one artefact and not the other is how this happened.
+2. Re-run quantisation against that export; treat A24's INT8 figures as
+   pending until then.
+3. The deployment bundle still cannot reconstruct the open-set failsafe: the
+   ONNX graph emits only `taxon_logits` and `sex_logits`, and the kNN scorer
+   needs the 1,280-d pooled features plus its reference vectors and threshold,
+   none of which are serialised. See A25 — which also establishes that those
+   features should come from the *frozen* backbone, not the fine-tuned one.
+
+`data/` is gitignored, so this entry is the only durable record that the
+export on disk is stale.

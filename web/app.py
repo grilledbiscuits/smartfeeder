@@ -50,4 +50,21 @@ def video(filename):
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    import os
+
+    # debug=True serves Werkzeug's interactive debugger, which executes
+    # arbitrary Python from anyone who can reach it. Combined with host
+    # 0.0.0.0 that made this a remote-code-execution path for every device on
+    # the LAN, in front of an app that deliberately has no authentication.
+    #
+    # Default to loopback and no debugger. Both are opt-in via the environment
+    # so local development is unaffected, but neither can happen by accident.
+    host = os.environ.get("BIRDCAM_WEB_HOST", "127.0.0.1")
+    debug = os.environ.get("BIRDCAM_WEB_DEBUG") == "1"
+    if debug and host != "127.0.0.1":
+        raise SystemExit(
+            "Refusing to run the interactive debugger on a non-loopback host: "
+            f"BIRDCAM_WEB_HOST={host!r}. The debugger executes arbitrary code "
+            "for anyone who can reach the port."
+        )
+    app.run(host=host, port=int(os.environ.get("BIRDCAM_WEB_PORT", 5000)), debug=debug)

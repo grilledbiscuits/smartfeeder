@@ -71,6 +71,20 @@ torchvision = { index = "pytorch-cpu" }
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.hatch.build]
+# Never ship local state. Do NOT rely on .gitignore for this: hatchling does
+# not read a personal global gitignore, and .claude/settings.local.json was
+# excluded from git only by one, so it landed in the sdist complete with a
+# contact email, absolute workstation paths and local command permissions.
+exclude = [
+    ".claude/",
+    "var/",
+    "ml/data/",
+    "ml/reports/",
+    "*.onnx",
+    "*.sqlite",
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["ml/src/birdcam"]
 

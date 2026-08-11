@@ -39,6 +39,9 @@ openvino = ["openvino>=2024.2"]
 export = ["onnx>=1.16", "onnxruntime>=1.18", "onnxscript>=0.1"]
 # Experiment tracking; train_full.py falls back to TensorBoard when absent.
 tracking = ["wandb>=0.17", "tensorboard>=2.16"]  # tensorboard is the no-key fallback; install it or you get stdout only
+# Local dashboard (web/). Kept separate so a plain ML sync never pulls Flask,
+# and the dashboard install never pulls torch.
+web = ["flask>=3.0"]
 
 [dependency-groups]
 dev = [
@@ -69,15 +72,17 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/birdcam"]
+packages = ["ml/src/birdcam"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
-pythonpath = ["src"]
+testpaths = ["ml/tests"]
+pythonpath = ["ml/src"]
 
 [tool.ruff]
 line-length = 100
-src = ["src", "tests"]
+# web/ is a separate application maintained independently; it is not excluded
+# from linting, but the ML package layout is what `src` resolves imports against.
+src = ["ml/src", "ml/tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]

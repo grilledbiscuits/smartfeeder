@@ -55,10 +55,20 @@ Run the tests:
 uv run pytest -q
 ```
 
+## Repository layout
+
+Two independent projects share this repo:
+
+- **`ml/`** — the classifier: `src/birdcam/`, `config/`, `tests/`, `reports/`,
+  the gitignored `data/` corpus, and the design docs (`DECISIONS.md`,
+  `ASSUMPTIONS.md`, `RUNNING.md`). Paths below are relative to `ml/`.
+- **`web/`** — the dashboard, with its runtime state in `var/`. It imports
+  nothing from `birdcam`; see the interface contract at the end of this file.
+
 ## Configuration
 
-Everything is driven by `config/`. There are no hardcoded species lists, taxon
-IDs or paths in Python.
+Everything is driven by `ml/config/`. There are no hardcoded species lists,
+taxon IDs or paths in Python.
 
 - `config/species.yaml` — the three species tiers. **Names only**; GBIF
   `usageKey` and iNaturalist `taxon_id` are resolved at runtime and cached to
@@ -98,4 +108,56 @@ stated, or any ND / all-rights-reserved variant, is excluded. CC-BY and CC-BY-NC
 both require attribution on downstream use, so the manifest records
 `license`, `rights_holder` and `attribution_text` for **every** image.
 
-`data/` is gitignored. The manifest is the reproducible artefact, not the pixels.
+`ml/data/` is gitignored. The manifest is the reproducible artefact, not the
+pixels.
+
+## Web dashboard
+
+A minimal local dashboard for browsing feeder visits, in `web/`. It only
+reads: it never runs the classifier and doesn't import anything from
+`birdcam`, so it can be stopped, restarted, or crashed without affecting the
+feeder.
+
+**Interface contract:** the feeder/inference process saves an image and/or
+video under `var/media/{images,videos}/` and inserts one row per visit via
+`web.db.add_visit()`. The dashboard just reads `var/feeder.db` and serves
+whatever those filenames point to. That function isn't wired into the
+classifier yet — for now, `web/scripts/create_dummy_data.py` plays the role
+of the feeder process and writes realistic dummy visits.
+
+Install the dashboard's dependencies (kept separate from the ML stack — this
+doesn't pull in torch):
+
+```bash
+uv sync --extra web
+```
+
+Create some dummy visits to look at (regenerates `var/feeder.db` and sample
+media each time; uses `ffmpeg` for placeholder video clips if it's on PATH):
+
+```bash
+uv run python -m web.scripts.create_dummy_data
+```
+
+Run the dashboard:
+
+```bash
+uv run python -m web.app
+```
+
+Open `http://localhost:5000` on the Pi itself, or `http://<pi-ip>:5000` from
+another device on the same LAN — the dev server binds `0.0.0.0`.
+
+Layout:
+
+- `var/feeder.db` — SQLite `visits` table (WAL mode, so the feeder can write
+  while the dashboard reads). Gitignored; regenerated locally.
+- `var/media/images/`, `var/media/videos/` — the files `image_filename` /
+  `video_filename` point to.
+- `web/db.py` — the only module that touches SQL (`add_visit`,
+  `get_recent_visits`).
+- `web/app.py` — Flask routes: `/` renders recent visits, `/media/images/...`
+  and `/media/videos/...` serve the corresponding files.
+
+Not implemented yet, deliberately: auth, filtering, charts, live updates.
+This is a v1 foundation, not the final dashboard.

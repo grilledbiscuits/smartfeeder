@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Smart Sunbird Feeder</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>Smart Sunbird Feeder</h1>
+    <h2>Recent Visits</h2>
+
+    {% if visits %}
+    <table>
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>Species</th>
+                <th>Confidence</th>
+                <th>Duration</th>
+                <th>Image</th>
+                <th>Video</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for visit in visits %}
+            <tr>
+                <td>{{ visit.timestamp }}</td>
+                <td>{{ visit.species }}</td>
+                <td>{{ visit.confidence_pct }}%</td>
+                <td>
+                    {% if visit.duration_seconds is not none %}
+                        {{ "%.1f"|format(visit.duration_seconds) }}s
+                    {% else %}
+                        &ndash;
+                    {% endif %}
+                </td>
+                <td>
+                    {% if visit.image_exists %}
+                    <a href="{{ url_for('image', filename=visit.image_filename) }}">
+                        <img src="{{ url_for('image', filename=visit.image_filename) }}"
+                             alt="{{ visit.species }}" class="thumb">
+                    </a>
+                    {% else %}
+                    <span class="missing">no image</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if visit.video_exists %}
+                    <video controls preload="none" class="video-player">
+                        <source src="{{ url_for('video', filename=visit.video_filename) }}" type="video/mp4">
+                    </video>
+                    {% else %}
+                    <span class="missing">no video</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No visits recorded yet.</p>
+    {% endif %}
+</body>
+</html>

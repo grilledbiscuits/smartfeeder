@@ -43,7 +43,12 @@ class DirectionalMotionBlur(torch.nn.Module):
     def forward(self, img: torch.Tensor) -> torch.Tensor:
         if random.random() > self.p:
             return img
-        k = random.randrange(self.lo | 1, self.hi | 1 + 1, 2)  # odd sizes only
+        # Odd sizes only, INCLUDING self.hi. The parenthesis is load-bearing:
+        # `|` binds looser than `+`, so `self.hi | 1 + 1` parsed as
+        # `self.hi | 2`, which for the configured (3, 11) is 11 -- an exclusive
+        # stop, so the largest kernel was never generated and the strongest
+        # motion blur was silently absent from training.
+        k = random.randrange(self.lo | 1, (self.hi | 1) + 1, 2)
         kernel = torch.zeros(k, k)
         angle = random.uniform(0, 3.14159)
         cx = cy = k // 2

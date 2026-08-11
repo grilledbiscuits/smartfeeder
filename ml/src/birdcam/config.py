@@ -30,22 +30,32 @@ class ConfigError(RuntimeError):
 
 
 def repo_root() -> Path:
-    """Locate the repo root by walking up for pyproject.toml.
+    """Locate the ML project root by walking up for `config/train.yaml`.
 
-    Avoids hardcoded absolute paths and works unchanged from a Kaggle notebook,
-    where the working directory is not the repo.
+    Every path in the project is resolved against this, so getting it wrong
+    does not raise -- it silently resolves `data/processed` somewhere empty and
+    reports zero images.
+
+    The marker used to be `pyproject.toml`. That stopped being safe when the
+    repo gained a sibling `web/` application: pyproject.toml lives at the repo
+    root, one level ABOVE this project, so the walk-up would return the repo
+    root and every data path would land outside `ml/`. `config/train.yaml` is
+    the file this package actually needs, which makes it the honest marker --
+    and it still works unchanged from a Kaggle notebook, where the working
+    directory is not the repo.
     """
+    marker = Path("config") / "train.yaml"
     here = Path(__file__).resolve()
     for parent in [here, *here.parents]:
-        if (parent / "pyproject.toml").is_file():
+        if (parent / marker).is_file():
             return parent
     # Kaggle fallback: config/ sits beside the notebook's working directory.
     cwd = Path.cwd()
-    if (cwd / "config").is_dir():
+    if (cwd / marker).is_file():
         return cwd
     raise ConfigError(
-        "Could not locate repo root (no pyproject.toml in any parent, and no "
-        f"./config directory in {cwd}). Run from inside the repo, or place "
+        f"Could not locate the ML project root: no {marker} in any parent of "
+        f"{here}, and none in {cwd}. Run from inside the repo, or place "
         "config/ beside the notebook."
     )
 

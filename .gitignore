@@ -11,6 +11,11 @@
 /ml/reports/*
 !/ml/reports/.gitkeep
 
+# --- field footage: raw feeder recordings, tens of GB, individual files far
+# past GitHub's 100MB limit. Like data/, the pixels are not the artefact --
+# the extracted frames and their labels are, and those live in the manifest.
+/ml/training/
+
 # --- dashboard runtime state: visits DB + captured media (web/), regenerated
 # locally by web/scripts/create_dummy_data.py or written by the feeder later
 /var/

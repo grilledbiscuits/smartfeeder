@@ -597,3 +597,65 @@ is also a measurement of the superseded model.
 
 `data/` is gitignored, so this entry is the only durable record that the
 export on disk is stale.
+
+## 🔴 A27. First contact with real footage: the model under-triggers, badly
+
+Measured 2026-08-17 on 11,050 frames extracted from 155 minutes of feeder
+video (one feeder, one day), scored with `student_best.pt`, the fitted
+per-class thresholds and the kNN novelty gate at 15% FAR.
+
+**These are not accuracy figures.** Folder names are clip-level claims and
+frames may hold two birds or none. See `data/field.py`.
+
+| folder | n | top prediction | share | would record | flagged unknown |
+|---|---|---|---|---|---|
+| amethyst | 25 | *C. amethystina* | 100.0% | 100.0% | 0.0% |
+| capebulbul | 160 | *P. capensis* | 98.1% | **0.0%** | 1.9% |
+| capewhiteeye | 769 | *Z. virens* | 82.2% | 8.2% | 7.4% |
+| juvenileamethyst | 192 | *C. amethystina* | 83.9% | 85.4% | 12.0% |
+| doublecollared | 2316 | *C. chalybeus* | 39.8% | 55.2% | 17.3% |
+| uncut | 7588 | unknown | 60.8% | 15.7% | 60.8% |
+
+### The headline
+
+A hand count of 24 random uncut frames found **10 with a bird and 14 empty**
+— roughly 42% bird-present (95% CI ≈ 24–61%). Against that, **15.7% of the
+timeline would commit video.**
+
+So on real footage the system is **missing most birds, not recording
+squirrels.** Every false-trigger number in this repo came from web
+photographs, and they pointed the wrong way. This is the same under-trigger
+problem A20 describes, confirmed in the deployment domain.
+
+### The capture allowlist works
+
+Cape Bulbul: 98.1% correctly identified, **0.0% recorded**. A Tier C bird
+recognised and deliberately not stored, on real data — exactly what the
+allowlist fix (2026-08-11) was for. Cape White-eye still leaks 8.2%, mostly
+via `cinnyris_indet` (6.4%), which is on the allowlist by design.
+
+### The negative classes are dead, and novelty is covering for them
+
+Across 126 minutes of mostly-empty feeder, the model called a negative class
+**0.0% of the time**. `empty_feeder` has never had a positive training example,
+so an empty feeder is instead absorbed by the novelty scorer: 60.8% of uncut
+frames are flagged unknown, which tracks the ~58% that are empty.
+
+The open-set failsafe is currently doing the job of the untrained negative
+classes. It works, but it is the wrong mechanism — an unreliable distance test
+standing in for a class that could simply be trained. This footage supplies
+those examples for the first time.
+
+### The domain gap is real but narrow
+
+Max-softmax confidence: field **0.694** (median 0.667) vs web test **0.775**
+(median 0.840). Novelty: **46.1%** of field frames sit above the OOD
+threshold, against 15% by construction on web data. The feature space treats
+real feeder frames as substantially more novel than the photographs it was
+fitted on — consistent with A25, and an argument for refitting the novelty
+scorer on field data before deployment.
+
+### Double-collareds confirm the merge
+
+Only 39.8% of that folder predicts *C. chalybeus*; 17.3% unknown, 11.7%
+abstain, 8.5% `cinnyris_indet`. Worst class on web data, worst class here.

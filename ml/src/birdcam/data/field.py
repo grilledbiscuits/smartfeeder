@@ -124,18 +124,52 @@ def probe_duration(path: Path) -> float:
     return float(out) if out else 0.0
 
 
+def _drop_unreadable(paths: list[Path]) -> list[Path]:
+    """Remove frames PIL cannot open, deleting them from disk.
+
+    ffmpeg occasionally emits a zero-byte JPEG at a clip boundary -- one in
+    11,051 on the first real run. That single file killed an overnight job
+    eight hours before anyone could see it, because the failure surfaced in a
+    DataLoader worker rather than here. One bad frame out of eleven thousand
+    must cost one frame, not the run, so the check belongs at the point of
+    writing where the file can simply be discarded.
+    """
+    from PIL import Image
+
+    good = []
+    for p in paths:
+        try:
+            with Image.open(p) as im:
+                im.verify()
+            good.append(p)
+        except Exception as exc:  # noqa: BLE001 -- any unreadable file is equally useless
+            logger.warning("  dropping unreadable frame %s (%s)", p.name, type(exc).__name__)
+            p.unlink(missing_ok=True)
+    return good
+
+
 def extract_clip(clip: Path, out_dir: Path, fps: float, short_side: int) -> list[Path]:
     """Decode one clip to JPEGs at `fps`, scaled to match corpus preprocessing.
 
-    Returns the written paths in temporal order. Idempotent: a clip whose
-    frames already exist is skipped, so an interrupted run resumes rather than
-    re-decoding hours of video.
+    Returns readable paths in temporal order. Idempotent: a clip whose frames
+    already exist is skipped, so an interrupted run resumes rather than
+    re-decoding hours of video. Previously-extracted frames are re-validated on
+    the skip path too, so a run that failed on a bad frame is repaired simply
+    by running it again.
     """
     stem = clip.stem
-    existing = sorted(out_dir.glob(f"{stem}_*.jpg"))
+    # Five explicit digit places, NOT `{stem}_*.jpg`. Clip stems are prefixes of
+    # one another -- `20260816_143610` is a prefix of `20260816_143610_1` -- so
+    # the loose glob makes the base clip claim its sub-clips' frames. That
+    # produced 204 duplicate index entries with wrong clip attribution, and
+    # could let a clip mistake another's output for its own and skip extraction
+    # entirely.
+    frame_glob = f"{stem}_[0-9][0-9][0-9][0-9][0-9].jpg"
+    existing = sorted(out_dir.glob(frame_glob))
     if existing:
-        logger.info("  %s: %d frames already present, skipping", clip.name, len(existing))
-        return existing
+        good = _drop_unreadable(existing)
+        logger.info("  %s: %d frames already present, skipping", clip.name, len(good))
+        return good
 
     out_dir.mkdir(parents=True, exist_ok=True)
     pattern = str(out_dir / f"{stem}_%05d.jpg")
@@ -148,7 +182,7 @@ def extract_clip(clip: Path, out_dir: Path, fps: float, short_side: int) -> list
     if r.returncode != 0:
         logger.error("  %s: ffmpeg failed: %s", clip.name, r.stderr[-300:])
         return []
-    written = sorted(out_dir.glob(f"{stem}_*.jpg"))
+    written = _drop_unreadable(sorted(out_dir.glob(frame_glob)))
     logger.info("  %s: %d frames", clip.name, len(written))
     return written
 

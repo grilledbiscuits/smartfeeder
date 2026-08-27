@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -303,6 +304,19 @@ class StubClipClassifier:
 # -- artefact loading and the A26 guard ----------------------------------------
 
 
+_SHA_TOKEN = re.compile(r"\b([0-9a-f]{12,64})\b")
+
+
+def _sha_in(text: str) -> str:
+    """The checkpoint SHA embedded in a `source` string, or ''.
+
+    `write_thresholds_to_config` formats it as
+    "fine-tuned checkpoint student_best.pt @ a71e95cca471".
+    """
+    match = _SHA_TOKEN.search(text.lower())
+    return match.group(1) if match else ""
+
+
 def check_artefact_pairing(
     sidecar: dict[str, Any],
     operating_points: dict[str, Any],
@@ -316,6 +330,31 @@ def check_artefact_pairing(
     problems: list[str] = []
     training = str(sidecar.get("training", "")).lower()
     source = str(operating_points.get("source", ""))
+
+    # Positive check first, where the metadata supports one. Both sides now
+    # stamp the checkpoint SHA (to_onnx writes `checkpoint_sha`,
+    # write_thresholds_to_config writes it into `source`), so the pairing can
+    # be CONFIRMED rather than merely not-contradicted. Without this the
+    # string heuristics below pass whenever a sidecar simply says nothing,
+    # which is the state that produced A26 in the first place.
+    sidecar_sha = str(sidecar.get("checkpoint_sha") or "")
+    source_sha = _sha_in(source)
+    if sidecar_sha and source_sha:
+        if not sidecar_sha.startswith(source_sha):
+            problems.append(
+                f"the ONNX graph was exported from checkpoint {sidecar_sha[:12]} "
+                f"but the calibration was fitted on {source_sha}. Different "
+                "checkpoints: the thresholds and temperature do not belong to "
+                "this graph"
+            )
+    elif not sidecar_sha:
+        logger.warning(
+            "the ONNX sidecar carries no checkpoint_sha, so the pairing with %r "
+            "cannot be positively verified -- only obvious contradictions are "
+            "caught. Re-export with a current birdcam.export.to_onnx to stamp it "
+            "(ASSUMPTIONS.md A26).",
+            source or "the operating points",
+        )
 
     if not sidecar.get("trained", False):
         problems.append(

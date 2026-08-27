@@ -34,7 +34,6 @@ and report what that costs in empty-feeder suppression rather than assuming it.
 from __future__ import annotations
 
 import hashlib
-import json
 import logging
 from pathlib import Path
 
@@ -143,22 +142,22 @@ def build(cfg, target_reject: float = 0.10, max_reference: int = 1000, k: int = 
     uncut_scores = scorer.score(frozen_features(cfg, sample))
     flagged_uncut = float((uncut_scores > threshold).mean())
 
-    ref = scorer._ref
+    scorer.threshold = threshold
     out = cfg.path("data_root") / "export" / "novelty_knn.npz"
-    out.parent.mkdir(parents=True, exist_ok=True)
     meta = {
         "backbone": name,
         "features": "frozen ImageNet pretrained, NOT the fine-tuned checkpoint (A25)",
-        "k": k,
-        "n_reference": int(len(ref)),
-        "threshold": threshold,
+        "frozen_cache": chosen.name,
         "calibration": f"rejects {target_reject:.0%} of field bird frames",
         "measured_field_bird_reject": float((bird_scores > threshold).mean()),
         "measured_uncut_flagged": flagged_uncut,
-        "reference_sha": hashlib.sha256(np.ascontiguousarray(ref).tobytes()).hexdigest()[:16],
+        "reference_sha": hashlib.sha256(np.ascontiguousarray(scorer._ref).tobytes()).hexdigest()[
+            :16
+        ],
     }
-    np.savez_compressed(out, features=ref, threshold=threshold, meta=json.dumps(meta))
-    logger.info("wrote %s", out)
+    # Format and hyperparameters are owned by NoveltyScorer.save, so the reader
+    # in capture/ needs no knowledge of the layout.
+    scorer.save(out, **meta)
     for key, val in meta.items():
         logger.info("  %-26s %s", key, val)
     return out

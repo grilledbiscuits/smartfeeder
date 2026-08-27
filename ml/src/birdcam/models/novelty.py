@@ -39,8 +39,10 @@ will miss in order to stop recording squirrels.
 
 from __future__ import annotations
 
+import json
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
+from pathlib import Path
 
 import numpy as np
 
@@ -90,6 +92,86 @@ class NoveltyScorer:
         if self.threshold is None:
             raise RuntimeError(f"{self.name} not calibrated; call calibrate() first")
         return self.score(features, logits) > self.threshold
+
+    # -- serialisation ---------------------------------------------------------
+    #
+    # The on-disk format is defined HERE and nowhere else. It previously lived
+    # in two places -- the exporter wrote a bespoke .npz and the capture service
+    # read it back by assigning to the private `_ref` and re-running the private
+    # `_normalise`. That worked only because normalising an already-normalised
+    # vector is a no-op; any change to what `fit()` stores would have broken the
+    # deployment path silently, at the one point in the system whose whole job
+    # is to fail safe.
+
+    def _state(self) -> dict[str, np.ndarray]:
+        """Subclass hook: arrays this scorer needs to score again."""
+        return {}
+
+    def _load_state(self, data) -> None:
+        """Subclass hook: restore what `_state` emitted."""
+
+    def save(self, path, **meta) -> Path:
+        """Write scorer, threshold and provenance as one file.
+
+        The threshold travels WITH the reference vectors deliberately. Splitting
+        them -- vectors in a bundle, threshold in a service config -- is an
+        invitation for the two to drift, and a novelty gate carrying someone
+        else's threshold fails in the direction of silently passing intruders.
+        """
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if self.threshold is None:
+            raise RuntimeError(f"refusing to save an uncalibrated {self.name} scorer")
+        # Hyperparameters travel too. Restoring only the threshold and letting
+        # the constructor supply defaults for k / max_reference / temperature
+        # silently rescores everything: a scorer fitted at k=5 reloaded at the
+        # default k=10 flipped 116 of 200 decisions in test.
+        params = {
+            f.name: getattr(self, f.name)
+            for f in fields(self)
+            if not f.name.startswith("_") and f.name not in ("name", "threshold")
+        }
+        payload = {
+            "scorer": np.array(self.name),
+            "threshold": np.array(float(self.threshold)),
+            "params": np.array(json.dumps(params)),
+            "meta": np.array(json.dumps(meta)),
+            **self._state(),
+        }
+        np.savez_compressed(path, **payload)
+        logger.info("wrote %s scorer to %s (threshold %.4f)", self.name, path, self.threshold)
+        return path
+
+
+def load_scorer(path) -> NoveltyScorer:
+    """Reconstruct a saved scorer, dispatching on the stored name.
+
+    Counterpart to `NoveltyScorer.save`. Callers get a working scorer with its
+    threshold already set; nothing outside this module needs to know the file
+    layout or touch a private attribute.
+    """
+    path = Path(path)
+    z = np.load(path, allow_pickle=False)
+    name = str(z["scorer"])
+    kinds = {c.name: c for c in (EnergyScorer, MaxSoftmaxScorer, MahalanobisScorer, KNNScorer)}
+    if name not in kinds:
+        raise ValueError(f"{path} holds unknown scorer {name!r}; expected one of {sorted(kinds)}")
+    params = json.loads(str(z["params"])) if "params" in z.files else {}
+    known = {f.name for f in fields(kinds[name])}
+    unknown = set(params) - known
+    if unknown:
+        raise ValueError(
+            f"{path} carries parameters this build does not know: {sorted(unknown)}. "
+            "The scorer definition changed since it was saved; re-export it."
+        )
+    scorer = kinds[name](threshold=float(z["threshold"]), **params)
+    scorer._load_state(z)
+    return scorer
+
+
+def scorer_meta(path) -> dict:
+    """Provenance recorded alongside a saved scorer, without loading arrays."""
+    return json.loads(str(np.load(Path(path), allow_pickle=False)["meta"]))
 
 
 @dataclass
@@ -159,6 +241,26 @@ class MahalanobisScorer(NoveltyScorer):
     _components: np.ndarray | None = field(default=None, repr=False)
     _class_means: np.ndarray | None = field(default=None, repr=False)
     _precision: np.ndarray | None = field(default=None, repr=False)
+
+    def _state(self) -> dict[str, np.ndarray]:
+        if self._class_means is None or self._precision is None:
+            raise RuntimeError("refusing to save an unfitted mahalanobis scorer")
+        out = {
+            "mean": self._mean,
+            "class_means": self._class_means,
+            "precision": self._precision,
+        }
+        # `_components` is None when no PCA was applied; npz cannot store None,
+        # so its absence on load means exactly that.
+        if self._components is not None:
+            out["components"] = self._components
+        return out
+
+    def _load_state(self, data) -> None:
+        self._mean = _as_float64(data["mean"])
+        self._class_means = _as_float64(data["class_means"])
+        self._precision = _as_float64(data["precision"])
+        self._components = _as_float64(data["components"]) if "components" in data.files else None
 
     def _project(self, x: np.ndarray) -> np.ndarray:
         x = _as_float64(x) - self._mean
@@ -252,6 +354,16 @@ class KNNScorer(NoveltyScorer):
             X = X[rng.choice(len(X), self.max_reference, replace=False)]
         self._ref = X
         return self
+
+    def _state(self) -> dict[str, np.ndarray]:
+        if self._ref is None:
+            raise RuntimeError("refusing to save an unfitted knn scorer")
+        # Already L2-normalised by `fit`. Saved that way so loading is a plain
+        # read with no preprocessing to get wrong.
+        return {"reference": self._ref.astype(np.float32)}
+
+    def _load_state(self, data) -> None:
+        self._ref = _as_float64(data["reference"])
 
     def score(self, features: np.ndarray, logits: np.ndarray | None = None) -> np.ndarray:
         if self._ref is None:

@@ -1,0 +1,24 @@
+# Python packages for the capture service on a Raspberry Pi 4B.
+#
+#   pip install -r capture/requirements-pi.txt
+#
+# NOT INSTALLABLE WITH PIP -- these come from apt on Raspberry Pi OS Bookworm,
+# and the virtualenv must be created with --system-site-packages to see them:
+#
+#   sudo apt install -y python3-picamera2 python3-gpiozero python3-lgpio ffmpeg
+#
+# picamera2 is built against the system libcamera; the pip wheel does not exist
+# for this platform and the legacy `picamera` library does not support Camera
+# Module 3 at all.
+
+numpy>=1.26
+pyyaml>=6.0
+pillow>=10.3
+
+# Inference. onnxruntime ships aarch64 wheels; prefer a build with the XNNPACK
+# execution provider, which has the NEON INT8 kernels the Pi 4B needs
+# (reports/deployment.md).
+onnxruntime>=1.18
+
+# The dashboard this service publishes into.
+flask>=3.0

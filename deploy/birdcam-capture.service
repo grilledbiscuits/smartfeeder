@@ -1,0 +1,66 @@
+# systemd unit for the feeder capture service.
+#
+# Install:
+#   sudo cp deploy/birdcam-capture.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now birdcam-capture
+#
+# Adjust User, WorkingDirectory and ExecStart to match where the repo is
+# checked out. The paths below assume /opt/smartfeeder; see capture/README.md.
+
+[Unit]
+Description=Bird feeder motion-triggered capture and classification
+Documentation=file:/opt/smartfeeder/capture/README.md
+# Publication is same-host (SQLite + var/media), so no network is required to
+# start. This only orders the unit after the local filesystems are up.
+After=local-fs.target
+RequiresMountsFor=/opt/smartfeeder
+
+[Service]
+Type=simple
+User=birdcam
+Group=birdcam
+# video  -> /dev/video* and the camera; gpio -> /dev/gpiochip* for the PIR.
+# Without both, the service starts and then cannot claim its hardware.
+SupplementaryGroups=video gpio
+
+WorkingDirectory=/opt/smartfeeder
+Environment=PYTHONUNBUFFERED=1
+# Optional: secrets referenced as ${VAR} from capture.yaml. The leading '-'
+# means a missing file is not an error.
+EnvironmentFile=-/etc/default/birdcam-capture
+
+ExecStart=/opt/smartfeeder/.venv/bin/python -m capture \
+    --config /opt/smartfeeder/capture/config/capture.yaml
+
+# Restart on any exit, including a clean one: a capture service that has
+# stopped is a feeder that is not being watched.
+Restart=always
+RestartSec=10
+# Give an in-flight recording and its publish attempt time to finish. The
+# service handles SIGTERM and drains before exiting.
+KillSignal=SIGTERM
+TimeoutStopSec=45
+
+# Do not let repeated crashes hammer the card. After 5 failures in 10 minutes
+# systemd gives up; `systemctl reset-failed` clears it.
+StartLimitBurst=5
+StartLimitIntervalSec=600
+
+# --- hardening ---------------------------------------------------------------
+# Deliberately NOT PrivateDevices=yes: that hides /dev/video* and
+# /dev/gpiochip*, and the service would start and then fail to find its
+# hardware -- a confusing failure with a non-obvious cause.
+NoNewPrivileges=yes
+ProtectSystem=full
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+# The only path the service writes: clips, the log, and the dashboard's
+# database and media.
+ReadWritePaths=/opt/smartfeeder/var
+
+[Install]
+WantedBy=multi-user.target

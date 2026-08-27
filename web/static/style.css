@@ -1,0 +1,49 @@
+body {
+    font-family: sans-serif;
+    margin: 2rem;
+    background: #f7f7f5;
+    color: #222;
+}
+
+h1 {
+    margin-bottom: 0;
+}
+
+h2 {
+    font-weight: normal;
+    color: #555;
+    margin-top: 0.25rem;
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+    background: #fff;
+}
+
+th, td {
+    border: 1px solid #ddd;
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    vertical-align: middle;
+}
+
+th {
+    background: #eee;
+}
+
+.thumb {
+    max-width: 120px;
+    max-height: 90px;
+    display: block;
+}
+
+.video-player {
+    max-width: 220px;
+    max-height: 150px;
+}
+
+.missing {
+    color: #999;
+    font-style: italic;
+}

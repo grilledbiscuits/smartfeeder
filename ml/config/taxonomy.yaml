@@ -1,0 +1,230 @@
+# Label schema for both prediction heads, plus the inference-time rollup rules.
+#
+# TWO INDEPENDENT HEADS over a shared backbone. Deliberately NOT flattened into a
+# single combined class space: the sex/plumage signal is shared across species
+# (a female sunbird looks female in ways that generalise), and flattening would
+# fragment already-scarce female data across every species.
+
+version: 1
+
+# =============================================================================
+# HEAD 1 -- TAXON
+# =============================================================================
+# Hierarchy: species -> genus -> family -> guild
+#
+# Species membership is NOT listed here. It is derived from config/species.yaml
+# (genus = first token of the binomial) and then VERIFIED against the genus and
+# family GBIF actually returns during resolution. A mismatch is a hard error, not
+# a warning -- that is the check that catches a taxonomic revision moving a
+# species between genera.
+
+taxon_head:
+  # --- genus -> family, for EVERY genus in the label space ---------------------
+  # Required for rollup regardless of whether a genus has its own fallback class.
+  # All verified against the GBIF backbone 2026-07-31.
+  genus_family:
+    Cinnyris: Nectariniidae
+    Chalcomitra: Nectariniidae
+    Cyanomitra: Nectariniidae
+    Nectarinia: Nectariniidae
+    Anthobaphes: Nectariniidae
+    Hedydipna: Nectariniidae
+    Anthreptes: Nectariniidae
+    Promerops: Promeropidae
+    Zosterops: Zosteropidae
+    Ploceus: Ploceidae
+    Pycnonotus: Pycnonotidae
+    Passer: Passeridae
+    Sturnus: Sturnidae
+    Lamprotornis: Sturnidae
+    Onychognathus: Sturnidae
+    Colius: Coliidae
+    Urocolius: Coliidae
+    Lanius: Laniidae
+    # NOTE: GBIF resolves "Melaenornis silens" to *Sigelus silens*, genus
+    # Sigelus (matchType EXACT, via synonymy). We keep the Melaenornis name --
+    # it is current IOC usage and what the user supplied -- and record GBIF's
+    # own genus separately during resolution. Family is Muscicapidae either way,
+    # so rollup is unaffected. Flagged in ASSUMPTIONS.md.
+    Melaenornis: Muscicapidae
+    Prinia: Cisticolidae
+    Serinus: Fringillidae
+
+  # --- genus fallback classes -------------------------------------------------
+  # "a sunbird, I don't know which" must be an expressible prediction.
+  #
+  # ONLY for genera holding two or more species in our label space. A genus
+  # fallback for a single-species genus would be an untrainable dead class:
+  # there is nothing for the model to be uncertain *between*, and the genus
+  # probability would just duplicate the species probability. Single-species
+  # genera roll straight up to their family instead. Enforced in config.py.
+  genus_fallback:
+    cinnyris_indet:      { genus: Cinnyris }      # 9 species -- the hard one
+    chalcomitra_indet:   { genus: Chalcomitra }   # 2
+    cyanomitra_indet:    { genus: Cyanomitra }    # 2
+    promerops_indet:     { genus: Promerops }     # 2
+    zosterops_indet:     { genus: Zosterops }     # 2
+    ploceus_indet:       { genus: Ploceus }       # 2
+    pycnonotus_indet:    { genus: Pycnonotus }    # 3
+    passer_indet:        { genus: Passer }        # 2
+
+  # --- family fallback classes ------------------------------------------------
+  family_fallback:
+    nectariniidae_indet: { family: Nectariniidae, guild: nectarivore }
+    promeropidae_indet:  { family: Promeropidae,  guild: nectarivore }
+    zosteropidae_indet:  { family: Zosteropidae,  guild: non_target }
+    ploceidae_indet:     { family: Ploceidae,     guild: non_target }
+    pycnonotidae_indet:  { family: Pycnonotidae,  guild: non_target }
+    passeridae_indet:    { family: Passeridae,    guild: non_target }
+    sturnidae_indet:     { family: Sturnidae,     guild: non_target }
+    coliidae_indet:      { family: Coliidae,      guild: non_target }
+    laniidae_indet:      { family: Laniidae,      guild: non_target }
+    muscicapidae_indet:  { family: Muscicapidae,  guild: non_target }
+    cisticolidae_indet:  { family: Cisticolidae,  guild: non_target }
+    fringillidae_indet:  { family: Fringillidae,  guild: non_target }
+
+  # --- guild fallback ---------------------------------------------------------
+  # FUNCTIONAL grouping, not a taxonomic rank. Promerops (Promeropidae) is NOT a
+  # sunbird -- verified against GBIF 2026-07-31 -- so `nectariniidae_indet` does
+  # not cover the Cape Sugarbird. But the downstream capture app's real question
+  # is "is this a nectar-feeder visitor worth recording?", which spans both
+  # families. This node answers that question when family is itself uncertain.
+  guild_fallback:
+    nectarivore_indet: { members: [Nectariniidae, Promeropidae] }
+
+  # --- negative classes -------------------------------------------------------
+  # Not birds, or no bird. `sex_plumage` is forced to not_applicable for these.
+  negative:
+    - empty_feeder
+    - insect
+    - other_animal
+    - obstruction
+
+# =============================================================================
+# HEAD 2 -- SEX / PLUMAGE
+# =============================================================================
+sex_plumage_head:
+  classes:
+    - male_breeding
+    - male_eclipse
+    - female
+    - juvenile
+    - indeterminate
+    - not_applicable
+
+  # --- PARTIAL-LABEL GROUPS ---------------------------------------------------
+  # THE CRITICAL PIECE. Measured against the live iNaturalist API 2026-07-31:
+  # the Sex controlled term (id=9) has exactly three values -- Male=11,
+  # Female=10, Cannot Be Determined=20. There is NO eclipse annotation on
+  # iNaturalist, GBIF, Wikimedia or Flickr. Nothing we can fetch distinguishes
+  # breeding from eclipse plumage.
+  #
+  # Mapping every annotated male to `male_breeding` would be fabricating labels,
+  # and it would matter: male Nectarinia famosa eclipse plumage is strikingly
+  # different from breeding.
+  #
+  # So an annotated male with no plumage evidence is trained with a MASKED loss.
+  # It contributes gradient to the summed probability mass of the group below --
+  # "this is a male" -- but not to which member of the group. Implemented as
+  # -log(sum_{c in group} p_c). See src/birdcam/models/heads.py.
+  #
+  # Hand-labelled eclipse images slot straight in as exact labels later with no
+  # schema migration. The head's output space never changes.
+  partial_label_groups:
+    male_unspecified: [male_breeding, male_eclipse]
+
+  # Annotation value -> label. `male_unspecified` resolves to the masked group.
+  annotation_mapping:
+    inaturalist:
+      # controlled_attribute_id 9 (Sex)
+      "9|11": male_unspecified     # Male  -> masked over breeding/eclipse
+      "9|10": female
+      "9|20": indeterminate        # Cannot Be Determined -- a REAL label
+      # controlled_attribute_id 1 (Life Stage). Juvenile overrides sex: a
+      # juvenile is labelled juvenile regardless of any sex annotation.
+      "1|8": juvenile
+    gbif:
+      # GBIF occurrence `sex` field. Verified present 2026-07-31 (value "Male").
+      MALE: male_unspecified
+      FEMALE: female
+
+  # Precedence when an observation carries several annotations.
+  # Juvenile wins over sex: plumage-state classes are mutually exclusive and
+  # juvenile plumage is what the model actually sees.
+  precedence: [juvenile, female, male_unspecified, indeterminate]
+
+  # Images with NO sex annotation at all are labelled `indeterminate` and kept.
+  # They are NEVER dropped -- a large share of real feeder traffic genuinely
+  # cannot be sexed, so `indeterminate` is a first-class prediction the model
+  # must learn to make, not an absence of data.
+  unannotated_label: indeterminate
+
+  # Monomorphic species: sex is not visually determinable even in principle.
+  # Forced to not_applicable so the head is not trained on noise. Tier C species
+  # not listed here keep whatever annotation they carry.
+  monomorphic_forced_na:
+    - Zosterops virens
+    - Zosterops pallidus
+    - Pycnonotus capensis
+    - Pycnonotus tricolor
+    - Pycnonotus nigricans
+    - Sturnus vulgaris
+    - Onychognathus morio
+    - Lamprotornis nitens
+    - Colius striatus
+    - Urocolius indicus
+    - Prinia maculosa
+    - Cyanomitra veroxii
+    - Cyanomitra olivacea
+
+# =============================================================================
+# INFERENCE-TIME ROLLUP
+# =============================================================================
+# If no species logit clears its threshold but the summed genus probability
+# does, emit the genus label. Same from genus to family, and family to guild.
+# This is what lets the model say "a sunbird, I don't know which" honestly
+# instead of guessing a species.
+rollup:
+  enabled: true
+  thresholds:
+    species: 0.55
+    genus: 0.65
+    family: 0.75
+    guild: 0.80
+  # Tier A species get their own thresholds, tuned per-class from the
+  # precision-recall curves in Phase 7. Populated by the report, not by hand.
+  per_class_thresholds:
+    # Fitted 2026-08-05 from: fine-tuned checkpoint student_best.pt @ a71e95cca471
+    # Chosen as the lowest threshold reaching 80% precision on VAL;
+    # the precision and recall below are the resulting TEST figures, which
+    # are what actually hold. A class can miss the target on test.
+    # INTERIM -- refit required once the Tier A capture allowlist and the
+    # novelty feature source are settled. See ASSUMPTIONS.md A25.
+    anthobaphes_violacea: 0.28   # test precision 0.847, recall 0.921
+    chalcomitra_amethystina: 0.25   # test precision 0.800, recall 0.853
+    cinnyris_afer: 0.42   # test precision 0.781, recall 0.641  MISSED TARGET
+    cinnyris_chalybeus: 0.74   # test precision 0.833, recall 0.386
+    nectarinia_famosa: 0.43   # test precision 0.830, recall 0.770
+    promerops_cafer: 0.18   # test precision 0.729, recall 0.917  MISSED TARGET
+  # Below the guild threshold the model emits this and the capture app declines
+  # to record.
+  abstain_label: uncertain
+
+# =============================================================================
+# CLASS-SIZE POLICY
+# =============================================================================
+# Measured on iNaturalist 2026-07-31: Cinnyris manoensis and Cinnyris cupreus
+# have ZERO research-grade South African records; Anthreptes reichenowi has 33
+# globally, Cinnyris neergaardi 32. Training these as species classes would
+# produce a class the model cannot learn and metrics that mean nothing.
+#
+# Species below `min_species_images` are folded into their genus fallback class
+# automatically at manifest-build time, and the fold is REPORTED, never silent.
+class_size_policy:
+  min_species_images: 100      # below this -> fold into genus fallback
+  warn_species_images: 250     # below this -> flag in the data report
+  # A species is only reported as "separable" / "not separable" in the Phase 5
+  # fast loop if its TEST split has at least this many images. Below it, the
+  # verdict is "insufficient data to decide" -- see DECISIONS.md on why a merge
+  # recommendation from n=16 is not trustworthy.
+  min_test_images_for_verdict: 50

@@ -30,6 +30,21 @@ from birdcam.config import Config, load_config
 logger = logging.getLogger(__name__)
 
 
+def _sha256_file(path: Path, chunk: int = 1 << 20) -> str:
+    """SHA-256 of a file, matching `eval.extract._sha256_file`.
+
+    Same convention on both sides so a sidecar SHA and a thresholds SHA are
+    comparable without anyone having to check how each was computed.
+    """
+    import hashlib
+
+    h = hashlib.sha256()
+    with path.open("rb") as fh:
+        while block := fh.read(chunk):
+            h.update(block)
+    return h.hexdigest()
+
+
 def export(
     cfg: Config,
     role: str = "student",
@@ -49,11 +64,13 @@ def export(
 
     model, backbone_name = build_model(cfg, role)
     trained = False
+    checkpoint_sha = ""
     if checkpoint and checkpoint.is_file():
         state = torch.load(checkpoint, map_location="cpu")
         model.load_state_dict(state["model"] if "model" in state else state)
         trained = True
-        logger.info("loaded weights from %s", checkpoint)
+        checkpoint_sha = _sha256_file(checkpoint)
+        logger.info("loaded weights from %s (sha %s)", checkpoint, checkpoint_sha[:12])
     else:
         logger.warning(
             "NO CHECKPOINT -- exporting randomly-initialised weights. The graph "
@@ -92,6 +109,20 @@ def export(
         "backbone": backbone_name,
         "role": role,
         "trained": trained,
+        # PROVENANCE. A26: a frozen-feature export was paired with thresholds
+        # fitted on the fine-tuned checkpoint, and nothing failed -- the labels
+        # were simply wrong. The sidecar could not say which model it held,
+        # while taxonomy.yaml could. Stamping the checkpoint and its SHA here
+        # is what lets a consumer verify the pairing instead of assuming it;
+        # the format matches `write_thresholds_to_config`'s `source` so the two
+        # strings can be compared directly.
+        "training": (
+            f"fine-tuned checkpoint {checkpoint.name} @ {checkpoint_sha[:12]}"
+            if checkpoint_sha
+            else "no checkpoint -- randomly-initialised weights"
+        ),
+        "checkpoint": checkpoint.name if checkpoint_sha else None,
+        "checkpoint_sha": checkpoint_sha,
         "image_size": size,
         "opset": cfg.train_cfg["export"]["onnx_opset"],
         "taxon_classes": cfg.taxon_classes,

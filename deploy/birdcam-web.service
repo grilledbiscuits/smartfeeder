@@ -1,0 +1,50 @@
+# systemd unit for the bird feeder dashboard.
+#
+# Install:
+#   sudo install -m 0644 deploy/birdcam-web.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now birdcam-web
+#
+# The paths below assume the repository and virtualenv are under
+# /opt/smartfeeder, as described in deploy/README.md.
+
+[Unit]
+Description=Bird feeder dashboard
+Documentation=file:/opt/smartfeeder/README.md
+After=local-fs.target
+RequiresMountsFor=/opt/smartfeeder
+StartLimitBurst=5
+StartLimitIntervalSec=600
+
+[Service]
+Type=simple
+User=birdcam
+Group=birdcam
+WorkingDirectory=/opt/smartfeeder
+
+Environment=PYTHONUNBUFFERED=1
+# The Pi is normally headless, so listen on its LAN interfaces. The dashboard
+# has no authentication and must not be exposed through router port forwarding.
+Environment=BIRDCAM_WEB_HOST=0.0.0.0
+# Optional local overrides, such as BIRDCAM_WEB_PORT. Never enable
+# BIRDCAM_WEB_DEBUG on a non-loopback host; web/app.py rejects that combination.
+EnvironmentFile=-/etc/default/birdcam-web
+
+ExecStart=/opt/smartfeeder/.venv/bin/python -m web.app
+
+Restart=always
+RestartSec=10
+
+# The dashboard writes the SQLite database's WAL files during reads and creates
+# the database on first use, so it needs the same runtime directory as capture.
+NoNewPrivileges=yes
+ProtectSystem=full
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+ReadWritePaths=/opt/smartfeeder/var
+
+[Install]
+WantedBy=multi-user.target

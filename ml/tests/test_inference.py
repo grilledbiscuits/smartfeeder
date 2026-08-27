@@ -122,3 +122,54 @@ def test_unknown_suppresses_a_target(cfg, clf) -> None:
     d = c.decide(z, np.zeros(len(cfg.sex_classes)), features=np.zeros((1, 8)))
     assert d.is_unknown
     assert not d.should_record
+
+
+# --- the vote must preserve what the frames decided ----------------------------
+#
+# The capture application never acts on a single frame: it samples a clip,
+# calls decide() per frame and then vote(), and reads should_record off the
+# VOTED decision. vote() rebuilt the Decision field by field and omitted
+# is_capture_target, so the flag reverted to its default of False and every
+# voted decision -- including a unanimous, confident Tier A target -- was
+# discarded. Every test above passes on the per-frame path and none of them
+# touched this one.
+
+
+def test_vote_preserves_capture_target(cfg, clf) -> None:
+    """A unanimous Tier A vote must still be recordable."""
+    frames = [decide_for(cfg, clf, "cinnyris_chalybeus") for _ in range(3)]
+    assert all(f.should_record for f in frames)
+
+    voted = clf.vote(frames)
+    assert voted.label == "cinnyris_chalybeus"
+    assert voted.is_capture_target
+    assert voted.should_record, "a voted Tier A target would not be recorded"
+
+
+def test_vote_does_not_invent_a_capture_target(cfg, clf) -> None:
+    """The flag is carried, not re-derived: a Tier C vote stays unrecordable."""
+    frames = [decide_for(cfg, clf, "zosterops_virens") for _ in range(3)]
+    voted = clf.vote(frames)
+    assert voted.label == "zosterops_virens"
+    assert not voted.is_capture_target
+    assert not voted.should_record
+
+
+def test_vote_over_every_tier_a_species_records(cfg, clf) -> None:
+    for s in cfg.species_by_tier("A"):
+        voted = clf.vote([decide_for(cfg, clf, s.slug) for _ in range(3)])
+        assert voted.should_record, f"voted Tier A {s.slug} would not be recorded"
+
+
+def test_majority_unknown_still_suppresses_a_target(cfg, clf) -> None:
+    """The unknown branch has no members to carry a flag; it must stay off."""
+    from birdcam.inference import Decision
+
+    frames = [
+        Decision(label="unknown", level="unknown", confidence=0.0, is_unknown=True),
+        Decision(label="unknown", level="unknown", confidence=0.0, is_unknown=True),
+        decide_for(cfg, clf, "cinnyris_chalybeus"),
+    ]
+    voted = clf.vote(frames)
+    assert voted.is_unknown
+    assert not voted.should_record

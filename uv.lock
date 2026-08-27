@@ -76,6 +76,12 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+capture = [
+    { name = "flask" },
+    { name = "onnxruntime" },
+    { name = "pillow" },
+    { name = "pyyaml" },
+]
 export = [
     { name = "onnx" },
     { name = "onnxruntime" },
@@ -101,20 +107,24 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "flask", marker = "extra == 'capture'", specifier = ">=3.0" },
     { name = "flask", marker = "extra == 'web'", specifier = ">=3.0" },
     { name = "imagehash", specifier = ">=4.3" },
     { name = "jinja2", specifier = ">=3.1" },
     { name = "matplotlib", specifier = ">=3.8" },
     { name = "numpy", specifier = ">=1.26" },
     { name = "onnx", marker = "extra == 'export'", specifier = ">=1.16" },
+    { name = "onnxruntime", marker = "extra == 'capture'", specifier = ">=1.18" },
     { name = "onnxruntime", marker = "extra == 'export'", specifier = ">=1.18" },
     { name = "onnxscript", marker = "extra == 'export'", specifier = ">=0.1" },
     { name = "openvino", marker = "extra == 'openvino'", specifier = ">=2024.2" },
     { name = "pandas", specifier = ">=2.2" },
     { name = "pillow", specifier = ">=10.3" },
+    { name = "pillow", marker = "extra == 'capture'", specifier = ">=10.3" },
     { name = "pyarrow", specifier = ">=16.0" },
     { name = "pydantic", specifier = ">=2.7" },
     { name = "pyyaml", specifier = ">=6.0" },
+    { name = "pyyaml", marker = "extra == 'capture'", specifier = ">=6.0" },
     { name = "requests", specifier = ">=2.32" },
     { name = "scikit-learn", specifier = ">=1.5" },
     { name = "tensorboard", marker = "extra == 'tracking'", specifier = ">=2.16" },
@@ -124,7 +134,7 @@ requires-dist = [
     { name = "tqdm", specifier = ">=4.66" },
     { name = "wandb", marker = "extra == 'tracking'", specifier = ">=0.17" },
 ]
-provides-extras = ["openvino", "export", "tracking", "web"]
+provides-extras = ["openvino", "export", "tracking", "web", "capture"]
 
 [package.metadata.requires-dev]
 dev = [

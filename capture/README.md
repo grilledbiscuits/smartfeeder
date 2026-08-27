@@ -139,9 +139,10 @@ ml/data/export/birdcam_student.json      # class order + image size; ships toget
 ml/reports/operating_points_finetuned.json   # temperature + fitted thresholds
 ```
 
-> **See "Known issues" below before doing this.** The export currently in the
-> repo does not match the calibration, and the service will refuse to start on
-> that pairing.
+The export in `ml/data/export/` was regenerated from `student_best.pt` on
+2026-08-27 and its sidecar stamps the checkpoint SHA, so it pairs with the
+calibration above; `--check` in step 4 verifies that by comparing the two SHAs
+and exits non-zero if they ever diverge again.
 
 ### 4. Config
 
@@ -238,7 +239,7 @@ startup error naming the key. Highlights:
 | `classifier.enabled` | `true` | `false` records and retains everything unclassified |
 | `classifier.sample_fps` / `max_frames` | `2.0` / `12` | Sampled frames only, never every frame |
 | `classifier.providers` | XNNPACK, CPU | XNNPACK has the NEON INT8 kernels for the Pi 4B |
-| `classifier.novelty.enabled` | `false` | See "Known issues" |
+| `classifier.novelty.enabled` | `true` | `energy` scorer at `-5.669`. See "Known issues" |
 | `publish.retain_uncertain` | `true` | Keep abstained clips for review; never published |
 | `publish.escalate_after_attempts` | `5` | **Not** a give-up count — see below |
 | `logging.format` | `text` | `json` for one object per line |
@@ -288,26 +289,47 @@ returns to idle. Nothing propagates out of the worker loop.
 
 ## Known issues
 
-**The model artefacts in this repo cannot currently be deployed together.**
-`ASSUMPTIONS.md` A26: `ml/data/export/birdcam_student.onnx` is a
-*frozen-feature* export, while `config/taxonomy.yaml`'s thresholds and
-`reports/operating_points_finetuned.json`'s temperature were fitted on the
-*fine-tuned* checkpoint. Both artefacts are individually valid, which is what
-makes the pairing dangerous: nothing fails, the labels are simply wrong. The
-service detects this and **refuses to start**. Re-export from
-`student_best.pt`, or set `classifier.allow_artefact_mismatch: true` to
-override deliberately.
+**RESOLVED — the artefact mismatch (A26).** `ml/data/export/` was re-exported
+from `student_best.pt` on 2026-08-27 and the sidecar now stamps `checkpoint`
+and `checkpoint_sha` (`a71e95cca471`), matching the SHA that
+`reports/operating_points_finetuned.json` records in its `source`.
+`check_artefact_pairing` compares the two and **confirms** the pairing rather
+than merely failing to contradict it; a sidecar with no SHA now logs a warning
+saying so. `python -m capture --check` exits 0.
 
-**The open-set failsafe is off.** Without it the softmax always returns one of
-the 62 taxon classes, so a squirrel is reported as the least-bad bird rather
-than `unknown`. It is off because the deployment bundle cannot reconstruct the
-kNN scorer: the ONNX graph emits logits only, and kNN needs the 1,280-d pooled
-features from the *frozen* backbone plus its reference vectors (A25, A26).
-The seam is in place — `classifier.novelty` — and `scorer: energy` works
-**today** with no extra artefacts, scoring the logits the graph already emits
-(AUROC 0.927, 68.1 % of OOD caught at 5 % false-alarm rate, threshold −8.4859,
-from `reports/open_set.json`). Weaker than kNN, but a real gate rather than
-none.
+*Still outstanding from A26:* `birdcam_student_int8.onnx` was quantised from
+the superseded frozen-feature graph, so A24's 3–5pp INT8 penalty remains a
+measurement of the old model. The INT8 file has no sidecar, so pointing
+`classifier.onnx_path` at it fails at startup rather than running the wrong
+graph — but the Pi 4B wants INT8 (`reports/deployment.md`), so re-running
+`birdcam.export.quantize` is the next deployment task.
+
+**The open-set failsafe is on, and it costs adult Amethyst Sunbird.**
+`scorer: energy` at `-5.669` needs no artefacts beyond the graph's own logits,
+which is what makes it deployable where kNN is not (kNN needs the 1,280-d
+pooled features the graph does not emit — A25, A26). Measured on the field
+frames with the re-exported graph:
+
+| footage | frames | flagged `unknown` | visit survives |
+|---|---|---|---|
+| continuous (`uncut`, 500 sampled at random) | 500 | 42.2% | — |
+| `doublecollared` / `southerndoublecollared` | 60 each | 1.7% | yes |
+| `juvenileamethyst` | 60 | 11.7% | yes |
+| **`amethyst`** | **25** | **84.0%** | **no — voted `unknown`, discarded** |
+
+Adult *Chalcomitra amethystina* frames score energy −6.33 to −4.66 (median
+−5.11) while continuous footage sits at median −5.83, so the adult amethyst
+distribution lies **above** the empty-feeder one. There is no threshold that
+gates an empty feeder and still passes this species; at −5.0 the gate flags
+only 3.6% of continuous frames and has stopped doing useful work. This is a
+separability failure of the energy scorer on one species, not a tuning
+mistake. n=25 from one folder, so it is suggestive rather than settled — but
+it is the only adult-amethyst field evidence there is, and A27 measured that
+same folder at 100% correct and 100% would-record under the *kNN* gate.
+
+Lower `classifier.novelty.threshold`, or set `enabled: false`, if losing that
+species matters more than gating empty frames. A27's headline — the system
+misses most birds rather than recording squirrels — argues that it does.
 
 **The guild rollup emits a label that is not in the label space.**
 `Classifier.decide` builds guild fallbacks as `f"{guild}_indet"`, and

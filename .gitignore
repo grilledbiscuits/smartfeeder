@@ -61,3 +61,8 @@ htmlcov/
 # paths and local command permissions. Ignored by this repo rather than relying
 # on a personal global gitignore, which a fresh clone would not have.
 .claude/settings.local.json
+
+# --- capture service local config: may carry ${VAR}-expanded secrets and is
+# per-deployment (GPIO pin, site prior, paths). The committed reference is
+# capture/config/capture.example.yaml.
+/capture/config/capture.yaml

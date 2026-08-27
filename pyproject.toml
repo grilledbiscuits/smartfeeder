@@ -42,6 +42,11 @@ tracking = ["wandb>=0.17", "tensorboard>=2.16"]  # tensorboard is the no-key fal
 # Local dashboard (web/). Kept separate so a plain ML sync never pulls Flask,
 # and the dashboard install never pulls torch.
 web = ["flask>=3.0"]
+# On-device capture service (capture/). Deliberately excludes picamera2 and
+# gpiozero: on Raspberry Pi OS Bookworm both come from apt, built against the
+# system libcamera, and the venv is created with --system-site-packages to see
+# them. See capture/requirements-pi.txt.
+capture = ["onnxruntime>=1.18", "pillow>=10.3", "pyyaml>=6.0", "flask>=3.0"]
 
 [dependency-groups]
 dev = [
@@ -89,14 +94,16 @@ exclude = [
 packages = ["ml/src/birdcam"]
 
 [tool.pytest.ini_options]
-testpaths = ["ml/tests"]
-pythonpath = ["ml/src"]
+# capture/tests needs the repo root on the path too: the capture package
+# imports `web` (the dashboard contract) alongside `birdcam`.
+testpaths = ["ml/tests", "capture/tests"]
+pythonpath = ["ml/src", "."]
 
 [tool.ruff]
 line-length = 100
 # web/ is a separate application maintained independently; it is not excluded
 # from linting, but the ML package layout is what `src` resolves imports against.
-src = ["ml/src", "ml/tests"]
+src = ["ml/src", "ml/tests", "."]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]

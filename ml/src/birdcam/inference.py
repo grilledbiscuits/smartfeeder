@@ -330,6 +330,13 @@ class Classifier:
             sex_label=_majority([d.sex_label for d in members if d.sex_label]),
             sex_confidence=float(np.mean([d.sex_confidence for d in members])),
             novelty_score=float(np.mean([d.novelty_score for d in decisions])),
+            # Carry the allowlist flag through the vote. Omitting it left the
+            # field at its default of False, so `should_record` was False for
+            # EVERY voted decision and the capture application discarded every
+            # clip -- including confident Tier A targets. `members` all share
+            # `label`, and the flag is a function of the label, so any member
+            # answers for the group.
+            is_capture_target=members[0].is_capture_target,
             top_k=members[0].top_k,
         )
 

@@ -155,42 +155,15 @@ still uses NEON via MLAS.
 ## 7. Install both services
 
 ```bash
-sudo cp /opt/smartfeeder/deploy/birdcam-capture.service /etc/systemd/system/
+sudo install -m 0644 /opt/smartfeeder/deploy/birdcam-capture.service /etc/systemd/system/
+sudo install -m 0644 /opt/smartfeeder/deploy/birdcam-web.service /etc/systemd/system/
 ```
 
-The dashboard has no unit in the repo; create one:
-
-```bash
-sudo tee /etc/systemd/system/birdcam-web.service >/dev/null <<'EOF'
-[Unit]
-Description=Bird feeder dashboard
-After=local-fs.target
-RequiresMountsFor=/opt/smartfeeder
-
-[Service]
-Type=simple
-User=birdcam
-Group=birdcam
-WorkingDirectory=/opt/smartfeeder
-Environment=PYTHONUNBUFFERED=1
-# The dashboard defaults to loopback, which is useless on a headless board.
-# Do NOT also set BIRDCAM_WEB_DEBUG=1: web/app.py refuses to run Werkzeug's
-# interactive debugger on a non-loopback host, and that guard is protecting an
-# application with no authentication.
-Environment=BIRDCAM_WEB_HOST=0.0.0.0
-ExecStart=/opt/smartfeeder/.venv/bin/python -m web.app
-Restart=always
-RestartSec=10
-NoNewPrivileges=yes
-ProtectSystem=full
-ProtectHome=yes
-PrivateTmp=yes
-ReadWritePaths=/opt/smartfeeder/var
-
-[Install]
-WantedBy=multi-user.target
-EOF
-```
+Both unit files are tracked in `deploy/`. The dashboard binds to all LAN
+interfaces by default because the target is headless. It has no authentication,
+so do not expose port 5000 through router port forwarding. Optional environment
+overrides can be placed in `/etc/default/birdcam-web`; do not enable
+`BIRDCAM_WEB_DEBUG` while it is listening on a non-loopback address.
 
 ```bash
 sudo systemctl daemon-reload && sudo systemctl enable --now birdcam-capture birdcam-web

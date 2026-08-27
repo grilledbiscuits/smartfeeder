@@ -1,0 +1,180 @@
+# Capture service configuration -- the complete reference.
+#
+# Copy to capture/config/capture.yaml and edit. There are no defaults in
+# Python: a missing key is a startup error naming the key, so this file is the
+# only place any tunable lives.
+#
+# Paths are relative to the repo root unless absolute.
+#
+# Any value may contain ${VAR} or ${VAR:-fallback}, expanded from the
+# environment at load time. Use that for anything secret; an unset ${VAR} with
+# no fallback is a fatal error rather than an empty string. The same-host
+# publisher needs no credentials, so nothing here requires one today.
+
+version: 1
+
+# =============================================================================
+# GPIO -- HC-SR501 PIR
+# =============================================================================
+gpio:
+  # BCM numbering, not physical pin numbers. GPIO4 is physical pin 7.
+  # See README for the wiring table.
+  pin: 4
+  # gpiozero's polling rate for its own edge-detection thread. The service
+  # itself is event-driven and blocks; this only sets how finely gpiozero
+  # samples the pin.
+  sample_rate_hz: 10.0
+  # 1 = report the raw pin state with no averaging. The HC-SR501 debounces in
+  # hardware and holds its output high for its whole retrigger window, so
+  # averaging on top only delays the first edge -- the one that catches a bird
+  # landing.
+  queue_len: 1
+  # The HC-SR501's pyroelectric sensor emits spurious highs while it settles
+  # after power-up. Without this the service records a burst of nothing every
+  # time it restarts. The datasheet says up to a minute.
+  warmup_seconds: 60.0
+
+# =============================================================================
+# CAMERA -- Camera Module 3 via picamera2
+# =============================================================================
+camera:
+  # 720p. The classifier centre-crops to 224px, so more pixels are thrown away
+  # rather than used; this buys margin for the crop without paying 1080p's
+  # bitrate and thermal cost. Both dimensions must be even (H.264 4:2:0).
+  width: 1280
+  height: 720
+  framerate: 25
+  # ~4 Mbps -> roughly 4 MB for an 8-second clip. The Pi 4B keeps the hardware
+  # H.264 encoder the Pi 5 dropped (reports/deployment.md), so this costs
+  # almost no CPU on this board.
+  bitrate_kbps: 4000
+  # AGC/AWB convergence. Recording immediately gives a clip whose first frames
+  # are mis-exposed -- and those are the frames the classifier samples first.
+  warmup_seconds: 1.0
+
+# =============================================================================
+# CAPTURE -- clip length, cooldown, concurrency
+# =============================================================================
+capture:
+  clip_seconds: 8.0
+  # Starts when a trigger is ADMITTED. Must be >= clip_seconds or a second
+  # trigger could start a recording while the first is still being written;
+  # that is checked at load time and is fatal.
+  cooldown_seconds: 30.0
+  # What to do with a trigger arriving while the previous event is still
+  # recording, classifying or publishing:
+  #   queue -- hold it, up to max_queued, and handle it next
+  #   drop  -- discard it, with a log line
+  on_busy: queue
+  # Events waiting BEHIND the one in flight. 1 is deliberate: a deeper queue
+  # mostly accumulates re-triggers from the same visit, which the cooldown is
+  # already there to suppress.
+  max_queued: 1
+
+# =============================================================================
+# STORAGE
+# =============================================================================
+storage:
+  # In-progress recordings. Anything here at startup is crash debris and is
+  # deleted -- an unfinalised H.264 stream is not a clip.
+  work_dir: var/capture/work
+  # Recorded, classified, on the allowlist, publication NOT yet confirmed.
+  # Never deleted to make room. This is the promise that no clip is lost.
+  pending_dir: var/capture/pending
+  # Clips the classifier abstained on, kept for a human look. These ARE
+  # evictable, oldest first.
+  review_dir: var/capture/review
+  # Recording stops rather than filling the card. Review clips are evicted
+  # first; pending clips never are.
+  min_free_mb: 1024
+  # Hard ceiling on unconfirmed clips. Reaching it stops recording, because the
+  # alternative is deleting evidence. Raise it only alongside min_free_mb.
+  max_pending_clips: 200
+  max_review_clips: 100
+  # Delete the local copy once publication is confirmed. false keeps it under
+  # review_dir, which is useful while you are still checking the model's work.
+  delete_after_publish: true
+
+# =============================================================================
+# CLASSIFIER
+# =============================================================================
+classifier:
+  # false records and retains everything unclassified -- useful for collecting
+  # field footage before the model is deployable, which is exactly the data
+  # ASSUMPTIONS.md A27 says the project needs.
+  enabled: true
+  onnx_path: ml/data/export/birdcam_student.onnx
+  # Temperature and the fitted per-class thresholds come from here. Without it
+  # the confidences recorded are uncalibrated, and confidence gates capture.
+  operating_points: ml/reports/operating_points_finetuned.json
+  # Per-class range prior for the deployment site. null disables it.
+  site_prior: ml/config/sites/rondebosch.yaml
+  # Frames per second sampled from each clip. deployment.md for the Pi 4B:
+  # "Classify SAMPLED frames only, never every frame."
+  sample_fps: 2.0
+  # Cap per clip. 12 frames at 2 fps covers the first 6 seconds of an 8-second
+  # clip, which is where a landing bird actually is.
+  max_frames: 12
+  # XNNPACK first: it has NEON INT8 kernels and is the recommended provider for
+  # the Pi 4B (reports/deployment.md). Falls back if not built in.
+  providers:
+    - XnnpackExecutionProvider
+    - CPUExecutionProvider
+  # Guard against shipping a graph and a calibration that describe different
+  # models. Set to the string you expect in the operating points' `source`
+  # field, or null to skip this particular check.
+  expect_source: null
+  # ASSUMPTIONS.md A26: the export currently on disk is a frozen-feature graph
+  # while the thresholds were fitted on the fine-tuned checkpoint. The service
+  # refuses to start on that pairing. Set true only to override deliberately --
+  # nothing will fail, the labels will simply be wrong.
+  allow_artefact_mismatch: false
+  # Keep sampled frames on disk after classification, for debugging.
+  keep_frames: false
+
+  # --- open-set failsafe ------------------------------------------------------
+  # Without this the softmax always returns one of the taxon classes, so a
+  # squirrel is reported as the least-bad bird instead of `unknown`.
+  #
+  # Currently OFF because the deployment bundle cannot reconstruct the kNN
+  # scorer: the ONNX graph emits logits only, and kNN needs the 1,280-d pooled
+  # features from the FROZEN backbone plus its reference vectors (A25, A26).
+  #
+  # `energy` works today and needs nothing extra -- it scores the logits the
+  # graph already emits. Weaker than kNN but a real gate rather than none:
+  # reports/open_set.json gives AUROC 0.927 and 68.1% of OOD caught at a 5%
+  # false-alarm rate, threshold -8.4859.
+  novelty:
+    enabled: false
+    scorer: energy          # energy | max_softmax | knn
+    threshold: null         # e.g. -8.4859 for energy at 5% FAR
+    reference: null         # .npz of reference features; knn only
+
+# =============================================================================
+# PUBLISH -- to the dashboard (web/)
+# =============================================================================
+publish:
+  # `uncertain` means "probably a bird, but I cannot pin it down". A27 measured
+  # the deployed system missing most real birds rather than recording
+  # squirrels, and these clips are the only local evidence of what it misses.
+  # Kept under max_review_clips, never published.
+  retain_uncertain: true
+  # Attempts before a publish failure escalates from WARNING to ERROR. NOT a
+  # give-up count: a clip whose publication is unconfirmed is never abandoned
+  # and never deleted. Retries continue at backoff_max_seconds.
+  escalate_after_attempts: 5
+  backoff_initial_seconds: 5.0
+  backoff_max_seconds: 900.0
+  backoff_factor: 2.0
+
+# =============================================================================
+# LOGGING
+# =============================================================================
+logging:
+  level: INFO
+  file: var/capture/capture.log
+  max_bytes: 5000000
+  backup_count: 5
+  # text -- readable, structured fields appended as key=value
+  # json -- one object per line, for jq
+  format: text

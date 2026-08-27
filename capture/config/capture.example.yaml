@@ -113,7 +113,17 @@ classifier:
   # "Classify SAMPLED frames only, never every frame."
   sample_fps: 2.0
   # Cap per clip. 12 frames at 2 fps covers the first 6 seconds of an 8-second
-  # clip, which is where a landing bird actually is.
+  # clip, which is where a landing bird actually is -- and with a PIR trigger
+  # the arrival IS the trigger, so the bird is at the start by construction.
+  #
+  # MEASURED 2026-08-27, do not raise this hoping to catch more visits. Across
+  # 44 Tier A field clips, clips firing by frames sampled:
+  #   4 frames (2s)  79.5%
+  #   8 frames (4s)  95.5%
+  #  12 frames (6s) 100.0%
+  #  16/24/all      100.0%
+  # It saturates exactly here. More frames buy nothing and cost Pi inference
+  # time linearly.
   max_frames: 12
   # XNNPACK first: it has NEON INT8 kernels and is the recommended provider for
   # the Pi 4B (reports/deployment.md). Falls back if not built in.
@@ -134,20 +144,34 @@ classifier:
 
   # --- open-set failsafe ------------------------------------------------------
   # Without this the softmax always returns one of the taxon classes, so a
-  # squirrel is reported as the least-bad bird instead of `unknown`.
+  # squirrel or a hand refilling the feeder is reported as the least-bad bird.
   #
-  # Currently OFF because the deployment bundle cannot reconstruct the kNN
-  # scorer: the ONNX graph emits logits only, and kNN needs the 1,280-d pooled
-  # features from the FROZEN backbone plus its reference vectors (A25, A26).
+  # `energy` scores the logits the graph already emits, so it costs nothing and
+  # needs no extra artefact. kNN is stronger but needs the 1,280-d pooled
+  # features from the FROZEN backbone, which the current graph does not output
+  # (A25, A26). The reference bundle for it is already built and waiting at
+  # ml/data/export/novelty_knn.npz -- switching is a config change once the
+  # graph emits features.
   #
-  # `energy` works today and needs nothing extra -- it scores the logits the
-  # graph already emits. Weaker than kNN but a real gate rather than none:
-  # reports/open_set.json gives AUROC 0.927 and 68.1% of OOD caught at a 5%
-  # false-alarm rate, threshold -8.4859.
+  # THRESHOLD PROVENANCE. Measured 2026-08-27 on 11,050 real feeder frames with
+  # the fine-tuned checkpoint. -5.669 rejects 10% of real bird FRAMES and flags
+  # 41.6% of continuous-footage frames (~58% of which are genuinely empty).
+  #
+  # Do NOT use the -8.4859 that older comments suggest. That came from
+  # reports/open_set.json, fitted on the frozen-probe model against web
+  # photographs; against the fine-tuned model on real footage it gates almost
+  # nothing. Same class of mismatch as the per-class thresholds fitted on web
+  # photos while field confidence sits ~0.2 lower (A27).
+  #
+  # Why 10% and not something gentler: the frame-level cost does not reach the
+  # visit. Measured across 44 Tier A field clips, every one still fires at every
+  # reject rate tested up to 15% -- voting over 12 frames absorbs a few losses.
+  # That sample is dense-bird cut footage though, so a PIR clip where the bird
+  # lands late has fewer frames to spare. Lower this first if visits go missing.
   novelty:
-    enabled: false
+    enabled: true
     scorer: energy          # energy | max_softmax | knn
-    threshold: null         # e.g. -8.4859 for energy at 5% FAR
+    threshold: -5.669       # 10% of real bird frames rejected; see above
     reference: null         # .npz of reference features; knn only
 
 # =============================================================================

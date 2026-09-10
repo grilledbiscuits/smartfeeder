@@ -100,7 +100,7 @@ def score_frames(frames: list[Path], background: np.ndarray) -> np.ndarray:
     return np.array([_block_max(np.abs(_load_small(p) - background)) for p in frames])
 
 
-def propose_threshold(scores: np.ndarray, empty_percentile: float = 0.30) -> float:
+def propose_threshold(scores: np.ndarray, empty_percentile: float = 0.15) -> float:
     """Threshold at a conservative per-session percentile of the score.
 
     Otsu's method was the first attempt and it fails here. It assumes the score
@@ -111,9 +111,28 @@ def propose_threshold(scores: np.ndarray, empty_percentile: float = 0.30) -> flo
 
     Measured precision of the frames below the cut, by eye on 24 random samples:
 
+    On the 2026-08 footage (one fixed camera, 7,588 frames):
+
         whole-frame mean + Otsu       83%   (4 of 24 held a bird)
         block-max + Otsu              67%   (8 of 24)
         block-max, RGB, bottom 30%    96%   (1 of 24)
+
+    On the 2026-09 footage (13,475 frames), the same scorer does WORSE:
+
+        bottom 30%                    83%   (4 of 24)
+        bottom 15%                    92%   (2 of 24)
+
+    The newer sessions are harder: the camera was repositioned between them, the
+    crop is tighter, and backgrounds vary from shade cloth to brick to foliage.
+    Both residual failures at 15% are low-contrast -- a dark Amethyst Sunbird
+    against shaded tarp, a Cape White-eye against green -- which are precisely
+    the frames a classifier finds hardest, so mislabelling them as empty is
+    worse than the raw rate suggests.
+
+    92% is NOT clean enough to treat as gold labels. Use these as candidates for
+    human review, not as finished training data; a person can flick through
+    2,000 thumbnails far faster than this can be tuned, and each further tuning
+    pass risks fitting the threshold to the samples already inspected.
 
     Recall is deliberately sacrificed. These frames become `empty_feeder`
     training examples, and a negative class poisoned with birds is worse than a
@@ -123,7 +142,7 @@ def propose_threshold(scores: np.ndarray, empty_percentile: float = 0.30) -> flo
     return float(np.quantile(scores, empty_percentile))
 
 
-def run(cfg, frames_root: Path | None = None, empty_percentile: float = 0.30) -> dict:
+def run(cfg, frames_root: Path | None = None, empty_percentile: float = 0.15) -> dict:
     """Score every extracted uncut frame and propose an empty/occupied split."""
     root = frames_root or (cfg.path("data_root") / "field" / "frames" / "uncut")
     # A path given on the command line is relative to the shell's cwd, not the

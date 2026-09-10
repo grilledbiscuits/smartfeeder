@@ -61,7 +61,7 @@ weights:
   lamprotornis_nitens: 0.0753   # 2 obs within 25km
   laniidae_indet: 0.7337
   lanius_collaris: 0.7337   # 1337 obs within 25km
-  melaenornis_silens: 0.02   # 0 obs within 25km
+  sigelus_silens: 0.02   # 0 obs within 25km
   muscicapidae_indet: 0.02
   nectarinia_famosa: 0.655   # 967 obs within 25km
   nectariniidae_indet: 0.9571
@@ -86,7 +86,6 @@ weights:
   pycnonotus_capensis: 0.8458   # 2007 obs within 25km
   pycnonotus_indet: 0.8458
   pycnonotus_nigricans: 0.02   # 0 obs within 25km
-  pycnonotus_tricolor: 0.02   # 0 obs within 25km
   serinus_canicollis: 0.6519   # 954 obs within 25km
   sturnidae_indet: 0.8979
   sturnus_vulgaris: 0.6683   # 1024 obs within 25km

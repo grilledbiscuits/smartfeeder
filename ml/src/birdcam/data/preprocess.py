@@ -178,8 +178,6 @@ def make_splits(cfg: Config, m: Manifest, seed: int | None = None) -> dict[str, 
     """
     sp = cfg.train_cfg["preprocess"]["split"]
     seed = seed if seed is not None else cfg.train_cfg["compute"]["seed"]
-    rng = random.Random(seed)
-
     # OOD rows are EXCLUDED from the splits entirely. They are an evaluation
     # set for the open-set failsafe, not training data -- a novelty detector
     # fitted on the intruders it is meant to reject would just be a closed-set
@@ -188,6 +186,14 @@ def make_splits(cfg: Config, m: Manifest, seed: int | None = None) -> dict[str, 
     if not rows:
         raise RuntimeError("no downloaded images to split")
     m.conn.execute("UPDATE images SET split=NULL WHERE tier='OOD'")
+    # Clear splits on anything no longer eligible. A row that was 'downloaded'
+    # and split on a previous run, and has since been marked 'duplicate' or
+    # 'quarantined', keeps its old split otherwise -- make_splits only ever
+    # writes splits for rows it is currently placing. That stale split then
+    # feeds a duplicate straight into the training set, which is exactly the
+    # leak dedup exists to prevent. Found when adding the drongo turned one row
+    # into a duplicate on the second pass.
+    m.conn.execute("UPDATE images SET split=NULL WHERE status!='downloaded'")
 
     groups: dict[tuple[str, str], list] = defaultdict(list)
     for r in rows:
@@ -211,6 +217,16 @@ def make_splits(cfg: Config, m: Manifest, seed: int | None = None) -> dict[str, 
     assigned: dict[str, int] = {"train": 0, "val": 0, "test": 0}
 
     for _strat, entries in sorted(by_stratum.items()):
+        # Seed PER STRATUM, not from one shared stream. With a shared rng each
+        # stratum consumes draws in sorted order, so adding a species inserts a
+        # new consumer partway down the list and every stratum after it shuffles
+        # differently -- adding the Fork-tailed Drongo silently reassigned the
+        # splits of every species sorting after "Dicrurus". Splits that move
+        # when an unrelated species is added make two training runs
+        # incomparable for no reason anyone would think to check.
+        # Deriving the seed from the stratum key makes each one independent and
+        # still fully deterministic.
+        rng = random.Random(f"{seed}|{_strat[0]}|{_strat[1]}")
         rng.shuffle(entries)
         # Largest groups first: greedy placement then keeps the realised
         # proportions closest to target.

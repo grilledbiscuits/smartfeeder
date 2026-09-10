@@ -124,6 +124,37 @@ def background_is_usable(background: np.ndarray, frames: list[Path], min_ratio: 
     return ratio >= min_ratio, float(ratio)
 
 
+def contrast_is_usable(scores: np.ndarray, min_dynamic_range: float = 2.7):
+    """Whether a bird's arrival moves this session's score enough to be seen.
+
+    Background differencing only separates empty from occupied if a bird is the
+    largest thing that changes. When the tarp behind the feeder is moving in
+    wind, every frame departs from the median by a lot, and a small sunbird at
+    the port adds little on top -- so the bottom of the distribution is not the
+    empty frames, it is the calm moments, bird or no bird.
+
+    That compresses the score distribution, which is measurable without looking
+    at a single image: p95/p05, the ratio of a busy frame to a quiet one.
+
+    Measured 2026-09-10 across ten sessions. Nine scored 3.0 to 9.6 and were
+    clean on inspection. One -- 20260825_171725 -- scored 2.40, and roughly a
+    quarter of the frames it offered as empty had a bird plainly perched at the
+    port. The gap between 2.40 and the next value up (3.00) is where this
+    threshold sits.
+
+    HONEST LIMIT: that is ONE confirmed bad session. The statistic separates it
+    cleanly and the mechanism is sound, but a single positive example cannot
+    establish that 2.7 generalises. It is set to fail safe -- the cost of
+    dropping a good session is some empty-feeder frames, of which this project
+    now has a surplus; the cost of keeping a bad one is birds labelled as an
+    empty feeder, which is the one error the negative class must not contain.
+    Revisit when more footage makes a second data point available.
+    """
+    p05, p95 = np.percentile(scores, [5, 95])
+    dyn = float(p95 / p05) if p05 > 0 else float("inf")
+    return dyn >= min_dynamic_range, dyn
+
+
 def score_frames(frames: list[Path], background: np.ndarray) -> np.ndarray:
     """Localised departure from the session background, per frame."""
     return np.array([_block_max(np.abs(_load_small(p) - background)) for p in frames])
@@ -171,7 +202,12 @@ def propose_threshold(scores: np.ndarray, empty_percentile: float = 0.15) -> flo
     return float(np.quantile(scores, empty_percentile))
 
 
-def run(cfg, frames_root: Path | None = None, empty_percentile: float = 0.15) -> dict:
+def run(
+    cfg,
+    frames_root: Path | None = None,
+    empty_percentile: float = 0.15,
+    drop_top: float = 0.0,
+) -> dict:
     """Score every extracted uncut frame and propose an empty/occupied split."""
     root = frames_root or (cfg.path("data_root") / "field" / "frames" / "uncut")
     # A path given on the command line is relative to the shell's cwd, not the
@@ -205,12 +241,45 @@ def run(cfg, frames_root: Path | None = None, empty_percentile: float = 0.15) ->
             )
             continue
         s = score_frames(frames, bg)
+        ok, dyn = contrast_is_usable(s)
+        if not ok:
+            out["excluded_sessions"][session] = {
+                "n_frames": len(frames),
+                "dynamic_range": round(dyn, 3),
+                "reason": "score range compressed -- a bird moves it too little to detect",
+            }
+            logger.warning(
+                "%s: EXCLUDED, score dynamic range %.2f (background motion swamps "
+                "the bird signal); %d frames yield no usable negatives",
+                session,
+                dyn,
+                len(frames),
+            )
+            continue
         thr = propose_threshold(s, empty_percentile)
         empty = s < thr
+        # Optional second stage: drop the top slice of what survived.
+        # Off by default, because it was measured and it does not do what it was
+        # built to do. The hypothesis was that surviving contamination sits at
+        # the top of each session's candidate range. Ranked WITHIN session, the
+        # riskiest 36 frames were clean; the birds all came from one session
+        # whose scores are compressed (see contrast_is_usable), and a global
+        # sort by raw score had simply surfaced that session's frames because
+        # its scores are numerically larger than everyone else's. Scores are not
+        # comparable across sessions and treating them as if they were is what
+        # made this look like a boundary problem.
+        # Kept as a knob for footage where the picture changes; costing 10% of
+        # the negatives for no measured gain is not a default.
+        if drop_top > 0 and empty.any():
+            kept = np.where(empty)[0]
+            cut = propose_threshold(s[kept], 1.0 - drop_top)
+            empty = empty & (s < cut)
         out["sessions"][session] = {
             "n_frames": len(frames),
             "threshold": round(thr, 3),
             "empty_fraction": round(float(empty.mean()), 3),
+            "drop_top": drop_top,
+            "dynamic_range": round(dyn, 3),
             "score_median": round(float(np.median(s)), 3),
             "score_p05": round(float(np.percentile(s, 5)), 3),
             "score_p95": round(float(np.percentile(s, 95)), 3),
@@ -249,6 +318,13 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--frames-root", default=None)
     ap.add_argument(
+        "--drop-top",
+        type=float,
+        default=0.0,
+        help="fraction of the SELECTED frames, per session, to trim from the top "
+        "of the score range; measured to give no gain, see the note in run()",
+    )
+    ap.add_argument(
         "--empty-percentile",
         type=float,
         default=0.15,
@@ -260,6 +336,7 @@ def main() -> None:
         cfg,
         Path(args.frames_root) if args.frames_root else None,
         empty_percentile=args.empty_percentile,
+        drop_top=args.drop_top,
     )
     print(f"\n{res['total_empty']} of {res['total_frames']} uncut frames look empty")
     print("VERIFY before using these as labels -- see the module docstring.")

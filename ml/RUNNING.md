@@ -3,123 +3,62 @@
 Scratch state for a long job currently executing. Delete when it finishes and
 the results are folded into DECISIONS.md / ASSUMPTIONS.md.
 
-## Full fine-tune (Phase 6)
+## Field extraction from drive B (2026-09-10)
 
-Started 2026-08-04 18:04. Expected finish ~00:15 (≈6.2 hours).
-
-```bash
-uv run python -m birdcam.train.train_full \
-    --freeze-blocks 0 --epochs 20 --batch-size 8 --accum 4
-```
-
-- **log**: `/tmp/claude-1000/-home-grilledbiscuits-Desktop-smartfeeder/9a2825fa-767a-49ff-943d-a028433ea203/scratchpad/finetune.log`
-- **throughput**: ~11.5 img/s, 1,597 steps/epoch, ~18.5 min/epoch
-- **peak memory**: 1,715 MB RSS against ~2,450 MB available — roughly 700 MB of
-  headroom, so a heavy browser could push it over
-- **checkpoints**: `data/checkpoints/student_last.pt` and `student_best.pt`,
-  written every epoch (best selected on Tier A recall)
-
-### Check progress
+Started 11:12. 13 uncut sessions plus 8 cut folders; expected finish ~12:35.
 
 ```bash
-uv run python -m birdcam.train.train_full --history
+uv run python -m birdcam.data.field --cut-fps 2 --uncut-fps 1 --extract-only
 ```
 
-Reads the checkpoint, so it works while the run is in flight. This run predates
-the per-epoch `training_history.json` fix, so that file will only appear at the
-end; `--history` is the way to see partial results.
+- **log**: `/tmp/claude-1000/-home-grilledbiscuits-Desktop-smartfeeder/49527019-82fa-442b-9792-e06d2f466dd7/scratchpad/extract.log`
+- **throughput**: ~2.5x realtime decode; 296 min of footage total
+- **output**: `ml/data/field/frames/<folder>/`, projected ~22,000 frames / ~500 MB
+- Idempotent and resumable: re-running skips clips whose frames already exist
+  and re-validates them, so an interrupted run is repaired by running it again.
 
-### If it dies
+### `ml/training/` is symlinks to a USB drive
 
-Four OOM kills have already happened on this machine. A kill costs at most one
-epoch:
+`ml/training/*` are symlinks into `/media/grilledbiscuits/B`. **If drive B is
+unmounted the symlinks dangle and extraction cannot resume** — remount it, or
+re-point them. The drive is otherwise untouched; nothing was written to it.
 
-```bash
-uv run python -m birdcam.train.train_full \
-    --freeze-blocks 0 --epochs 20 --batch-size 8 --accum 4 --resume
-```
+`hands/` and `multibird/` are real directories holding symlinks to loose clips
+that sit at the drive root rather than in a species folder.
 
-### What to do when it finishes
+### The August extraction is preserved, not deleted
 
-The fine-tuned checkpoint changes the inputs to everything downstream, so
-re-run the analysis against it:
+`ml/data/field_2026-08/` holds the previous corpus (11,050 frames,
+`predictions.npz`, `whiteeye_candidates.json`). The 2026-09 drive supersedes it:
+those clips were hand-edited by the observer, where the August cuts contained
+verified empty frames (~12%) and multi-bird frames. A27's numbers were computed
+from the August set and still refer to it.
 
-1. `uv run python -m birdcam.eval.thresholds --target-precision 0.80 --write-config`
-   — fresh per-class operating points
-2. `uv run python -m birdcam.eval.report` — the full picture
+## BLOCKER: the checkpoint no longer loads
 
-**The numbers to watch**, both from ASSUMPTIONS.md A20:
+Adding the Fork-tailed Drongo took the taxon head from 62 classes to 64, so
+`student_best.pt` fails `load_state_dict` and `birdcam.data.field` can only run
+with `--extract-only`. This is expected, not a fault: a new species requires a
+retrain. Until then:
 
-- **22.9%** of genuine bird visits currently clear a threshold. This is the
-  binding constraint on the whole project. **See the correction below — the
-  honest figure is ~41%.**
-- ***Cinnyris chalybeus*** — the most likely visitor at Rondebosch, 2,858
-  observations within 25 km — is the worst class, unable to reach 80% precision
-  at any threshold and firing on 22% of its frames at 0.82.
+- no prediction, no domain-gap analysis, no threshold refit
+- `capture/` cannot classify either; its ONNX is older still (A26)
 
-If fine-tuning does not move those, the ceiling is not the head or the
-thresholds, and the next lever is data rather than modelling.
+## What to do when extraction finishes
 
-## The 22.9% problem — deferred work
+1. Mine empty-feeder negatives from the new uncut footage:
+   ```bash
+   uv run python -m birdcam.data.mine_negatives
+   ```
+   Verified 96% precision at the default 30th percentile (1 bird in 24 sampled
+   frames). **Precision falls as `--empty-percentile` rises** — the module
+   docstring records 83% and 67% for the two approaches that came before.
+2. Retrain. The corpus roughly doubles, gains a species, and gains the first
+   negative-class examples the project has ever had.
+3. Only then: refit thresholds, rebuild the novelty bundle, re-export ONNX.
 
-User asked on 2026-08-04 to park this until the fine-tune lands, then come back
-to it. This section is the reminder.
+## Still missing from Tier A
 
-### Correction to A20, not yet applied
-
-`false_trigger_curve` counts triggers over **every** in-distribution test visit,
-but `frame_triggers` only checks **Tier A** class thresholds, so Tier C visits
-cannot fire by construction. Measured split of the 534 test visits (≥2 frames):
-
-| tier | visits | share |
-|---|---|---|
-| A | 300 | 56.2% |
-| C | 234 | 43.8% |
-
-The metric's ceiling is therefore 56.2%, not 100%. Since only Tier A can fire,
-0.229 × 534 = 122 fired visits, all Tier A, giving **≈41% of Tier A visits** —
-not 22.9% of bird visits. Still poor, but A20 as written overstates it.
-
-**A20 has not been edited yet.** Do it as part of the post-run re-measurement so
-before/after use one definition.
-
-### Why ~41% is still low — three mechanisms
-
-1. **The novelty gate is suppressing real birds.** Per-class frame recalls
-   weighted by actual test-visit counts give ~53.6% expected frame recall.
-   Visit-level fires if *any* frame fires, so it should exceed that; it is
-   lower. At 15% FAR, 15% of in-distribution frames are flagged unknown by
-   definition, and the majority-unknown rule then kills whole visits. The
-   open-set failsafe and the classifier are fighting each other, and the 0.4%
-   OOD trigger rate is being paid for in missed birds.
-2. **Frames within a visit are correlated** — same bird, pose, lighting,
-   seconds apart. "Any frame fires" gives much less lift than independence
-   would suggest.
-3. **Genuinely poor confidence on hard classes.** Tier A visits are spread
-   evenly (each species 13–22% of the 300), so *C. chalybeus* is not a
-   rare-class artefact.
-
-### Candidate solutions, roughly by expected value
-
-- **Re-tune novelty FAR jointly with the class thresholds.** They were fitted
-  independently. 15% FAR over-delivers on OOD (0.4%) while costing real birds.
-  Cheapest lever, no retraining, likely the biggest single win.
-- **Fix the visit metric**: Tier A denominator, and decide whether Tier C should
-  trigger a capture at all. A rarer nectarivore is arguably *more* worth
-  recording — currently they are silently unrecordable.
-- **Teacher distillation** from an iNat-2021 ViT-L into the student
-  (`models/distill.py`, still the Phase 1 stub). Most promising lever on
-  *C. chalybeus*; realistically needs a CUDA box.
-- **Label-noise triage** of the corpus — remove frames with no usable bird
-  rather than relabelling them.
-- **Error analysis** on *C. chalybeus* false positives and non-triggering
-  visits: juveniles, females, backlit, edge-of-frame?
-
-### Not yet done
-
-- Ablation the brief asked for: class-balanced sampling vs focal loss, reporting
-  which actually helps. Both are implemented and configurable; neither has been
-  measured against the other.
-- Quantisation sweep at a proper calibration size — capped at 64 images by RAM,
-  so the 3.4–5.1pp INT8 penalty may be an artefact of the budget (A24b).
-- Phase 8 capture application (`capture/`).
+Cape Sugarbird, Greater Double-collared Sunbird, Malachite Sunbird and
+Orange-breasted Sunbird have **no field footage at all**. Every field number is
+computed over Southern Double-collared and Amethyst Sunbird only.

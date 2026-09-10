@@ -63,12 +63,24 @@ tiers:
         common_name: Olive Sunbird
       - scientific_name: Cinnyris bifasciatus
         common_name: Purple-banded Sunbird
-      - scientific_name: Cinnyris neergaardi
-        common_name: Neergaard's Sunbird
       - scientific_name: Cinnyris manoensis
         common_name: Miombo Double-collared Sunbird
-      - scientific_name: Anthreptes reichenowi
-        common_name: Plain-backed Sunbird
+      # DROPPED 2026-09-10: Neergaard's Sunbird and Plain-backed Sunbird.
+      # Fetched globally per the scope rule above and still returned only 38 and
+      # 45 usable images, against min_species_images of 100. ASSUMPTIONS.md
+      # predicted exactly this and predicted that folding would not save them:
+      # Anthreptes is a single-species genus here, so it has no genus fallback
+      # to fold into, and the genus/family fallbacks stopped being model outputs
+      # on the same day because nothing could train them.
+      #
+      # A class that cannot be learned is not neutral -- it still emits a logit
+      # and can still win an argmax, reporting a confident identification off
+      # 38 images. Their fetched images stay in the manifest and are excluded at
+      # label-mapping time, which load_labelled reports rather than swallows.
+      #
+      # Neither is plausible at Rondebosch: both scored 0 observations within
+      # 25km in the site prior. If either is wanted back, it needs images, not
+      # a config entry.
       - scientific_name: Cinnyris cupreus
         common_name: Copper Sunbird
       - scientific_name: Promerops gurneyi

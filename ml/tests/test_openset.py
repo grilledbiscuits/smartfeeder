@@ -202,17 +202,23 @@ def test_genus_rollup_when_species_is_split(cfg):
 
 
 def test_range_prior_downweights_implausible_species(cfg):
-    """A species that does not occur at this site should lose to one that does."""
+    """A species that does not occur at this site should lose to one that does.
+
+    Uses the White-bellied Sunbird: a real Cinnyris of the north-east, scored 0
+    observations within 25km of Rondebosch. This used to use Neergaard's
+    Sunbird, which was dropped from the label space on 2026-09-10 for want of
+    training images.
+    """
     logits = np.full(len(cfg.taxon_classes), -20.0)
-    logits[cfg.taxon_class_index["cinnyris_neergaardi"]] = 5.0
+    logits[cfg.taxon_class_index["cinnyris_talatala"]] = 5.0
     logits[cfg.taxon_class_index["cinnyris_chalybeus"]] = 4.0
     plain = Classifier(cfg, novelty_scorer=_NeverNovel()).decide(logits, features=np.zeros(8))
     primed = Classifier(
         cfg,
         novelty_scorer=_NeverNovel(),
-        range_prior={"cinnyris_neergaardi": 0.001, "cinnyris_chalybeus": 1.0},
+        range_prior={"cinnyris_talatala": 0.001, "cinnyris_chalybeus": 1.0},
     ).decide(logits, features=np.zeros(8))
-    assert plain.top_k[0][0] == "cinnyris_neergaardi"
+    assert plain.top_k[0][0] == "cinnyris_talatala"
     assert primed.top_k[0][0] == "cinnyris_chalybeus"
 
 

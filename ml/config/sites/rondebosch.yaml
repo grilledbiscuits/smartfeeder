@@ -34,7 +34,6 @@ prior:
 # Populated by `uv run python -m birdcam.data.range_prior --site rondebosch`
 weights:
   anthobaphes_violacea: 0.7447   # 1395 obs within 25km
-  anthreptes_reichenowi: 0.02   # 0 obs within 25km
   chalcomitra_amethystina: 0.387   # 215 obs within 25km
   chalcomitra_indet: 0.387
   chalcomitra_senegalensis: 0.02   # 0 obs within 25km
@@ -46,7 +45,6 @@ weights:
   cinnyris_indet: 0.9571
   cinnyris_manoensis: 0.02   # 0 obs within 25km
   cinnyris_mariquensis: 0.02   # 0 obs within 25km
-  cinnyris_neergaardi: 0.02   # 0 obs within 25km
   cinnyris_talatala: 0.02   # 0 obs within 25km
   cisticolidae_indet: 0.6939
   coliidae_indet: 0.4458

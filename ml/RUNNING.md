@@ -31,9 +31,9 @@ uv run python -m birdcam.train.train_full
 Measured on this laptop: 22.7 min/epoch, ~5.7 h for 15 epochs at
 `freeze_blocks=4`. Checkpointed every epoch; `--resume` continues.
 
-**Corpus: 41,139** = 32,000 web (iNaturalist) + 9,139 field.
+**Corpus: 41,056** = 31,917 web (iNaturalist) + 9,139 field.
 
-All 39 taxon outputs have training data. Zero empty classes.
+All 37 taxon outputs have training data. Zero empty classes.
 
 | field class | frames |
 |---|---|
@@ -68,14 +68,6 @@ class-index remapping is needed. `student_best.pt` is superseded, not reused.
 — chosen, not measured. 9,139 field frames come from about thirty recording
 sessions; 21,449 web images come from thousands of photographers. If field
 performance disappoints, this is the first dial.
-
-## Two classes are too thin to read metrics from
-
-Neergaard's Sunbird has 38 images and Plain-backed Sunbird 45, against
-`min_species_images: 100`. D9 says species below that fold into their genus
-fallback -- but the fold is documented and NOT implemented (`taxon_label` just
-slugifies the name), and the genus fallbacks are no longer outputs anyway.
-Decide what these two should be before reading their per-class numbers.
 
 ## Still missing field footage entirely
 

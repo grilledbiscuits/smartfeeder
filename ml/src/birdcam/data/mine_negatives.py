@@ -95,6 +95,35 @@ def _block_max(diff: np.ndarray, block: int = 16) -> float:
     return float(tiles.mean(axis=(1, 3)).max())
 
 
+def _sharpness(a: np.ndarray) -> float:
+    """Laplacian variance -- how much fine detail an image holds."""
+    g = a.mean(axis=2) if a.ndim == 3 else a
+    lap = -4 * g[1:-1, 1:-1] + g[:-2, 1:-1] + g[2:, 1:-1] + g[1:-1, :-2] + g[1:-1, 2:]
+    return float(lap.var())
+
+
+def background_is_usable(background: np.ndarray, frames: list[Path], min_ratio: float = 0.45):
+    """Whether a session's median background can be trusted as the empty scene.
+
+    The whole method assumes a fixed camera. When the camera is moved during a
+    recording the median smears across positions and stops resembling any real
+    frame, so departures from it mean nothing -- and the failures do not show up
+    at the decision boundary where a threshold could catch them. Measured on the
+    2026-09 footage, the LOWEST-scoring third of one session's "most definitely
+    empty" frames included a large dark bird, plainly visible, because the
+    background it was compared against was a blur.
+
+    A smeared median is detectably less sharp than the frames it came from, so
+    compare Laplacian variance. Sessions failing this are excluded rather than
+    thresholded harder: no cut on a meaningless score is safe.
+    """
+    ratio = _sharpness(background) / (
+        np.median([_sharpness(_load_small(p)) for p in frames[:: max(1, len(frames) // 20)][:20]])
+        or 1.0
+    )
+    return ratio >= min_ratio, float(ratio)
+
+
 def score_frames(frames: list[Path], background: np.ndarray) -> np.ndarray:
     """Localised departure from the session background, per frame."""
     return np.array([_block_max(np.abs(_load_small(p) - background)) for p in frames])
@@ -157,8 +186,24 @@ def run(cfg, frames_root: Path | None = None, empty_percentile: float = 0.15) ->
 
     out: dict = {"sessions": {}, "frames": {}}
     all_scores = []
+    out["excluded_sessions"] = {}
     for session, frames in sorted(by_session.items()):
         bg = session_background(frames)
+        usable, ratio = background_is_usable(bg, frames)
+        if not usable:
+            out["excluded_sessions"][session] = {
+                "n_frames": len(frames),
+                "sharpness_ratio": round(ratio, 3),
+                "reason": "background smeared -- camera moved during the session",
+            }
+            logger.warning(
+                "%s: EXCLUDED, background sharpness ratio %.2f (camera moved); "
+                "%d frames yield no usable negatives",
+                session,
+                ratio,
+                len(frames),
+            )
+            continue
         s = score_frames(frames, bg)
         thr = propose_threshold(s, empty_percentile)
         empty = s < thr
@@ -206,7 +251,7 @@ def main() -> None:
     ap.add_argument(
         "--empty-percentile",
         type=float,
-        default=0.30,
+        default=0.15,
         help="per-session fraction taken as empty; precision falls as this rises",
     )
     args = ap.parse_args()

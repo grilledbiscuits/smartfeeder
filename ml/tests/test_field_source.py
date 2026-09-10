@@ -106,3 +106,66 @@ def test_adding_a_session_does_not_reshuffle_others(cfg) -> None:
 
     for s in sessions:
         assert before[s] == after[s], f"{s} moved from {before[s]} to {after[s]}"
+
+
+# --- sex supervision from the observer's clip labels --------------------------
+#
+# Field footage has no annotator. Before these labels existed every frame fell
+# through to `indeterminate`, which in this label space asserts that the bird
+# COULD NOT be sexed -- a false label, not a missing one, on 4,499 frames of a
+# strongly dimorphic species.
+
+
+def test_no_field_frame_claims_indeterminate(field) -> None:
+    """The regression this whole labelling pass existed to remove."""
+    bad = [it.path for it in field if it.sex_label_name == "indeterminate"]
+    assert not bad, f"{len(bad)} field frames still assert 'could not be sexed'"
+
+
+def test_unsure_clips_get_no_supervision_not_a_label(field, cfg) -> None:
+    """An all-ones mask makes the loss exactly zero: the frame trains taxon only.
+
+    Some of those clips hold a male and a female at the feeder together, where
+    no single sex label is true of the frame at all.
+    """
+    uns = [it for it in field if it.sex_label_name == "unsupervised"]
+    assert uns, "expected some clips the observer could not call"
+    for it in uns:
+        assert it.sex_mask.sum() == len(cfg.sex_classes)
+
+
+def test_male_is_admissible_over_both_male_classes(field, cfg) -> None:
+    """The observer recorded sex, not plumage state -- same as an iNat 'Male'."""
+    males = [it for it in field if it.sex_label_name == "male_unspecified"]
+    assert males
+    for it in males[:50]:
+        assert it.sex_mask[cfg.sex_class_index["male_breeding"]] == 1.0
+        assert it.sex_mask[cfg.sex_class_index["male_eclipse"]] == 1.0
+        assert it.sex_mask[cfg.sex_class_index["female"]] == 0.0
+
+
+def test_negatives_are_not_applicable(field, cfg) -> None:
+    """An empty feeder has no sex; that is true, not missing."""
+    for it in field:
+        if it.taxon_label in ("empty_feeder", "other_animal"):
+            assert it.sex_label_name == "not_applicable"
+
+
+def test_every_mask_admits_at_least_one_class(field) -> None:
+    """An all-zero mask yields -inf loss and silently poisons the run."""
+    for it in field:
+        assert it.sex_mask.sum() >= 1.0
+
+
+def test_clip_labels_cover_every_dimorphic_clip(cfg) -> None:
+    """A clip added later without a label would silently lose supervision."""
+    from birdcam.data.field_source import load_clip_sex, load_field
+
+    known = load_clip_sex(cfg)
+    unlabelled = {
+        it.observation_id
+        for it in load_field(cfg)
+        if it.taxon_label in ("cinnyris_chalybeus", "chalcomitra_amethystina")
+        and it.observation_id not in known
+    }
+    assert not unlabelled, f"clips with no sex label: {sorted(unlabelled)}"

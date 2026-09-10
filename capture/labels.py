@@ -46,6 +46,28 @@ _GUILD_NAMES = {
 }
 
 
+def _english_group(label: str, cfg: Any | None) -> str | None:
+    """The English group name for a fallback class, from taxonomy.yaml.
+
+    The dashboard is read by the person who runs the feeder, not by a
+    taxonomist: "drongo (unsure which)" is the same claim as "Dicruridae sp."
+    and one of them can be read at a glance. The names live in taxonomy.yaml so
+    this module still holds no taxonomy of its own, and `birdcam.names` renders
+    the identical string on the training side.
+    """
+    if cfg is None:
+        return None
+    disp = getattr(cfg, "taxonomy_cfg", {}).get("display") or {}
+    head = getattr(cfg, "taxonomy_cfg", {}).get("taxon_head") or {}
+    node = head.get("genus_fallback", {}).get(label)
+    if node:
+        return disp.get("genus", {}).get(node["genus"])
+    node = head.get("family_fallback", {}).get(label)
+    if node:
+        return disp.get("family", {}).get(node["family"])
+    return None
+
+
 def display_name(label: str, cfg: Any | None = None) -> str:
     """Human-readable name for one taxon label.
 
@@ -65,6 +87,11 @@ def display_name(label: str, cfg: Any | None = None) -> str:
         # be wrong in a way an ornithologist would notice.
         if stem in _GUILD_NAMES:
             return _GUILD_NAMES[stem]
+        english = _english_group(label, cfg)
+        if english:
+            return f"{english} (unsure which)"
+        # No display block to consult: a genus name is still an honest answer,
+        # just a latinate one.
         return f"{stem.capitalize()} sp."
 
     if cfg is not None:

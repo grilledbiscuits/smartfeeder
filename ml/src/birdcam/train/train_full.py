@@ -59,6 +59,12 @@ class EpochStats:
     val_ece: float
     seconds: float
     lr: float
+    # Split by source, because one accuracy number cannot answer the only
+    # question train.field_weight raises: did the feeder footage help at the
+    # feeder? Web accuracy falling while field accuracy rises means the weight
+    # is doing its job; both falling means it is too high.
+    val_acc_field: float = float("nan")
+    val_acc_web: float = float("nan")
 
 
 @dataclass
@@ -106,7 +112,10 @@ def _build_loaders(cfg: Config, image_size: int, batch_size: int, limit: int | N
             it = self.rows[i]
             with Image.open(it.path) as im:
                 x = self.transform(im.convert("RGB"))
-            return x, it.taxon_index, torch.from_numpy(it.sex_mask)
+            # is_field rides along so val can be reported per source: a single
+            # accuracy number cannot say whether the field frames helped in the
+            # field, which is the only question train.field_weight answers.
+            return x, it.taxon_index, torch.from_numpy(it.sex_mask), int(it.source == "field")
 
     tr_tf = build_train_transform(cfg, image_size)
     ev_tf = build_eval_transform(image_size)
@@ -123,7 +132,23 @@ def _build_loaders(cfg: Config, image_size: int, batch_size: int, limit: int | N
         ).astype(np.float64)
         eff = np.where(counts > 0, (1.0 - np.power(beta, counts)) / (1.0 - beta), 1.0)
         per_class_w = np.where(counts > 0, 1.0 / eff, 0.0)
-        weights = [per_class_w[i.taxon_index] * i.weight for i in train_items]
+        # Normalise the source weight WITHIN each class. Without this,
+        # field_weight silently shrinks any class whose data happens to be
+        # field-only: `empty_feeder` and `other_animal` have no web alternative,
+        # so a 0.3 multiplier was not choosing a mix for them, it was cutting
+        # their share of the epoch to a quarter of what class balancing had just
+        # decided. Measured 2026-09-10: empty_feeder 0.73% of draws against a
+        # 2.70% target. Dividing by the class's mean source weight restores the
+        # class share exactly and leaves field_weight doing the one job it is
+        # for -- setting how much of a class's signal comes from the feeder
+        # rather than from the web.
+        mean_w: dict[int, float] = {}
+        for idx in {i.taxon_index for i in train_items}:
+            ws = [i.weight for i in train_items if i.taxon_index == idx]
+            mean_w[idx] = float(np.mean(ws)) or 1.0
+        weights = [
+            per_class_w[i.taxon_index] * i.weight / mean_w[i.taxon_index] for i in train_items
+        ]
         sampler = torch.utils.data.WeightedRandomSampler(
             weights, num_samples=len(train_items), replacement=True
         )
@@ -231,15 +256,18 @@ def evaluate(cfg: Config, model, loader, device):
     model.eval()
     preds, targets, probs = [], [], []
     with torch.inference_mode():
-        for x, y, _ in loader:
+        srcs = []
+        for x, y, _, is_field in loader:
             out, _ = model(x.to(device))
             p = torch.softmax(out.float(), dim=1).cpu().numpy()
             probs.append(p)
             preds.append(p.argmax(1))
             targets.append(y.numpy())
+            srcs.append(is_field.numpy())
     preds = np.concatenate(preds)
     targets = np.concatenate(targets)
     probs = np.concatenate(probs)
+    srcs = np.concatenate(srcs).astype(bool)
 
     acc = float((preds == targets).mean())
     tier_a = {
@@ -251,7 +279,9 @@ def evaluate(cfg: Config, model, loader, device):
         float((preds[targets == c] == c).mean()) for c in sorted(tier_a) if (targets == c).sum() > 0
     ]
     ece, _ = expected_calibration_error(probs, targets)
-    return acc, float(np.mean(recalls)) if recalls else 0.0, float(ece)
+    acc_field = float((preds[srcs] == targets[srcs]).mean()) if srcs.any() else float("nan")
+    acc_web = float((preds[~srcs] == targets[~srcs]).mean()) if (~srcs).any() else float("nan")
+    return acc, float(np.mean(recalls)) if recalls else 0.0, float(ece), acc_field, acc_web
 
 
 # --- checkpointing ------------------------------------------------------------
@@ -396,7 +426,7 @@ def estimate(cfg: Config, freeze_blocks: int, batch_size: int, steps: int = 12) 
     done = 0
     for i in range(steps):
         try:
-            x, y, mask = next(it)
+            x, y, mask, _ = next(it)
         except StopIteration:
             break
         if i == 2:  # skip warm-up steps
@@ -501,7 +531,7 @@ def train(
         t0 = time.monotonic()
         running, seen = 0.0, 0
         opt.zero_grad()
-        for step, (x, y, mask) in enumerate(train_loader):
+        for step, (x, y, mask, _) in enumerate(train_loader):
             tl, sl = model(x.to(device))
             loss = _taxon_loss(cfg, tl, y.to(device))
             loss = loss + tc["loss"]["sex_weight"] * masked_partial_label_loss(sl, mask.to(device))
@@ -523,7 +553,7 @@ def train(
                     running / seen,
                 )
 
-        acc, tier_a, ece = evaluate(cfg, model, val_loader, device)
+        acc, tier_a, ece, acc_f, acc_w = evaluate(cfg, model, val_loader, device)
         st = EpochStats(
             epoch=epoch,
             train_loss=running / max(seen, 1),
@@ -532,6 +562,8 @@ def train(
             val_ece=ece,
             seconds=time.monotonic() - t0,
             lr=float(sched.get_last_lr()[0]),
+            val_acc_field=acc_f,
+            val_acc_web=acc_w,
         )
         out.append(st)
         state.epoch = epoch + 1
@@ -547,15 +579,20 @@ def train(
                 "val/taxon_acc": acc,
                 "val/tier_a_recall": tier_a,
                 "val/ece": ece,
+                "val/taxon_acc_field": acc_f,
+                "val/taxon_acc_web": acc_w,
                 "lr": st.lr,
             },
             epoch,
         )
         logger.info(
-            "epoch %d: loss %.4f  val acc %.4f  tierA recall %.4f  ECE %.4f  (%.1f min)%s",
+            "epoch %d: loss %.4f  val acc %.4f (field %.4f / web %.4f)  "
+            "tierA recall %.4f  ECE %.4f  (%.1f min)%s",
             epoch,
             st.train_loss,
             acc,
+            acc_f,
+            acc_w,
             tier_a,
             ece,
             st.seconds / 60,

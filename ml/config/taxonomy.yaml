@@ -97,11 +97,30 @@ taxon_head:
 
   # --- negative classes -------------------------------------------------------
   # Not birds, or no bird. `sex_plumage` is forced to not_applicable for these.
+  # Negative concepts the rollup and the capture policy know about. Only the
+  # ones listed in `trainable_negatives` become model outputs.
   negative:
     - empty_feeder
     - insect
     - other_animal
     - obstruction
+
+  # Negatives that real training data exists for, and therefore the only ones
+  # that are outputs of the taxon head.
+  #
+  # `empty_feeder`: 476 mined frames, each one inspected individually.
+  # `other_animal`: 43 frames of hands refilling the feeder.
+  #
+  # `insect` and `obstruction` are deliberately absent. ood.yaml holds insect
+  # taxa but is EVALUATION ONLY -- training on it would turn the open-set
+  # failsafe into a closed-set classifier for known intruders, which is the one
+  # thing it must not be (see the header of ood.yaml). `obstruction` has no
+  # source at all. A bee on the port and a leaf over the lens are precisely what
+  # the novelty gate exists to catch, so they are handled there rather than by
+  # an output that would never see a single training example.
+  trainable_negatives:
+    - empty_feeder
+    - other_animal
 
 # =============================================================================
 # HEAD 2 -- SEX / PLUMAGE
@@ -166,6 +185,14 @@ sex_plumage_head:
   # Forced to not_applicable so the head is not trained on noise. Tier C species
   # not listed here keep whatever annotation they carry.
   monomorphic_forced_na:
+    # Added 2026-09-10 with the species itself. Fork-tailed Drongo sexes are
+    # alike -- both glossy black with the forked tail and red eye -- so the
+    # 2,780 images of it were being trained as `indeterminate`, which in this
+    # label space is a positive claim that the bird COULD NOT be sexed from the
+    # image. That is training the head on noise, which is exactly what this list
+    # exists to prevent. Four of those images even carried a sex annotation from
+    # an iNaturalist observer; forcing not_applicable overrides them deliberately.
+    - Dicrurus adsimilis
     - Zosterops virens
     - Zosterops pallidus
     - Pycnonotus capensis

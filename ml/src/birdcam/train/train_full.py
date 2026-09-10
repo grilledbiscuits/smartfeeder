@@ -82,7 +82,8 @@ def _build_loaders(cfg: Config, image_size: int, batch_size: int, limit: int | N
     from birdcam.train.augment import build_eval_transform, build_train_transform
 
     with open_manifest(cfg.path("manifest_db")) as m:
-        items = load_labelled(cfg, m)
+        use_field = cfg.train_cfg["train"].get("use_field_frames", True)
+        items = load_labelled(cfg, m, include_field=use_field)
     if limit:
         # Deterministic subsample across all classes, for smoke runs.
         rng = np.random.RandomState(0)
@@ -122,21 +123,37 @@ def _build_loaders(cfg: Config, image_size: int, batch_size: int, limit: int | N
         ).astype(np.float64)
         eff = np.where(counts > 0, (1.0 - np.power(beta, counts)) / (1.0 - beta), 1.0)
         per_class_w = np.where(counts > 0, 1.0 / eff, 0.0)
-        weights = [per_class_w[i.taxon_index] for i in train_items]
+        weights = [per_class_w[i.taxon_index] * i.weight for i in train_items]
         sampler = torch.utils.data.WeightedRandomSampler(
             weights, num_samples=len(train_items), replacement=True
+        )
+        shuffle = False
+    elif any(i.weight != 1.0 for i in train_items):
+        # Per-item weights still have to be honoured with class balancing off,
+        # or field frames -- which outnumber the web corpus and repeat heavily --
+        # would train at full strength. Sampling rather than scaling the loss
+        # keeps this in one mechanism instead of two.
+        sampler = torch.utils.data.WeightedRandomSampler(
+            [i.weight for i in train_items], num_samples=len(train_items), replacement=True
         )
         shuffle = False
 
     nw = cfg.train_cfg["compute"]["dataloader_num_workers"]
     train_loader = torch.utils.data.DataLoader(
-        _DS(train_items, tr_tf), batch_size=batch_size, shuffle=shuffle,
-        sampler=sampler, num_workers=nw, drop_last=True,
+        _DS(train_items, tr_tf),
+        batch_size=batch_size,
+        shuffle=shuffle,
+        sampler=sampler,
+        num_workers=nw,
+        drop_last=True,
         persistent_workers=nw > 0,
     )
     val_loader = torch.utils.data.DataLoader(
-        _DS(val_items, ev_tf), batch_size=batch_size, shuffle=False,
-        num_workers=nw, persistent_workers=nw > 0,
+        _DS(val_items, ev_tf),
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=nw,
+        persistent_workers=nw > 0,
     )
     return train_loader, val_loader, len(train_items), len(val_items)
 
@@ -176,7 +193,10 @@ def build_and_freeze(cfg: Config, freeze_blocks: int):
             frozen += p.numel()
     logger.info(
         "%s: %.2fM trainable, %.2fM frozen (freeze_blocks=%d)",
-        name, trainable / 1e6, frozen / 1e6, freeze_blocks,
+        name,
+        trainable / 1e6,
+        frozen / 1e6,
+        freeze_blocks,
     )
     return model, name, trainable
 
@@ -193,7 +213,9 @@ def _taxon_loss(cfg: Config, logits, target, class_weights=None):
 
         return focal_loss(logits, target, gamma=lc["focal_gamma"], weight=class_weights)
     return F.cross_entropy(
-        logits, target, weight=class_weights,
+        logits,
+        target,
+        weight=class_weights,
         label_smoothing=cfg.train_cfg["train"]["label_smoothing"],
     )
 
@@ -226,9 +248,7 @@ def evaluate(cfg: Config, model, loader, device):
         if s.slug in cfg.taxon_class_index
     }
     recalls = [
-        float((preds[targets == c] == c).mean())
-        for c in sorted(tier_a)
-        if (targets == c).sum() > 0
+        float((preds[targets == c] == c).mean()) for c in sorted(tier_a) if (targets == c).sum() > 0
     ]
     ece, _ = expected_calibration_error(probs, targets)
     return acc, float(np.mean(recalls)) if recalls else 0.0, float(ece)
@@ -246,9 +266,7 @@ def _write_history(cfg: Config, state: RunState, meta: dict) -> None:
     """
     path = cfg.path("reports_dir") / "training_history.json"
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps({"run": meta, "epochs": state.history}, indent=2), encoding="utf-8"
-    )
+    path.write_text(json.dumps({"run": meta, "epochs": state.history}, indent=2), encoding="utf-8")
 
 
 def _ckpt_path(cfg: Config) -> Path:
@@ -298,8 +316,7 @@ def _make_tracker(cfg: Config, run_name: str):
         try:
             import wandb
 
-            wandb.init(project=tc["wandb_project"], name=run_name,
-                       config=cfg.train_cfg["train"])
+            wandb.init(project=tc["wandb_project"], name=run_name, config=cfg.train_cfg["train"])
             logger.info("logging to Weights & Biases")
             return lambda d, step: wandb.log(d, step=step)
         except ImportError:
@@ -329,9 +346,7 @@ def estimate(cfg: Config, freeze_blocks: int, batch_size: int, steps: int = 12) 
     size = cfg.train_cfg["backbone"]["student"]["image_size"]
     model, _, trainable = build_and_freeze(cfg, freeze_blocks)
     model.to(device).train()
-    opt = torch.optim.AdamW(
-        [p for p in model.parameters() if p.requires_grad], lr=1e-4
-    )
+    opt = torch.optim.AdamW([p for p in model.parameters() if p.requires_grad], lr=1e-4)
 
     loader, _, n_train, _ = _build_loaders(cfg, size, batch_size)
     from birdcam.models.heads import masked_partial_label_loss
@@ -410,7 +425,9 @@ def train(
     # than letting a short run die on a scheduler argument.
     pct_start = min(0.3, max(0.01, tc["warmup_epochs"] / max(epochs, 1)))
     sched = torch.optim.lr_scheduler.OneCycleLR(
-        opt, max_lr=tc["lr"], total_steps=epochs * steps_per_epoch,
+        opt,
+        max_lr=tc["lr"],
+        total_steps=epochs * steps_per_epoch,
         pct_start=pct_start,
     )
 
@@ -430,7 +447,12 @@ def train(
     track = _make_tracker(cfg, f"{name}_fb{freeze_blocks}")
     logger.info(
         "training %d epochs on %s: %d train / %d val, batch %d x %d accumulation",
-        epochs, device, n_train, n_val, batch_size, accum,
+        epochs,
+        device,
+        n_train,
+        n_val,
+        batch_size,
+        accum,
     )
 
     out: list[EpochStats] = []
@@ -442,9 +464,7 @@ def train(
         for step, (x, y, mask) in enumerate(train_loader):
             tl, sl = model(x.to(device))
             loss = _taxon_loss(cfg, tl, y.to(device))
-            loss = loss + tc["loss"]["sex_weight"] * masked_partial_label_loss(
-                sl, mask.to(device)
-            )
+            loss = loss + tc["loss"]["sex_weight"] * masked_partial_label_loss(sl, mask.to(device))
             (loss / accum).backward()
             if (step + 1) % accum == 0:
                 torch.nn.utils.clip_grad_norm_(params, 1.0)
@@ -457,14 +477,21 @@ def train(
             if seen and step % 50 == 0:
                 logger.info(
                     "  epoch %d step %d/%d loss %.4f",
-                    epoch, step, len(train_loader), running / seen,
+                    epoch,
+                    step,
+                    len(train_loader),
+                    running / seen,
                 )
 
         acc, tier_a, ece = evaluate(cfg, model, val_loader, device)
         st = EpochStats(
-            epoch=epoch, train_loss=running / max(seen, 1), val_taxon_acc=acc,
-            val_tier_a_recall=tier_a, val_ece=ece,
-            seconds=time.monotonic() - t0, lr=float(sched.get_last_lr()[0]),
+            epoch=epoch,
+            train_loss=running / max(seen, 1),
+            val_taxon_acc=acc,
+            val_tier_a_recall=tier_a,
+            val_ece=ece,
+            seconds=time.monotonic() - t0,
+            lr=float(sched.get_last_lr()[0]),
         )
         out.append(st)
         state.epoch = epoch + 1
@@ -475,13 +502,23 @@ def train(
         save_checkpoint(cfg, model, opt, sched, state, best=is_best)
         _write_history(cfg, state, run_meta)
         track(
-            {"train/loss": st.train_loss, "val/taxon_acc": acc,
-             "val/tier_a_recall": tier_a, "val/ece": ece, "lr": st.lr},
+            {
+                "train/loss": st.train_loss,
+                "val/taxon_acc": acc,
+                "val/tier_a_recall": tier_a,
+                "val/ece": ece,
+                "lr": st.lr,
+            },
             epoch,
         )
         logger.info(
             "epoch %d: loss %.4f  val acc %.4f  tierA recall %.4f  ECE %.4f  (%.1f min)%s",
-            epoch, st.train_loss, acc, tier_a, ece, st.seconds / 60,
+            epoch,
+            st.train_loss,
+            acc,
+            tier_a,
+            ece,
+            st.seconds / 60,
             "  <- best" if is_best else "",
         )
 
@@ -511,11 +548,15 @@ def print_history(cfg: Config) -> None:
     best = max(hist, key=lambda h: h["val_tier_a_recall"])
     for h in hist:
         mark = "  <- best" if h is best else ""
-        print(f"{h['epoch']:>6}{h['train_loss']:>12.4f}{h['val_taxon_acc']:>10.4f}"
-              f"{h['val_tier_a_recall']:>9.4f}{h['val_ece']:>8.4f}"
-              f"{h['seconds'] / 60:>7.1f}{mark}")
-    print(f"\n{len(hist)} epoch(s) complete. Best Tier A recall "
-          f"{best['val_tier_a_recall']:.4f} at epoch {best['epoch']}.")
+        print(
+            f"{h['epoch']:>6}{h['train_loss']:>12.4f}{h['val_taxon_acc']:>10.4f}"
+            f"{h['val_tier_a_recall']:>9.4f}{h['val_ece']:>8.4f}"
+            f"{h['seconds'] / 60:>7.1f}{mark}"
+        )
+    print(
+        f"\n{len(hist)} epoch(s) complete. Best Tier A recall "
+        f"{best['val_tier_a_recall']:.4f} at epoch {best['epoch']}."
+    )
 
 
 def main() -> None:
@@ -525,18 +566,25 @@ def main() -> None:
     import argparse
 
     ap = argparse.ArgumentParser(description="Phase 6: end-to-end fine-tune.")
-    ap.add_argument("--freeze-blocks", type=int, default=4,
-                    help="0=full fine-tune, 4=last two blocks (default), 6=heads only")
+    ap.add_argument(
+        "--freeze-blocks",
+        type=int,
+        default=4,
+        help="0=full fine-tune, 4=last two blocks (default), 6=heads only",
+    )
     ap.add_argument("--batch-size", type=int, default=None)
     ap.add_argument("--epochs", type=int, default=None)
     ap.add_argument("--accum", type=int, default=2, help="gradient accumulation steps")
     ap.add_argument("--resume", action="store_true")
     ap.add_argument("--limit", type=int, default=None, help="subsample, for smoke runs")
-    ap.add_argument("--estimate", action="store_true",
-                    help="measure throughput and print an ETA, then exit")
-    ap.add_argument("--history", action="store_true",
-                    help="print per-epoch results from the checkpoint, including "
-                         "for a run still in progress")
+    ap.add_argument(
+        "--estimate", action="store_true", help="measure throughput and print an ETA, then exit"
+    )
+    ap.add_argument(
+        "--history",
+        action="store_true",
+        help="print per-epoch results from the checkpoint, including for a run still in progress",
+    )
     args = ap.parse_args()
 
     cfg = load_config()
@@ -547,13 +595,20 @@ def main() -> None:
         estimate(cfg, args.freeze_blocks, args.batch_size or 12)
         return
     stats = train(
-        cfg, freeze_blocks=args.freeze_blocks, batch_size=args.batch_size,
-        epochs=args.epochs, accum=args.accum, resume=args.resume, limit=args.limit,
+        cfg,
+        freeze_blocks=args.freeze_blocks,
+        batch_size=args.batch_size,
+        epochs=args.epochs,
+        accum=args.accum,
+        resume=args.resume,
+        limit=args.limit,
     )
     if stats:
         best = max(stats, key=lambda s: s.val_tier_a_recall)
-        print(f"\nbest epoch {best.epoch}: val taxon {best.val_taxon_acc:.4f}, "
-              f"Tier A recall {best.val_tier_a_recall:.4f}, ECE {best.val_ece:.4f}")
+        print(
+            f"\nbest epoch {best.epoch}: val taxon {best.val_taxon_acc:.4f}, "
+            f"Tier A recall {best.val_tier_a_recall:.4f}, ECE {best.val_ece:.4f}"
+        )
 
 
 if __name__ == "__main__":

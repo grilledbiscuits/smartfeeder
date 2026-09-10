@@ -208,6 +208,24 @@ fast_loop:
 # PHASE 6 -- FULL TRAINING
 # =============================================================================
 train:
+  # --- field footage -----------------------------------------------------------
+  # Frames cut from feeder video, alongside the iNaturalist corpus. They are a
+  # separate source with session-grouped splits, not manifest rows: see
+  # src/birdcam/data/field_source.py.
+  #
+  # field_weight is a PLACEHOLDER, chosen rather than measured. 10,192 field
+  # frames come from ~30 recording sessions -- a handful of birds in a handful
+  # of lighting conditions at one feeder -- against 19,832 web images from
+  # thousands of photographers. Counted equally the field frames would dominate
+  # the loss and the model would learn this garden rather than these species.
+  # 0.3 makes the field corpus worth roughly a sixth of the training signal.
+  #
+  # This is the first number to move if field performance disappoints. It is
+  # recorded in the run config, so any result can be traced back to the value
+  # that produced it.
+  use_field_frames: true
+  field_weight: 0.3
+
   # 15, not 40. Fine-tuning a pretrained backbone on 12,776 images converges
   # long before 40 epochs and then overfits, and on this laptop each epoch costs
   # 16-23 minutes. Measured throughput (batch 8, CPU, 4 cores):

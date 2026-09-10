@@ -42,6 +42,10 @@ class LabelledImage:
     split: str
     observation_id: str | None
     observer_id: str | None
+    # Which corpus this came from, and what it is worth relative to a web image.
+    # Defaults keep every existing construction valid and unweighted.
+    source: str = "web"
+    weight: float = 1.0
 
 
 class LabelMapper:
@@ -120,10 +124,20 @@ class LabelMapper:
         return mask, target
 
 
-def load_labelled(cfg: Config, m: Manifest, split: str | None = None) -> list[LabelledImage]:
-    """Build the labelled image list from the manifest.
+def load_labelled(
+    cfg: Config,
+    m: Manifest,
+    split: str | None = None,
+    include_field: bool = False,
+) -> list[LabelledImage]:
+    """Build the labelled image list from the manifest, optionally plus field frames.
 
     Only images that are downloaded, deduplicated and split are returned.
+
+    Field frames are a separate corpus with its own index and its own
+    session-grouped splits -- see `birdcam.data.field_source` for why they are
+    not manifest rows. They carry `source="field"` and a weight below 1.0, so
+    anything downstream can tell them apart and report on them separately.
     """
     mapper = LabelMapper(cfg)
     where = "status='downloaded' AND split IS NOT NULL"
@@ -161,6 +175,17 @@ def load_labelled(cfg: Config, m: Manifest, split: str | None = None) -> list[La
         )
     if missing_class:
         logger.warning("%d images had no matching taxon class and were excluded", missing_class)
+
+    if include_field:
+        from birdcam.data.field_source import load_field
+
+        field = load_field(cfg)
+        if split:
+            field = [f for f in field if f.split == split]
+        logger.info(
+            "field corpus: %d frames at weight %.2f", len(field), field[0].weight if field else 0
+        )
+        out += field
     return out
 
 

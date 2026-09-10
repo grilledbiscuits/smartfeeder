@@ -46,6 +46,9 @@ class LabelledImage:
     # Defaults keep every existing construction valid and unweighted.
     source: str = "web"
     weight: float = 1.0
+    # More than one bird in the frame. The taxon label is still true of it when
+    # both birds are the same species; nothing that assumes one subject is.
+    multi_bird: bool = False
 
 
 class LabelMapper:

@@ -68,7 +68,23 @@ _SEX_FROM_CLIP = {
     # Juvenile outranks sex in the head's precedence: juvenile plumage is what
     # the model actually sees.
     "juvenile": ("juvenile",),
+    # `pair` and `unsure` are deliberately absent: both mean no supervision.
 }
+
+# Substrings the observer puts in a clip name when more than one bird is in
+# frame. Stated at the outset -- "there shouldn't be multiple birds in frame
+# unless specified in the filename" -- and honoured only for the `multibird`
+# FOLDER until 2026-09-10, which left 266 frames of same-species couples
+# training as single birds. The taxon label survives that (both birds are the
+# same species, so the label is true of the frame); the sex label does not,
+# because a male and a female in one frame make no single sex label true.
+_MULTI_BIRD_MARKERS = ("couple", "anddc", "funny")
+
+
+def is_multi_bird(clip: str) -> bool:
+    """Whether the clip's own name says it holds more than one bird."""
+    stem = clip.split("_", 2)[-1].lower()
+    return any(m in stem for m in _MULTI_BIRD_MARKERS)
 
 
 def load_clip_sex(cfg: Config) -> dict[str, str]:
@@ -84,7 +100,13 @@ def load_clip_sex(cfg: Config) -> dict[str, str]:
     return json.loads(path.read_text(encoding="utf-8"))["labels"]
 
 
-def sex_mask_for(cfg: Config, mapper: LabelMapper, sci: str, clip_label: str | None):
+def sex_mask_for(
+    cfg: Config,
+    mapper: LabelMapper,
+    sci: str,
+    clip_label: str | None,
+    clip: str = "",
+):
     """(mask, name) for a field frame, from its clip's label.
 
     Field footage has no annotator and no EXIF: before these labels existed every
@@ -100,6 +122,13 @@ def sex_mask_for(cfg: Config, mapper: LabelMapper, sci: str, clip_label: str | N
     feeder together, where no single label is true of the frame at all.
     """
     n = len(cfg.sex_classes)
+    if clip and is_multi_bird(clip) and sci not in mapper.monomorphic:
+        # The filename wins over the clip label here. One clip named
+        # `...doublecollaredcouple4` came back labelled `male` -- plausibly only
+        # one bird was visible in the frames shown -- but if a female is also in
+        # frame at any point, `male` is false for those frames. Fifteen frames
+        # are not worth that risk on a Tier A species.
+        return np.ones(n, dtype=np.float32), "unsupervised"
     if sci in _DIRECT_CLASSES:
         # An empty feeder, or a pair of hands, has no sex. That is not missing
         # information to be masked away -- it is a true statement, and the same
@@ -228,7 +257,7 @@ def load_field(cfg: Config, weight: float | None = None) -> list[LabelledImage]:
         if idx is None:
             skipped[taxon_label] += 1
             continue
-        mask, name = sex_mask_for(cfg, mapper, sci, clip_sex.get(rec["clip"]))
+        mask, name = sex_mask_for(cfg, mapper, sci, clip_sex.get(rec["clip"]), rec["clip"])
         out.append(
             LabelledImage(
                 image_id=f"field:{rec['path']}",
@@ -243,6 +272,7 @@ def load_field(cfg: Config, weight: float | None = None) -> list[LabelledImage]:
                 observer_id=f"field:{rec['session']}",
                 source="field",
                 weight=weight,
+                multi_bird=is_multi_bird(rec["clip"]),
             )
         )
     if skipped:

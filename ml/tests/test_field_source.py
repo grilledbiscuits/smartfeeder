@@ -122,6 +122,39 @@ def test_no_field_frame_claims_indeterminate(field) -> None:
     assert not bad, f"{len(bad)} field frames still assert 'could not be sexed'"
 
 
+def test_multi_bird_clips_are_flagged_from_their_filename(field) -> None:
+    """The observer marks them in the clip name; only the folder was honoured.
+
+    Until 2026-09-10 only the `multibird` FOLDER was quarantined, so 266 frames
+    of same-species couples -- `...doublecollaredcouple1`, `...whiteeyecouple3`,
+    `...drongocouple1` -- trained as single birds. The taxon label survives that,
+    since both birds are the same species; nothing assuming one subject does.
+    """
+    flagged = [it for it in field if it.multi_bird]
+    assert flagged, "no multi-bird clips detected"
+    for it in flagged:
+        assert any(m in str(it.path).lower() for m in ("couple", "anddc", "funny"))
+
+
+def test_multi_bird_dimorphic_clips_get_no_sex_supervision(field, cfg) -> None:
+    """A male and a female in one frame make no single sex label true.
+
+    The filename outranks the clip label here: one couple clip came back labelled
+    `male`, plausibly because only one bird showed in the frames reviewed.
+    """
+    for it in field:
+        if it.multi_bird and it.taxon_label in ("cinnyris_chalybeus", "chalcomitra_amethystina"):
+            assert it.sex_label_name == "unsupervised", it.path
+            assert it.sex_mask.sum() == len(cfg.sex_classes)
+
+
+def test_no_clip_is_left_unsure(cfg) -> None:
+    """The second pass resolved every one; a new `unsure` means a regression."""
+    from birdcam.data.field_source import load_clip_sex
+
+    assert "unsure" not in set(load_clip_sex(cfg).values())
+
+
 def test_unsure_clips_get_no_supervision_not_a_label(field, cfg) -> None:
     """An all-ones mask makes the loss exactly zero: the frame trains taxon only.
 
@@ -129,7 +162,7 @@ def test_unsure_clips_get_no_supervision_not_a_label(field, cfg) -> None:
     no single sex label is true of the frame at all.
     """
     uns = [it for it in field if it.sex_label_name == "unsupervised"]
-    assert uns, "expected some clips the observer could not call"
+    assert uns, "expected the multi-bird clips to carry no sex supervision"
     for it in uns:
         assert it.sex_mask.sum() == len(cfg.sex_classes)
 

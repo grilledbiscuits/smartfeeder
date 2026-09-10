@@ -265,17 +265,30 @@ def _write_history(cfg: Config, state: RunState, meta: dict) -> None:
     left a smoke-run history on disk looking exactly like a real result.
     """
     path = cfg.path("reports_dir") / "training_history.json"
+    if meta.get("subsampled"):
+        path = path.with_name("training_history_smoke.json")
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps({"run": meta, "epochs": state.history}, indent=2), encoding="utf-8")
 
 
-def _ckpt_path(cfg: Config) -> Path:
+def _ckpt_path(cfg: Config, subsampled: bool = False) -> Path:
+    """Where this run's checkpoint goes.
+
+    A subsampled run gets its own filename. On 2026-09-10 a one-epoch smoke run
+    over 400 images wrote `student_best.pt` and destroyed a 17-epoch fine-tune
+    that had taken hours -- `best` is measured against the run's OWN history, so
+    a smoke run's first epoch is always its best. The weights survived only
+    because an ONNX export of them happened to exist. A smoke run must not be
+    able to touch a real one's files.
+    """
     d = cfg.path("checkpoints_dir")
     d.mkdir(parents=True, exist_ok=True)
-    return d / "student_last.pt"
+    return d / ("smoke_last.pt" if subsampled else "student_last.pt")
 
 
-def save_checkpoint(cfg, model, optimiser, scheduler, state: RunState, best: bool = False):
+def save_checkpoint(
+    cfg, model, optimiser, scheduler, state: RunState, best: bool = False, subsampled: bool = False
+):
     import torch
 
     payload = {
@@ -283,19 +296,46 @@ def save_checkpoint(cfg, model, optimiser, scheduler, state: RunState, best: boo
         "optimiser": optimiser.state_dict(),
         "scheduler": scheduler.state_dict(),
         "state": asdict(state),
+        # The label space this checkpoint was trained against, by NAME.
+        # Without it a checkpoint is just a tensor of the right shape: when the
+        # drongo was added on 2026-09-10 the head went 62 -> 64 and the two new
+        # classes inserted at indices 16 and 48, not at the end, so copying the
+        # old rows positionally would have shifted the meaning of every class
+        # above 16 -- a model that trains, converges, and is confidently wrong.
+        # Stored so any later load can check rather than assume.
+        "taxon_classes": list(cfg.taxon_classes),
+        "sex_classes": list(cfg.sex_classes),
     }
-    torch.save(payload, _ckpt_path(cfg))
+    path = _ckpt_path(cfg, subsampled)
+    torch.save(payload, path)
     if best:
-        torch.save(payload, _ckpt_path(cfg).with_name("student_best.pt"))
+        torch.save(payload, path.with_name("smoke_best.pt" if subsampled else "student_best.pt"))
 
 
-def load_checkpoint(cfg, model, optimiser, scheduler) -> RunState:
+def load_checkpoint(cfg, model, optimiser, scheduler, subsampled: bool = False) -> RunState:
     import torch
 
-    path = _ckpt_path(cfg)
+    path = _ckpt_path(cfg, subsampled)
     if not path.is_file():
         return RunState()
     payload = torch.load(path, map_location="cpu", weights_only=False)
+
+    saved = payload.get("taxon_classes")
+    if saved is None:
+        raise RuntimeError(
+            f"{path} predates label-space stamping and cannot be resumed safely: "
+            "its class ordering cannot be verified. Train from scratch, or delete it."
+        )
+    if list(saved) != list(cfg.taxon_classes):
+        added = sorted(set(cfg.taxon_classes) - set(saved))
+        removed = sorted(set(saved) - set(cfg.taxon_classes))
+        raise RuntimeError(
+            f"{path} was trained on a different label space and must not be resumed. "
+            f"added: {added or 'none'}; removed: {removed or 'none'}; "
+            f"{len(saved)} classes then, {len(cfg.taxon_classes)} now. "
+            "Resuming would keep optimiser and scheduler state that refers to "
+            "classes at different indices."
+        )
     model.load_state_dict(payload["model"])
     optimiser.load_state_dict(payload["optimiser"])
     scheduler.load_state_dict(payload["scheduler"])
@@ -443,7 +483,7 @@ def train(
         "device": str(device),
         "started": time.strftime("%Y-%m-%dT%H:%M:%S"),
     }
-    state = load_checkpoint(cfg, model, opt, sched) if resume else RunState()
+    state = load_checkpoint(cfg, model, opt, sched, limit is not None) if resume else RunState()
     track = _make_tracker(cfg, f"{name}_fb{freeze_blocks}")
     logger.info(
         "training %d epochs on %s: %d train / %d val, batch %d x %d accumulation",
@@ -499,7 +539,7 @@ def train(
         is_best = tier_a > state.best_val
         if is_best:
             state.best_val = tier_a
-        save_checkpoint(cfg, model, opt, sched, state, best=is_best)
+        save_checkpoint(cfg, model, opt, sched, state, best=is_best, subsampled=limit is not None)
         _write_history(cfg, state, run_meta)
         track(
             {

@@ -236,14 +236,26 @@ def load_field(cfg: Config, weight: float | None = None) -> list[LabelledImage]:
             continue
         usable.append(rec)
 
-    # A session's stratum is the label it mostly carries, so that empty-feeder
-    # frames do not each count as their own stratum.
-    label_counts: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    # Group on (session, label), not session alone.
+    #
+    # Assigning a whole session by its dominant label sounds safer and is worse:
+    # the four hand clips each sit in a session dominated by sunbirds, so they
+    # inherited those sessions' splits and landed 15 train / 28 test / 0 val --
+    # a class with no validation coverage at all, which the val metrics then
+    # silently do not measure.
+    #
+    # The guarantee that matters is that the SAME SUBJECT never spans splits: a
+    # bird photographed across two clips of one visit is one bird in one light.
+    # A hand and a sunbird in the same session are not the same subject, and an
+    # empty feeder is the absence of one, so they can be placed independently
+    # without leaking anything. Clips of one species in one session still move
+    # together, which is the case the grouping was written for.
+    label_counts: dict[tuple[str, str], int] = defaultdict(int)
     for rec in usable:
-        label_counts[rec["session"]][rec["label"]] += 1
-    sessions = {s: max(c, key=lambda k: c[k]) for s, c in label_counts.items()}
-    sizes = {s: sum(c.values()) for s, c in label_counts.items()}
-    split_of = assign_sessions(sessions, sizes, cfg)
+        label_counts[(rec["session"], rec["label"])] += 1
+    groups = {f"{sess}|{lab}": lab for sess, lab in label_counts}
+    sizes = {f"{sess}|{lab}": n for (sess, lab), n in label_counts.items()}
+    split_of = assign_sessions(groups, sizes, cfg)
 
     out: list[LabelledImage] = []
     skipped: dict[str, int] = defaultdict(int)
@@ -267,7 +279,7 @@ def load_field(cfg: Config, weight: float | None = None) -> list[LabelledImage]:
                 taxon_index=idx,
                 sex_mask=mask,
                 sex_label_name=name,
-                split=split_of[rec["session"]],
+                split=split_of[f"{rec['session']}|{label}"],
                 observation_id=rec["clip"],
                 observer_id=f"field:{rec['session']}",
                 source="field",

@@ -31,13 +31,30 @@ def field(cfg):
     return items
 
 
-def test_no_session_spans_two_splits(field) -> None:
-    """The leak this whole module is arranged to prevent."""
+def test_no_subject_spans_two_splits(field) -> None:
+    """The leak this module is arranged to prevent.
+
+    The unit is (session, taxon), not session alone. A bird photographed across
+    two clips of one visit is one bird in one light and must not straddle. A
+    hand, or an empty feeder, recorded in the same session is a different
+    subject and may be placed independently -- which is what gives `other_animal`
+    any validation coverage at all: its four clips each sit in a session
+    dominated by sunbirds, and grouping on session alone put 0 of 43 frames in
+    val.
+    """
     splits = collections.defaultdict(set)
     for it in field:
-        splits[it.observer_id].add(it.split)
-    straddling = {s: v for s, v in splits.items() if len(v) > 1}
-    assert not straddling, f"sessions in more than one split: {straddling}"
+        splits[(it.observer_id, it.taxon_label)].add(it.split)
+    straddling = {k: v for k, v in splits.items() if len(v) > 1}
+    assert not straddling, f"same subject in more than one split: {straddling}"
+
+
+def test_no_clip_spans_two_splits(field) -> None:
+    """A clip is one continuous visit; it can never be divided."""
+    splits = collections.defaultdict(set)
+    for it in field:
+        splits[it.observation_id].add(it.split)
+    assert not {k: v for k, v in splits.items() if len(v) > 1}
 
 
 def test_every_split_is_populated(field) -> None:
@@ -96,12 +113,12 @@ def test_adding_a_session_does_not_reshuffle_others(cfg) -> None:
     """
     from birdcam.data.field_source import assign_sessions
 
-    sessions = {"s1": "a", "s2": "a", "s3": "a", "s4": "b", "s5": "b", "s6": "b"}
+    sessions = {"s1|a": "a", "s2|a": "a", "s3|a": "a", "s4|b": "b", "s5|b": "b", "s6|b": "b"}
     sizes = dict.fromkeys(sessions, 100)
     before = assign_sessions(sessions, sizes, cfg)
 
-    sessions2 = {**sessions, "s7": "c"}
-    sizes2 = {**sizes, "s7": 100}
+    sessions2 = {**sessions, "s7|c": "c"}
+    sizes2 = {**sizes, "s7|c": 100}
     after = assign_sessions(sessions2, sizes2, cfg)
 
     for s in sessions:

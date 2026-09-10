@@ -230,3 +230,60 @@ class_size_policy:
   # verdict is "insufficient data to decide" -- see DECISIONS.md on why a merge
   # recommendation from n=16 is not trustworthy.
   min_test_images_for_verdict: 50
+
+# =============================================================================
+# DISPLAY NAMES
+# =============================================================================
+# Every class in the label space gets an English name, used for ANYTHING a
+# person reads: logs, reports, plots, the dashboard, the CLI. The slugs stay
+# scientific because GBIF and iNaturalist resolve taxa by scientific name and
+# nothing else; these are a presentation layer over them, never a key.
+#
+# Species common names are NOT repeated here -- they already live in
+# species.yaml and duplicating them is how the two drift apart. Only the
+# fallback and negative classes, which have no species entry, are named here.
+#
+# birdcam.names asserts at import that every taxon class resolves, so adding a
+# class without a name here is a loud failure, not a silent slug leaking into a
+# report.
+display:
+  # Genus fallbacks: "which of these it is, is not established".
+  genus:
+    Cinnyris:      double-collared sunbird
+    Chalcomitra:   sunbird
+    Cyanomitra:    sunbird
+    Promerops:     sugarbird
+    Zosterops:     white-eye
+    Ploceus:       weaver
+    Pycnonotus:    bulbul
+    Passer:        sparrow
+
+  # Family fallbacks. Standard English family names.
+  family:
+    Nectariniidae: sunbird
+    Promeropidae:  sugarbird
+    Zosteropidae:  white-eye
+    Dicruridae:    drongo
+    Ploceidae:     weaver
+    Pycnonotidae:  bulbul
+    Passeridae:    sparrow
+    Sturnidae:     starling
+    Coliidae:      mousebird
+    Laniidae:      shrike
+    Muscicapidae:  flycatcher or chat
+    Cisticolidae:  cisticola or prinia
+    Fringillidae:  canary or finch
+
+  guild:
+    nectarivore:   nectar-feeding bird
+
+  # Negatives. Plain statements of what the frame holds, because these appear
+  # in capture logs next to real identifications and must not read like one.
+  negative:
+    empty_feeder:  Empty feeder
+    insect:        Insect
+    other_animal:  Other animal
+    obstruction:   Obstruction
+
+  # Emitted when the novelty gate fires: not a taxon at all.
+  unknown:         Unrecognised

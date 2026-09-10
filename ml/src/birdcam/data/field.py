@@ -41,6 +41,8 @@ import subprocess
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from birdcam.names import display
+
 logger = logging.getLogger(__name__)
 
 PHASE = 8
@@ -234,7 +236,9 @@ def extract_all(cfg, cut_fps: float = 2.0, uncut_fps: float = 1.0, short_side: i
         if fl is None:
             shown = "unlabelled"
         else:
-            shown = fl.label if fl.resolved else f"{fl.label} -- GROUP, not a species"
+            shown = display(fl.label)
+            if not fl.resolved:
+                shown += " -- GROUP, not a species"
         logger.info("%s (%s) at %.1f fps", folder, shown, fps)
 
         for clip in sorted(folder_dir.glob("*.mp4")):

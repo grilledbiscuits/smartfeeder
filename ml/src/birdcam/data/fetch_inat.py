@@ -28,6 +28,7 @@ is counted, not silent.
 from __future__ import annotations
 
 import logging
+import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -417,8 +418,48 @@ def download_pending(
 # -- entry point ---------------------------------------------------------------
 
 
-def run(cfg: Config, tiers: list[str], per_species: int, workers: int = 4) -> None:
+def _select(cfg: Config, taxa: dict, only: list[str]) -> dict:
+    """Narrow a tier fetch to named species.
+
+    Accepts a common name or a scientific one, case- and punctuation-insensitive,
+    because the person running this reads common names while the config keys are
+    scientific. An unmatched name is fatal: a typo would otherwise quietly fetch
+    nothing and report success.
+    """
+
+    def norm(x: str) -> str:
+        return re.sub(r"[^a-z]", "", x.lower())
+
+    by_norm: dict[str, str] = {}
+    for name in taxa:
+        by_norm[norm(name)] = name
+        spec = cfg.species_by_name.get(name)
+        if spec and spec.common_name:
+            by_norm[norm(spec.common_name)] = name
+
+    chosen, unknown = {}, []
+    for want in only:
+        key = by_norm.get(norm(want))
+        if key is None:
+            unknown.append(want)
+        else:
+            chosen[key] = taxa[key]
+    if unknown:
+        known = sorted(cfg.species_by_name[n].common_name for n in taxa)
+        raise SystemExit(f"--species matched nothing for {unknown}; known here: {known}")
+    return chosen
+
+
+def run(
+    cfg: Config,
+    tiers: list[str],
+    per_species: int,
+    workers: int = 4,
+    only: list[str] | None = None,
+) -> None:
     taxa = get_resolved(cfg, tiers=tiers)
+    if only:
+        taxa = _select(cfg, taxa, only)
     manifest_path = cfg.path("manifest_db")
 
     with Manifest(manifest_path) as m:
@@ -471,11 +512,17 @@ def main() -> None:
     ap.add_argument("--tiers", nargs="*", default=["A"])
     ap.add_argument("--per-species", type=int, default=None)
     ap.add_argument("--workers", type=int, default=4)
+    ap.add_argument(
+        "--species",
+        nargs="*",
+        default=None,
+        help="Fetch only these species, by common or scientific name.",
+    )
     args = ap.parse_args()
 
     cfg = load_config()
     per = args.per_species or cfg.train_cfg["fetch"]["max_images_per_species"]
-    run(cfg, tiers=args.tiers, per_species=per, workers=args.workers)
+    run(cfg, tiers=args.tiers, per_species=per, workers=args.workers, only=args.species)
 
 
 if __name__ == "__main__":

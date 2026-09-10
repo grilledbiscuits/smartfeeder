@@ -29,6 +29,7 @@ from birdcam.eval.metrics import (
     sex_breakdown,
     wilson_interval,
 )
+from birdcam.names import display, display_all
 
 logger = logging.getLogger(__name__)
 
@@ -153,7 +154,7 @@ def chart_confusion(ev: Evaluated, sex_filter: str | None = None) -> str:
     if sel.sum() == 0:
         return ""
     present = sorted(set(ev.y_true[sel].tolist()) | set(ev.y_pred[sel].tolist()))
-    names = [ev.labels[i].replace("_", " ") for i in present]
+    names = display_all([ev.labels[i] for i in present])
     pos = {c: i for i, c in enumerate(present)}
     m = np.zeros((len(present), len(present)))
     for t, p in zip(ev.y_true[sel], ev.y_pred[sel], strict=True):
@@ -312,8 +313,8 @@ def high_confidence_errors(ev: Evaluated, k: int = 12) -> list[dict]:
     for i in order:
         out.append(
             {
-                "true": ev.labels[ev.y_true[i]],
-                "pred": ev.labels[ev.y_pred[i]],
+                "true": display(ev.labels[ev.y_true[i]]),
+                "pred": display(ev.labels[ev.y_pred[i]]),
                 "conf": float(ev.probs[i, ev.y_pred[i]]),
                 "sex": str(ev.sex[i]),
                 "b64": _img_to_b64(ev.image_paths[i]) if i < len(ev.image_paths) else None,

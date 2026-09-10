@@ -422,10 +422,16 @@ def main() -> None:
         f"= {len(cfg.taxon_classes)}"
     )
 
+    from birdcam.names import display
+
     print("\nmulti-species genera (genus fallback is meaningful):")
     for genus, members in sorted(cfg.species_per_genus.items()):
         if len(members) >= 2:
             print(f"  {genus:<14} {len(members):>2} species -> {cfg.genus_to_family[genus]}")
+
+    print("\nlabel space, as a person reads it:")
+    for c in cfg.taxon_classes:
+        print(f"  {display(c, cfg)}")
 
     print("\nrollup thresholds:")
     for level, th in cfg.taxonomy_cfg["rollup"]["thresholds"].items():

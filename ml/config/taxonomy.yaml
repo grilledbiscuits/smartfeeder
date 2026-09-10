@@ -29,6 +29,9 @@ taxon_head:
     Nectarinia: Nectariniidae
     Anthobaphes: Nectariniidae
     Hedydipna: Nectariniidae
+    # Anthreptes: kept though its only species (Plain-backed Sunbird) was
+    # dropped 2026-09-10 for want of images. The mapping is harmless with no
+    # species under it and is what the genus would need if one returns.
     Anthreptes: Nectariniidae
     Promerops: Promeropidae
     Zosterops: Zosteropidae

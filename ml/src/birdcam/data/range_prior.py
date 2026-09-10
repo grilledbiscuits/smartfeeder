@@ -1,7 +1,7 @@
 """Build a per-site range prior from real local observation density.
 
 The capture application runs at one feeder in one garden. Most of the label
-space is irrelevant there: *Cinnyris neergaardi* occurs in coastal KwaZulu-Natal
+space is irrelevant there: *Cinnyris talatala* occurs in the north-east
 and will never visit Cape Town. Downweighting it costs nothing and removes a
 whole class of confident mistakes.
 

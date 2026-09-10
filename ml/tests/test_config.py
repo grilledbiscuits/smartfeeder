@@ -36,7 +36,7 @@ def test_tier_counts_match_brief(cfg: Config) -> None:
     is genuinely added, never to make a red test go green.
     """
     assert len(cfg.species_by_tier("A")) == 6
-    assert len(cfg.species_by_tier("B")) == 13
+    assert len(cfg.species_by_tier("B")) == 11
     assert len(cfg.species_by_tier("C")) == 18
 
 

@@ -32,6 +32,7 @@ taxon_head:
     Anthreptes: Nectariniidae
     Promerops: Promeropidae
     Zosterops: Zosteropidae
+    Dicrurus: Dicruridae
     Ploceus: Ploceidae
     Pycnonotus: Pycnonotidae
     Passer: Passeridae
@@ -73,6 +74,7 @@ taxon_head:
     nectariniidae_indet: { family: Nectariniidae, guild: nectarivore }
     promeropidae_indet:  { family: Promeropidae,  guild: nectarivore }
     zosteropidae_indet:  { family: Zosteropidae,  guild: non_target }
+    dicruridae_indet:    { family: Dicruridae,    guild: non_target }
     ploceidae_indet:     { family: Ploceidae,     guild: non_target }
     pycnonotidae_indet:  { family: Pycnonotidae,  guild: non_target }
     passeridae_indet:    { family: Passeridae,    guild: non_target }

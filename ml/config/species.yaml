@@ -85,6 +85,12 @@ tiers:
     species:
       - scientific_name: Zosterops virens
         common_name: Cape White-eye
+      # Recorded at the feeder 2026-08-25 onward: 9.1 minutes across 11 clips,
+      # more footage than the Cape Bulbul has. An unexpected visitor, but a real
+      # one, and a large dark bird is exactly the kind of thing that would
+      # otherwise be forced into a sunbird class.
+      - scientific_name: Dicrurus adsimilis
+        common_name: Fork-tailed Drongo
       - scientific_name: Zosterops pallidus
         common_name: Orange River White-eye
       - scientific_name: Ploceus capensis

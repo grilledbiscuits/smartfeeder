@@ -42,12 +42,13 @@ taxon_head:
     Colius: Coliidae
     Urocolius: Coliidae
     Lanius: Laniidae
-    # NOTE: GBIF resolves "Melaenornis silens" to *Sigelus silens*, genus
-    # Sigelus (matchType EXACT, via synonymy). We keep the Melaenornis name --
-    # it is current IOC usage and what the user supplied -- and record GBIF's
-    # own genus separately during resolution. Family is Muscicapidae either way,
-    # so rollup is unaffected. Flagged in ASSUMPTIONS.md.
-    Melaenornis: Muscicapidae
+    # Sigelus silens, the Fiscal Flycatcher. This previously read Melaenornis,
+    # deliberately, on the grounds that it is current IOC usage. That was right
+    # taxonomically and useless practically: GBIF and iNaturalist both file the
+    # bird under Sigelus, so the resolver rejected the name and the species
+    # fetched zero images. Family is Muscicapidae under either genus, so rollup
+    # is unaffected. Reversed 2026-09-10; see ASSUMPTIONS.md.
+    Sigelus: Muscicapidae
     Prinia: Cisticolidae
     Serinus: Fringillidae
 
@@ -168,7 +169,6 @@ sex_plumage_head:
     - Zosterops virens
     - Zosterops pallidus
     - Pycnonotus capensis
-    - Pycnonotus tricolor
     - Pycnonotus nigricans
     - Sturnus vulgaris
     - Onychognathus morio

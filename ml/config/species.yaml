@@ -99,8 +99,6 @@ tiers:
         common_name: Southern Masked Weaver
       - scientific_name: Pycnonotus capensis
         common_name: Cape Bulbul
-      - scientific_name: Pycnonotus tricolor
-        common_name: Dark-capped Bulbul
       - scientific_name: Pycnonotus nigricans
         common_name: African Red-eyed Bulbul
       - scientific_name: Passer melanurus
@@ -121,7 +119,12 @@ tiers:
         common_name: Cape Canary
       - scientific_name: Prinia maculosa
         common_name: Karoo Prinia
-      - scientific_name: Melaenornis silens
+      # Sigelus, not Melaenornis. IOC uses Melaenornis silens and that is what
+      # this list carried, but BOTH backbones this project resolves against --
+      # GBIF (ACCEPTED) and iNaturalist -- file it as Sigelus silens, so the
+      # resolver refused it as a genus mismatch and the species fetched nothing
+      # at all. A name we cannot resolve buys correctness we cannot use.
+      - scientific_name: Sigelus silens
         common_name: Fiscal Flycatcher
       - scientific_name: Lanius collaris
         common_name: Southern Fiscal

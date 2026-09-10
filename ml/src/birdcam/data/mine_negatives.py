@@ -65,6 +65,25 @@ def _load_small(path: Path, size: int = 128) -> np.ndarray:
         return np.asarray(im.convert("RGB").resize((size, size)), dtype=np.float32)
 
 
+def _load_full(path: Path) -> np.ndarray:
+    """Full-resolution RGB. The port box is small; downsampling throws the bird away."""
+    from PIL import Image
+
+    with Image.open(path) as im:
+        return np.asarray(im.convert("RGB"), dtype=np.float32)
+
+
+def session_background_full(frames: list[Path], sample: int = BACKGROUND_SAMPLE) -> np.ndarray:
+    """Median frame at full resolution, for the port-local gate.
+
+    `session_background` works at 128px, which is right for whole-frame scoring
+    and useless here: the port box is a sixth of the frame and a sunbird inside
+    it is a handful of pixels once downsampled.
+    """
+    step = max(1, len(frames) // sample)
+    return np.median(np.stack([_load_full(p) for p in frames[::step][:sample]]), axis=0)
+
+
 def session_background(frames: list[Path], sample: int = BACKGROUND_SAMPLE) -> np.ndarray:
     """Median frame for one session -- the empty scene, reconstructed.
 
@@ -155,6 +174,72 @@ def contrast_is_usable(scores: np.ndarray, min_dynamic_range: float = 2.7):
     return dyn >= min_dynamic_range, dyn
 
 
+def feeder_port(background: np.ndarray) -> tuple[int, int]:
+    """Centre of the red feeding port, from the session background.
+
+    Birds feed AT the port, and the port is the only strongly red thing in the
+    scene, so it can be found without a model: red minus the larger of green and
+    blue, thresholded at the far tail. Everything else in this frame -- tarp,
+    brick, foliage, sky -- is green, grey or blue.
+    """
+    r, g, b = background[..., 0], background[..., 1], background[..., 2]
+    redness = r - np.maximum(g, b)
+    mask = redness > max(30.0, float(np.percentile(redness, 99.5)))
+    ys, xs = np.where(mask)
+    if len(xs) < 10:
+        raise ValueError("no feeder port found in background")
+    return int(xs.mean()), int(ys.mean())
+
+
+def _window(centre: int, half: int, limit: int) -> tuple[int, int]:
+    """A window of fixed width that stays in frame by SHIFTING, never clipping.
+
+    Clipping is what made the first version of this miss birds. When the port
+    sits near a frame edge, a clipped box puts the port at its own edge, and a
+    bird perched on the far side of the port falls outside the box entirely --
+    so it contributed nothing to the score and was never seen in review either.
+    """
+    half = min(half, limit // 2)
+    lo = max(0, min(centre - half, limit - 2 * half))
+    return lo, lo + 2 * half
+
+
+def port_box(background: np.ndarray, frac: float = 0.16) -> tuple[int, int, int, int]:
+    """A tight box around the port, guaranteed to lie inside the frame."""
+    h, w = background.shape[:2]
+    cx, cy = feeder_port(background)
+    half = int(frac * max(w, h))
+    x0, x1 = _window(cx, half, w)
+    y0, y1 = _window(cy, half, h)
+    return x0, y0, x1, y1
+
+
+def port_local_z(frames, background, box) -> np.ndarray:
+    """Robust z-score of departure from the background WITHIN the port box.
+
+    The whole-frame score cannot see a sunbird: the bird occupies a percent or
+    two of the pixels while the tarp behind the feeder moves across all of them,
+    so a bird's arrival is lost in the noise. Restricted to the port, the bird
+    IS the signal.
+
+    Measured 2026-09-10 on a frame the whole-frame score had passed as empty and
+    which holds a Cape White-eye plainly perched at the port: the whole-frame
+    score put it at z = -0.69, comfortably inside the "definitely empty" region.
+    The port-local score puts it 4th of 1,529. Same frame, same background; the
+    difference is entirely where you look.
+
+    Median and MAD rather than mean and standard deviation, because the
+    contaminating frames are exactly what would inflate a standard deviation and
+    hide themselves.
+    """
+    x0, y0, x1, y1 = box
+    bg = background[y0:y1, x0:x1]
+    d = np.array([np.abs(_load_full(p)[y0:y1, x0:x1] - bg).mean() for p in frames])
+    med = float(np.median(d))
+    mad = float(np.median(np.abs(d - med))) or 1.0
+    return (d - med) / (1.4826 * mad)
+
+
 def score_frames(frames: list[Path], background: np.ndarray) -> np.ndarray:
     """Localised departure from the session background, per frame."""
     return np.array([_block_max(np.abs(_load_small(p) - background)) for p in frames])
@@ -207,6 +292,7 @@ def run(
     frames_root: Path | None = None,
     empty_percentile: float = 0.15,
     drop_top: float = 0.0,
+    port_z_max: float = -0.5,
 ) -> dict:
     """Score every extracted uncut frame and propose an empty/occupied split."""
     root = frames_root or (cfg.path("data_root") / "field" / "frames" / "uncut")
@@ -256,6 +342,25 @@ def run(
                 len(frames),
             )
             continue
+        # Port-local gate. The whole-frame score decides which frames are
+        # PLAUSIBLY empty; this decides which of those are certainly empty, by
+        # looking only where a bird would be. Run second because it is far more
+        # expensive: full-resolution loads, not 128px ones.
+        try:
+            bg_full = session_background_full(frames)
+            box = port_box(bg_full)
+        except ValueError:
+            logger.warning(
+                "%s: EXCLUDED, no feeder port located in the background; "
+                "the port-local check cannot run and a whole-frame score alone "
+                "has been measured to pass birds",
+                session,
+            )
+            out["excluded_sessions"][session] = {
+                "n_frames": len(frames),
+                "reason": "feeder port not found; port-local check impossible",
+            }
+            continue
         thr = propose_threshold(s, empty_percentile)
         empty = s < thr
         # Optional second stage: drop the top slice of what survived.
@@ -284,6 +389,16 @@ def run(
             "score_p05": round(float(np.percentile(s, 5)), 3),
             "score_p95": round(float(np.percentile(s, 95)), 3),
         }
+        # Anything the whole-frame pass proposed must also be unremarkable at
+        # the port. Scored only over the proposals, so the median it is measured
+        # against is the median of frames already believed empty.
+        idx = np.where(empty)[0]
+        if len(idx) >= 8:
+            pz = port_local_z([frames[i] for i in idx], bg_full, box)
+            empty[idx] = pz <= port_z_max
+        out["sessions"][session]["port_box"] = list(box)
+        out["sessions"][session]["kept_after_port_gate"] = int(empty.sum())
+
         for p, sc, e in zip(frames, s, empty, strict=True):
             key = p.relative_to(cfg.root) if p.is_relative_to(cfg.root) else p
             out["frames"][str(key)] = {
@@ -318,6 +433,13 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--frames-root", default=None)
     ap.add_argument(
+        "--port-z-max",
+        type=float,
+        default=-0.5,
+        help="keep a frame only if its port-local departure is this many robust "
+        "standard deviations BELOW its session median; negative is deliberate",
+    )
+    ap.add_argument(
         "--drop-top",
         type=float,
         default=0.0,
@@ -337,6 +459,7 @@ def main() -> None:
         Path(args.frames_root) if args.frames_root else None,
         empty_percentile=args.empty_percentile,
         drop_top=args.drop_top,
+        port_z_max=args.port_z_max,
     )
     print(f"\n{res['total_empty']} of {res['total_frames']} uncut frames look empty")
     print("VERIFY before using these as labels -- see the module docstring.")

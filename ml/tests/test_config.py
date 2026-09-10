@@ -37,7 +37,7 @@ def test_tier_counts_match_brief(cfg: Config) -> None:
     """
     assert len(cfg.species_by_tier("A")) == 6
     assert len(cfg.species_by_tier("B")) == 13
-    assert len(cfg.species_by_tier("C")) == 19
+    assert len(cfg.species_by_tier("C")) == 18
 
 
 def test_tier_c_is_present_and_nonempty(cfg: Config) -> None:

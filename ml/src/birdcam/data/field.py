@@ -66,18 +66,16 @@ class FolderLabel:
 # Folder name -> what that folder actually establishes. `uncut` is deliberately
 # absent: it is unlabelled by nature and is the source of empty-feeder negatives.
 FOLDER_TO_LABEL = {
+    # 2026-09-10: identified as Southern Double-collared by the observer who
+    # recorded it. This entry previously carried resolved=False because neither
+    # a blind test on labelled corpus images (15/20, and 3/5 with no breast band
+    # visible) nor the footage itself could separate Southern from Greater. That
+    # is still true of the IMAGES; the resolution comes from the person who was
+    # there, which is a better instrument than either of us had.
     "doublecollared": FolderLabel(
-        "Cinnyris chalybeus/afer",
-        resolved=False,
-        note=(
-            "Southern and Greater Double-collared are not reliably separable here. "
-            "Measured 2026-08-16 on labelled corpus images: blind identification "
-            "scored 15/20 overall and 3/5 when no breast band is visible, which is "
-            "chance. Most frames in this folder are drab females or immatures with "
-            "no band at all. The one clear male found across 10 sessions shows a "
-            "narrow band, favouring chalybeus, but it is head-down and one bird "
-            "does not characterise 39 clips. Treat as the merged class."
-        ),
+        "Cinnyris chalybeus",
+        resolved=True,
+        note="Field identification by the observer, 2026-09-10; not established from imagery.",
     ),
     "amethyst": FolderLabel("Chalcomitra amethystina", resolved=True),
     "juvenileamethyst": FolderLabel(
@@ -85,8 +83,28 @@ FOLDER_TO_LABEL = {
         resolved=True,
         note="Female/immature plumage; one frame shows an immature male's amethyst gorget.",
     ),
+    # `whiteeye` is the 2026-09 drive's name, `capewhiteeye` the 2026-08 one.
+    # Both are kept so already-extracted frames keep resolving.
+    "whiteeye": FolderLabel("Zosterops virens", resolved=True),
     "capewhiteeye": FolderLabel("Zosterops virens", resolved=True),
     "capebulbul": FolderLabel("Pycnonotus capensis", resolved=True),
+    "drongo": FolderLabel("Dicrurus adsimilis", resolved=True),
+    # --- negatives, not birds ---------------------------------------------------
+    # Hands refilling the feeder. Filed under `other_animal` rather than
+    # `obstruction` because a hand is a living thing moving at the port, which is
+    # what the class has to generalise; `obstruction` is reserved for the lens
+    # being blocked by a leaf or branch. The observer recorded these specifically
+    # as hard negatives for the open-set gate, and they are the first in-domain
+    # non-bird data the project has had -- A25/A27 note the negative classes have
+    # never had a single positive example.
+    "hands": FolderLabel("other_animal", resolved=True, note="Human hands at the feeder."),
+    # Clips whose filename flags more than one bird in frame. Kept separate so
+    # they never silently become single-label training data.
+    "multibird": FolderLabel(
+        "MULTIPLE",
+        resolved=False,
+        note="Two or more birds in frame; per-frame labels required before training use.",
+    ),
 }
 
 UNCUT = "uncut"
@@ -175,7 +193,14 @@ def extract_clip(clip: Path, out_dir: Path, fps: float, short_side: int) -> list
     pattern = str(out_dir / f"{stem}_%05d.jpg")
     cmd = [
         "ffmpeg", "-v", "error", "-threads", "4", "-i", str(clip),
-        "-vf", f"fps={fps},scale=-1:{short_side}",
+        # `scale=-1:{short_side}` pins HEIGHT, which is only the short side for
+        # landscape input. 19% of the 2026-09 footage is portrait (1080x1920),
+        # including 12 of 25 Amethyst Sunbird clips, and those came out
+        # 144x256 -- 44% under-resolution, silently, because the eval transform
+        # then upscales back to 224 and recovers no detail.
+        # force_original_aspect_ratio=increase pins the SHORT side either way.
+        "-vf", f"fps={fps},scale=w={short_side}:h={short_side}"
+               ":force_original_aspect_ratio=increase",
         "-q:v", "3", "-y", pattern,
     ]  # fmt: skip
     r = subprocess.run(cmd, capture_output=True, text=True)

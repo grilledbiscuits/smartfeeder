@@ -27,10 +27,17 @@ def test_all_three_tiers_present(cfg: Config) -> None:
 
 
 def test_tier_counts_match_brief(cfg: Config) -> None:
-    """Guards against a species being dropped during a config edit."""
+    """Guards against a species being dropped during a config edit.
+
+    Tier C went 18 -> 19 on 2026-09-10 when the Fork-tailed Drongo was added: it
+    turned up at the feeder unannounced and 9.1 minutes of it were recorded,
+    more footage than the Cape Bulbul has. Changing these numbers is meant to be
+    a deliberate act, which is why this test exists -- update it when a species
+    is genuinely added, never to make a red test go green.
+    """
     assert len(cfg.species_by_tier("A")) == 6
     assert len(cfg.species_by_tier("B")) == 13
-    assert len(cfg.species_by_tier("C")) == 18
+    assert len(cfg.species_by_tier("C")) == 19
 
 
 def test_tier_c_is_present_and_nonempty(cfg: Config) -> None:

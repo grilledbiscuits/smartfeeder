@@ -40,6 +40,8 @@ import logging
 import random
 from collections import defaultdict
 
+import numpy as np
+
 from birdcam.config import Config
 from birdcam.data.dataset import LabelledImage, LabelMapper
 
@@ -51,6 +53,69 @@ FIELD_WEIGHT = 0.3
 
 # Folder labels that are class slugs already rather than binomials.
 _DIRECT_CLASSES = {"other_animal", "empty_feeder", "insect", "obstruction"}
+
+
+# Clip label -> the set of sex classes that label admits. The loss is
+# -log(sum of admissible probabilities), so a full set is zero loss and zero
+# gradient: that is how "no supervision" is expressed, and it is NOT the same as
+# `indeterminate`, which is a positive claim that the bird could not be sexed.
+_SEX_FROM_CLIP = {
+    # The observer recorded the sex, not the plumage state, so a male is
+    # admissible over both male classes -- the same partial-label treatment an
+    # iNaturalist "Male" annotation gets.
+    "male": ("male_breeding", "male_eclipse"),
+    "female": ("female",),
+    # Juvenile outranks sex in the head's precedence: juvenile plumage is what
+    # the model actually sees.
+    "juvenile": ("juvenile",),
+}
+
+
+def load_clip_sex(cfg: Config) -> dict[str, str]:
+    """Per-clip sex/age labels, made by the observer who shot the footage.
+
+    Absent file means no sex supervision from field footage, which is a
+    degradation rather than an error: the frames still train the taxon head.
+    """
+    path = cfg.root / "labels" / "field_clip_sex.json"
+    if not path.is_file():
+        logger.warning("no %s; field frames will carry no sex supervision", path)
+        return {}
+    return json.loads(path.read_text(encoding="utf-8"))["labels"]
+
+
+def sex_mask_for(cfg: Config, mapper: LabelMapper, sci: str, clip_label: str | None):
+    """(mask, name) for a field frame, from its clip's label.
+
+    Field footage has no annotator and no EXIF: before these labels existed every
+    frame fell through to `indeterminate`, which in this label space asserts that
+    the bird COULD NOT be sexed. For 4,499 frames of a strongly dimorphic species
+    -- the male has an iridescent green head and a red breast band, the female is
+    plain grey-brown -- that was not a missing label but a false one, and it
+    taught the head to abstain on the easiest case it will ever see.
+
+    `unsure` returns an all-ones mask: every class admissible, so the loss term is
+    exactly zero and the frame contributes nothing to this head while still
+    training the taxon head. Some of those clips hold a male and a female at the
+    feeder together, where no single label is true of the frame at all.
+    """
+    n = len(cfg.sex_classes)
+    if sci in _DIRECT_CLASSES:
+        # An empty feeder, or a pair of hands, has no sex. That is not missing
+        # information to be masked away -- it is a true statement, and the same
+        # one a monomorphic species gets, so the head can learn it.
+        mask = np.zeros(n, dtype=np.float32)
+        mask[cfg.sex_class_index["not_applicable"]] = 1.0
+        return mask, "not_applicable"
+    if sci in mapper.monomorphic:
+        return mapper.sex_target(sci, None, None)
+    members = _SEX_FROM_CLIP.get(clip_label or "")
+    if members is None:
+        return np.ones(n, dtype=np.float32), "unsupervised"
+    mask = np.zeros(n, dtype=np.float32)
+    for m in members:
+        mask[cfg.sex_class_index[m]] = 1.0
+    return mask, (clip_label if len(members) == 1 else "male_unspecified")
 
 
 def _load_index(cfg: Config) -> list[dict]:
@@ -126,6 +191,7 @@ def load_field(cfg: Config, weight: float | None = None) -> list[LabelledImage]:
     if weight is None:
         weight = float(cfg.train_cfg["train"].get("field_weight", FIELD_WEIGHT))
     mapper = LabelMapper(cfg)
+    clip_sex = load_clip_sex(cfg)
     index = _load_index(cfg)
     empty = _load_empty(cfg)
 
@@ -162,10 +228,7 @@ def load_field(cfg: Config, weight: float | None = None) -> list[LabelledImage]:
         if idx is None:
             skipped[taxon_label] += 1
             continue
-        # No sex or life-stage annotation exists for field footage: the birds
-        # were not scored by an observer. sex_target maps that to the
-        # unannotated label, or to n/a for a monomorphic species.
-        mask, name = mapper.sex_target(sci, None, None)
+        mask, name = sex_mask_for(cfg, mapper, sci, clip_sex.get(rec["clip"]))
         out.append(
             LabelledImage(
                 image_id=f"field:{rec['path']}",

@@ -236,3 +236,46 @@ def test_embedding_cache_aligns_if_present(cfg):
     assert len(feats) == len(items)
     assert feats.dtype == np.float32
     assert not np.isnan(feats).any(), "NaNs in cached features"
+
+
+# --- checkpoint provenance ----------------------------------------------------
+#
+# A checkpoint is a tensor of the right shape and nothing more unless it records
+# WHICH classes those rows mean. Adding the Fork-tailed Drongo took the head
+# 62 -> 64 with the new classes inserted at indices 16 and 48, not appended, so
+# a positional reuse of the old rows would have shifted the meaning of every
+# class above 16 -- a model that trains, converges, and is confidently wrong.
+
+
+def test_checkpoints_record_their_label_space(tmp_path, cfg) -> None:
+    torch = pytest.importorskip("torch")
+    from birdcam.train.train_full import RunState, save_checkpoint
+
+    class _Tiny(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.taxon_head = torch.nn.Linear(4, len(cfg.taxon_classes))
+
+    model = _Tiny()
+    opt = torch.optim.SGD(model.parameters(), lr=0.1)
+    sched = torch.optim.lr_scheduler.StepLR(opt, 1)
+    monkey = cfg.path("checkpoints_dir")
+    assert monkey  # the real dir; save into it under the smoke name
+    save_checkpoint(cfg, model, opt, sched, RunState(), subsampled=True)
+    p = cfg.path("checkpoints_dir") / "smoke_last.pt"
+    payload = torch.load(p, map_location="cpu", weights_only=False)
+    assert payload["taxon_classes"] == list(cfg.taxon_classes)
+    assert payload["sex_classes"] == list(cfg.sex_classes)
+    p.unlink()
+
+
+def test_subsampled_runs_cannot_touch_a_real_checkpoint(cfg) -> None:
+    """A smoke run's first epoch is always its own best, so it would overwrite.
+
+    This happened: a one-epoch run over 400 images destroyed a 17-epoch
+    fine-tune on 2026-09-10.
+    """
+    from birdcam.train.train_full import _ckpt_path
+
+    assert _ckpt_path(cfg, subsampled=True) != _ckpt_path(cfg, subsampled=False)
+    assert "smoke" in _ckpt_path(cfg, subsampled=True).name

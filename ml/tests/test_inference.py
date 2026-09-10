@@ -30,6 +30,34 @@ def clf(cfg):
     return Classifier(cfg)
 
 
+def distribute(cfg, clf, weights: dict[str, float]):
+    """Decide on an explicit probability distribution over species.
+
+    This is how a rollup actually happens in production: no single species
+    clears its own threshold, but the group they belong to does. It has to be
+    exercised this way because the rollup labels are NOT model outputs -- there
+    is no logit to force. `decide()` builds them from summed species mass.
+
+    Weights are normalised, then turned back into logits. Note that Tier A
+    species carry per-class thresholds as low as 0.18, so "split it evenly over
+    two species" is not enough to prevent one of them simply winning.
+    """
+    idx = cfg.taxon_class_index
+    total = sum(weights.values())
+    probs = np.full(len(cfg.taxon_classes), 1e-12)
+    for slug, w in weights.items():
+        probs[idx[slug]] = w / total
+    return clf.decide(np.log(probs), np.zeros(len(cfg.sex_classes)), features=None)
+
+
+def _slugs_in_family(cfg, family: str) -> list[str]:
+    return [s.slug for s in cfg.species if cfg.genus_to_family.get(s.genus) == family]
+
+
+def _even(slugs: list[str]) -> dict[str, float]:
+    return dict.fromkeys(slugs, 1.0)
+
+
 def decide_for(cfg, clf, label: str):
     """Force `label` to win the argmax with overwhelming confidence."""
     idx = cfg.taxon_class_index
@@ -42,9 +70,14 @@ def decide_for(cfg, clf, label: str):
 # --- negatives must never record ----------------------------------------------
 
 
-@pytest.mark.parametrize("label", ["empty_feeder", "insect", "other_animal", "obstruction"])
+@pytest.mark.parametrize("label", ["empty_feeder", "other_animal"])
 def test_negative_classes_never_record(cfg, clf, label) -> None:
-    """The regression that motivated this file."""
+    """The regression that motivated this file.
+
+    `insect` and `obstruction` are no longer outputs: there is no training data
+    for either, and an output that never sees an example can still win an
+    argmax. Both are the novelty gate's job now -- see taxonomy.yaml.
+    """
     d = decide_for(cfg, clf, label)
     assert d.level == "negative", f"{label} reported level {d.level!r}"
     assert not d.should_record
@@ -59,16 +92,48 @@ def test_negative_class_is_not_called_a_species(cfg, clf) -> None:
 
 
 def test_genus_fallback_reports_genus_level(cfg, clf) -> None:
-    d = decide_for(cfg, clf, "cinnyris_indet")
+    """Spread thinly over Cinnyris: no species wins, the genus does."""
+    d = distribute(cfg, clf, _even([s.slug for s in cfg.species if s.genus == "Cinnyris"]))
+    assert d.label == "cinnyris_indet"
     assert d.level == "genus"
 
 
 def test_family_fallback_reports_family_level(cfg, clf) -> None:
-    assert decide_for(cfg, clf, "nectariniidae_indet").level == "family"
+    """Spread across the whole sunbird family: no genus reaches 0.65, the family does."""
+    d = distribute(cfg, clf, _even(_slugs_in_family(cfg, "Nectariniidae")))
+    assert d.label == "nectariniidae_indet"
+    assert d.level == "family"
 
 
 def test_guild_fallback_reports_guild_level(cfg, clf) -> None:
-    assert decide_for(cfg, clf, "nectarivore_indet").level == "guild"
+    """Sunbirds and sugarbirds together: neither family clears, the guild does.
+
+    The sugarbird carries most of the weight so it takes the argmax -- the
+    rollup walks up from the winning class -- but stays under its own 0.18
+    threshold, so it cannot simply win as a species.
+    """
+    w = _even(_slugs_in_family(cfg, "Nectariniidae") + _slugs_in_family(cfg, "Promeropidae"))
+    w["promerops_cafer"] = 2.5
+    d = distribute(cfg, clf, w)
+    assert d.label == "nectarivore_indet"
+    assert d.level == "guild"
+
+
+def test_rollup_nodes_are_not_model_outputs(cfg) -> None:
+    """They describe a distribution, not a photographable thing.
+
+    Every one of them held zero training images. An untrained output still
+    produces a logit and can still win an argmax, which would report a
+    confident identification with nothing behind it.
+    """
+    assert not [c for c in cfg.taxon_classes if c.endswith("_indet")]
+
+
+def test_every_class_in_the_head_is_trainable(cfg) -> None:
+    """Species, plus only those negatives real data exists for."""
+    head = cfg.taxonomy_cfg["taxon_head"]
+    expected = {s.slug for s in cfg.species} | set(head["trainable_negatives"])
+    assert set(cfg.taxon_classes) == expected
 
 
 # --- the capture allowlist ----------------------------------------------------
@@ -94,13 +159,17 @@ def test_non_target_species_is_identified_but_not_recorded(cfg, clf) -> None:
 
 def test_target_bearing_genus_fallback_records(cfg, clf) -> None:
     """'One of the double-collared sunbirds' is worth recording; both are targets."""
-    assert decide_for(cfg, clf, "cinnyris_indet").should_record
+    d = distribute(cfg, clf, _even([s.slug for s in cfg.species if s.genus == "Cinnyris"]))
+    assert d.label == "cinnyris_indet"
+    assert d.should_record
 
 
 def test_vague_fallbacks_do_not_record(cfg, clf) -> None:
     """'Some sunbird' is too vague to justify storage."""
-    assert not decide_for(cfg, clf, "nectariniidae_indet").should_record
-    assert not decide_for(cfg, clf, "nectarivore_indet").should_record
+    assert not distribute(cfg, clf, _even(_slugs_in_family(cfg, "Nectariniidae"))).should_record
+    w = _even(_slugs_in_family(cfg, "Nectariniidae") + _slugs_in_family(cfg, "Promeropidae"))
+    w["promerops_cafer"] = 2.5
+    assert not distribute(cfg, clf, w).should_record
 
 
 # --- the unknown gate still wins ----------------------------------------------

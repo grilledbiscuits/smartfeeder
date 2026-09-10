@@ -166,10 +166,21 @@ class Config:
         """
         head = self.taxonomy_cfg["taxon_head"]
         classes = sorted(s.slug for s in self.species)
-        classes += sorted(head["genus_fallback"])
-        classes += sorted(head["family_fallback"])
-        classes += sorted(head["guild_fallback"])
-        classes += list(head["negative"])
+        # Rollup nodes are NOT outputs. `cinnyris_indet` means "one of the
+        # double-collared sunbirds and I will not commit to which" -- that is a
+        # statement about a probability distribution, not a thing that can be
+        # photographed, so no image can ever carry it as a label and the class
+        # could never receive a positive example. Measured 2026-09-10: all 22 of
+        # them held zero training images, and an untrained output still produces
+        # a logit and can still win an argmax, which would report a confident
+        # identification with nothing whatsoever behind it.
+        #
+        # Nothing is lost. Classifier.decide() builds these labels itself, by
+        # summing the probability mass of a group's species and comparing that
+        # to the rollup threshold -- see _group_mass. The genus/family/guild
+        # nodes in taxonomy.yaml still drive that, and still decide which
+        # fallbacks are capture targets. They are configuration, not classes.
+        classes += [n for n in head["negative"] if n in head.get("trainable_negatives", [])]
         dupes = {c for c in classes if classes.count(c) > 1}
         if dupes:
             raise ConfigError(f"Duplicate taxon class labels: {sorted(dupes)}")
@@ -412,14 +423,15 @@ def main() -> None:
 
     head = cfg.taxonomy_cfg["taxon_head"]
     n_species = len(cfg.species)
-    n_genus = len(head["genus_fallback"])
-    n_family = len(head["family_fallback"])
-    n_guild = len(head["guild_fallback"])
-    n_neg = len(head["negative"])
+    n_neg = len(head.get("trainable_negatives", []))
     print(
-        f"\nlabel space     : {n_species} species + {n_genus} genus + "
-        f"{n_family} family + {n_guild} guild + {n_neg} negative "
-        f"= {len(cfg.taxon_classes)}"
+        f"\nlabel space     : {n_species} species + {n_neg} negative "
+        f"= {len(cfg.taxon_classes)} model outputs"
+    )
+    print(
+        f"rollup nodes    : {len(head['genus_fallback'])} genus + "
+        f"{len(head['family_fallback'])} family + {len(head['guild_fallback'])} guild "
+        "(computed from species mass, not outputs)"
     )
 
     from birdcam.names import display

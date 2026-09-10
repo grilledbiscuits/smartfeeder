@@ -81,18 +81,36 @@ def test_every_species_has_a_taxon_class(cfg: Config) -> None:
         assert s.slug in cfg.taxon_class_index
 
 
-def test_fallback_and_negative_classes_present(cfg: Config) -> None:
-    for label in (
-        "cinnyris_indet",
-        "promerops_indet",
-        "nectariniidae_indet",
-        "nectarivore_indet",
-        "empty_feeder",
-        "insect",
-        "other_animal",
-        "obstruction",
-    ):
+def test_rollup_nodes_are_declared_but_not_outputs(cfg: Config) -> None:
+    """The nodes drive the rollup from config; they are not model outputs.
+
+    They were outputs until 2026-09-10, and all 22 of them held zero training
+    images -- no image can be labelled "one of the double-collared sunbirds",
+    because that is a statement about a distribution rather than about a bird.
+    An untrained output still emits a logit and can still win an argmax.
+    Classifier.decide() now builds these labels from summed species mass.
+    """
+    head = cfg.taxonomy_cfg["taxon_head"]
+    for label in ("cinnyris_indet", "promerops_indet"):
+        assert label in head["genus_fallback"]
+        assert label not in cfg.taxon_class_index
+    assert "nectariniidae_indet" in head["family_fallback"]
+    assert "nectarivore_indet" in head["guild_fallback"]
+    assert not [c for c in cfg.taxon_classes if c.endswith("_indet")]
+
+
+def test_only_negatives_with_data_are_outputs(cfg: Config) -> None:
+    """`insect` and `obstruction` have no training data and no source for any.
+
+    ood.yaml holds insect taxa but is evaluation-only: training on it would turn
+    the open-set failsafe into a closed-set classifier for known intruders. Both
+    concepts are the novelty gate's job.
+    """
+    for label in ("empty_feeder", "other_animal"):
         assert label in cfg.taxon_class_index, label
+    for label in ("insect", "obstruction"):
+        assert label in cfg.taxonomy_cfg["taxon_head"]["negative"]
+        assert label not in cfg.taxon_class_index, label
 
 
 def test_promerops_rolls_up_to_promeropidae_not_nectariniidae(cfg: Config) -> None:

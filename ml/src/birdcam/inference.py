@@ -145,6 +145,7 @@ class Classifier:
         # rollup happened.
         head = cfg.taxonomy_cfg["taxon_head"]
         self._kind: dict[str, str] = {s.slug: "species" for s in cfg.species}
+        self._genus_fallbacks = set(head["genus_fallback"])
         for slug in head["genus_fallback"]:
             self._kind[slug] = "genus"
         for slug in head["family_fallback"]:
@@ -266,9 +267,19 @@ class Classifier:
             mass = self._group_mass(probs, self._genus_members(genus))
             if mass >= self.thresholds["genus"]:
                 slug = f"{genus.lower()}_indet"
-                # Only emit a genus fallback that actually exists as a class;
-                # single-species genera have none by design and roll to family.
-                if slug in self.cfg.taxon_class_index:
+                # Only emit a genus fallback that taxonomy.yaml actually
+                # declares; single-species genera have none by design and roll
+                # straight to family.
+                #
+                # This checks the CONFIG, not the label space. It used to check
+                # taxon_class_index, which was equivalent right up until the
+                # rollup nodes stopped being model outputs (2026-09-10) -- at
+                # which point every genus rollup silently fell through to
+                # family and reported "some sunbird" where it should have said
+                # "one of the double-collared sunbirds". A capture decision
+                # hangs on that difference: the genus fallback records, the
+                # family one does not.
+                if slug in self._genus_fallbacks:
                     return out(slug, "genus", mass)
 
             family = self._genus_to_family.get(genus)

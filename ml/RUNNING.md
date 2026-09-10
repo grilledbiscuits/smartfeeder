@@ -1,64 +1,76 @@
 # In-flight run
 
-Scratch state for a long job currently executing. Delete when it finishes and
-the results are folded into DECISIONS.md / ASSUMPTIONS.md.
+Scratch state for work currently in progress. Delete when it finishes and the
+results are folded into DECISIONS.md / ASSUMPTIONS.md.
 
-## Field extraction from drive B (2026-09-10)
+## Drive B can be unmounted (2026-09-10)
 
-Started 11:12. 13 uncut sessions plus 8 cut folders; expected finish ~12:35.
+Extraction finished at 12:07. Everything the training path needs is on local
+disk:
+
+- `ml/data/field/frames/` — 22,213 extracted frames, 513 MB, **real files, no
+  symlinks**. Verified: 0 of 9,139 field training records resolve onto `/media`.
+- `ml/data/field/frames.json` — the frame index.
+- `ml/data/field/empty_candidates.json` — the mined empty-feeder set.
+
+`ml/training/*` are still symlinks into `/media/grilledbiscuits/B` and will
+dangle once the drive is out. That only matters if you want to **re-extract**
+from the original video — remount the drive, or re-point them. Nothing was ever
+written to the drive.
+
+Frames are the reproducible artefact here, not the video. The video is the
+archive copy.
+
+## Ready to retrain
 
 ```bash
-uv run python -m birdcam.data.field --cut-fps 2 --uncut-fps 1 --extract-only
+uv run python -m birdcam.train.train_full --estimate     # ETA first
+uv run python -m birdcam.train.train_full
 ```
 
-- **log**: `/tmp/claude-1000/-home-grilledbiscuits-Desktop-smartfeeder/49527019-82fa-442b-9792-e06d2f466dd7/scratchpad/extract.log`
-- **throughput**: ~2.5x realtime decode; 296 min of footage total
-- **output**: `ml/data/field/frames/<folder>/`, projected ~22,000 frames / ~500 MB
-- Idempotent and resumable: re-running skips clips whose frames already exist
-  and re-validates them, so an interrupted run is repaired by running it again.
+Measured on this laptop: 22.7 min/epoch, ~5.7 h for 15 epochs at
+`freeze_blocks=4`. Checkpointed every epoch; `--resume` continues.
 
-### `ml/training/` is symlinks to a USB drive
+**Corpus: 30,588** = 21,449 web (iNaturalist) + 9,139 field.
 
-`ml/training/*` are symlinks into `/media/grilledbiscuits/B`. **If drive B is
-unmounted the symlinks dangle and extraction cannot resume** — remount it, or
-re-point them. The drive is otherwise untouched; nothing was written to it.
+| field class | frames |
+|---|---|
+| Southern Double-collared Sunbird | 4,499 |
+| Cape White-eye | 1,358 |
+| Amethyst Sunbird | 1,220 |
+| Fork-tailed Drongo | 1,093 |
+| Empty feeder | 476 |
+| Cape Bulbul | 450 |
+| Other animal (hands) | 43 |
 
-`hands/` and `multibird/` are real directories holding symlinks to loose clips
-that sit at the drive root rather than in a species folder.
+The 62-vs-64 checkpoint blocker is **gone**: the drongo now has 1,686 fetched
+images of its own, so the new head is trained rather than warm-started, and no
+class-index remapping is needed. `student_best.pt` is superseded, not reused.
 
-### The August extraction is preserved, not deleted
+### After the run
 
-`ml/data/field_2026-08/` holds the previous corpus (11,050 frames,
-`predictions.npz`, `whiteeye_candidates.json`). The 2026-09 drive supersedes it:
-those clips were hand-edited by the observer, where the August cuts contained
-verified empty frames (~12%) and multi-bird frames. A27's numbers were computed
-from the August set and still refer to it.
+1. Refit per-class thresholds.
+2. Rebuild the novelty bundle (`ml/data/export/novelty_knn.npz`).
+3. Re-export ONNX — A26 records the on-disk export as the pre-fine-tune model.
+4. Report web and field accuracy **separately**. A single number hides the thing
+   worth knowing: whether the field frames helped in the field.
 
-## BLOCKER: the checkpoint no longer loads
+### The one number to move first
 
-Adding the Fork-tailed Drongo took the taxon head from 62 classes to 64, so
-`student_best.pt` fails `load_state_dict` and `birdcam.data.field` can only run
-with `--extract-only`. This is expected, not a fault: a new species requires a
-retrain. Until then:
+`train.field_weight` in `config/train.yaml` is **0.3**, and it is a placeholder
+— chosen, not measured. 9,139 field frames come from about thirty recording
+sessions; 21,449 web images come from thousands of photographers. If field
+performance disappoints, this is the first dial.
 
-- no prediction, no domain-gap analysis, no threshold refit
-- `capture/` cannot classify either; its ONNX is older still (A26)
+## Still missing field footage entirely
 
-## What to do when extraction finishes
+Cape Sugarbird, Greater Double-collared Sunbird, Malachite Sunbird,
+Orange-breasted Sunbird. All four are Tier A.
 
-1. Mine empty-feeder negatives from the new uncut footage:
-   ```bash
-   uv run python -m birdcam.data.mine_negatives
-   ```
-   Verified 96% precision at the default 30th percentile (1 bird in 24 sampled
-   frames). **Precision falls as `--empty-percentile` rises** — the module
-   docstring records 83% and 67% for the two approaches that came before.
-2. Retrain. The corpus roughly doubles, gains a species, and gains the first
-   negative-class examples the project has ever had.
-3. Only then: refit thresholds, rebuild the novelty bundle, re-export ONNX.
+## Open, not blocking
 
-## Still missing from Tier A
-
-Cape Sugarbird, Greater Double-collared Sunbird, Malachite Sunbird and
-Orange-breasted Sunbird have **no field footage at all**. Every field number is
-computed over Southern Double-collared and Amethyst Sunbird only.
+- `multibird/` (75 frames) is quarantined: two birds in frame, no single taxon
+  is true of it. Needs per-frame labels to be usable.
+- Tier B (13 species) has no images by design — D9 folds them into genus
+  fallbacks — but that means 13 head outputs can never receive a positive
+  example. Worth revisiting whether they should be classes at all.

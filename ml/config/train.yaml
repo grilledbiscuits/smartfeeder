@@ -213,18 +213,34 @@ train:
   # separate source with session-grouped splits, not manifest rows: see
   # src/birdcam/data/field_source.py.
   #
-  # field_weight is a PLACEHOLDER, chosen rather than measured. 10,192 field
-  # frames come from ~30 recording sessions -- a handful of birds in a handful
-  # of lighting conditions at one feeder -- against 19,832 web images from
-  # thousands of photographers. Counted equally the field frames would dominate
-  # the loss and the model would learn this garden rather than these species.
-  # 0.3 makes the field corpus worth roughly a sixth of the training signal.
+  # field_weight sets how much of a CLASS's signal comes from the feeder rather
+  # than from the web. It is normalised within each class by the sampler, so it
+  # never changes a class's share of the epoch -- see the note in _build_loaders.
+  # Before that normalisation it silently shrank any class whose data is
+  # field-only: `empty_feeder` was getting 0.73% of draws against a 2.70% target
+  # for no reason except that no web alternative exists.
   #
-  # This is the first number to move if field performance disappoints. It is
-  # recorded in the run config, so any result can be traced back to the value
-  # that produced it.
+  # 0.2, lowered from 0.3 on 2026-09-10 once the effective sample size was
+  # measured. The independent unit in field footage is the CLIP, not the frame:
+  # frames two per second apart are the same bird in the same pose.
+  #
+  #   class                     field frames   clips   web images
+  #   Southern Double-collared         3,146      78        1,033
+  #   Cape White-eye                     951      25          405
+  #   Fork-tailed Drongo                 819       9        1,194
+  #   Cape Bulbul                        313       4          400
+  #
+  # At 0.3 the Southern Double-collared class drew 48% of its training signal
+  # from 78 bird-visits. At 0.2 it draws 38%, Cape White-eye 32%, and the rest
+  # 12-14% -- meaningful in-domain signal without letting nine drongo visits
+  # outvote 1,194 photographs.
+  #
+  # Still not derived: the honest range runs from ~0.03 (field's share of
+  # INDEPENDENT samples) to 1.0 (its share of what the camera will actually
+  # see), and no argument settles where in between. Each epoch now reports val
+  # accuracy split by source, so the next run tunes this from evidence instead.
   use_field_frames: true
-  field_weight: 0.3
+  field_weight: 0.2
 
   # 15, not 40. Fine-tuning a pretrained backbone on 12,776 images converges
   # long before 40 epochs and then overfits, and on this laptop each epoch costs

@@ -54,6 +54,7 @@ class CapturePipeline:
         backoff_initial_seconds: float,
         backoff_max_seconds: float,
         backoff_factor: float,
+        empty_gate: Any | None = None,  # capture.emptygate.EmptyGate
         now: Callable[[], datetime] = datetime.now,
     ) -> None:
         self.spool = spool
@@ -67,6 +68,7 @@ class CapturePipeline:
         self.backoff_initial = float(backoff_initial_seconds)
         self.backoff_max = float(backoff_max_seconds)
         self.backoff_factor = float(backoff_factor)
+        self.empty_gate = empty_gate
         self.now = now
 
     # -- the event flow --------------------------------------------------------
@@ -80,6 +82,12 @@ class CapturePipeline:
             record.error = f"storage: {exc}"
             logger.error("%s: not recording -- %s", event.event_id, exc)
             log_event(logger, logging.ERROR, "capture skipped", record.log_fields())
+            return record
+
+        if self._feeder_is_empty(record):
+            record.outcome = Outcome.DISCARD
+            logger.info("%s: feeder empty, nothing recorded", event.event_id)
+            log_event(logger, logging.INFO, "capture skipped", record.log_fields())
             return record
 
         if not self._record_clip(record):
@@ -101,6 +109,38 @@ class CapturePipeline:
 
         log_event(logger, logging.INFO, "capture decided", record.log_fields())
         return record
+
+    def _feeder_is_empty(self, record: CaptureRecord) -> bool:
+        """Check the port before spending an encode on the clip.
+
+        Most triggers at a feeder are wind on the shade cloth. On a Pi 5, which
+        has no hardware H.264 encoder, encoding each of those and then deleting
+        it is the largest avoidable load on the board -- so the cheap geometric
+        check runs first and the recorder is never started.
+
+        Every failure path returns False. No gate, a recorder that cannot peek,
+        no frames, an exception -- all mean "record it". A false empty silences
+        a real visit; a false occupied costs one clip.
+        """
+        gate = self.empty_gate
+        peek = getattr(self.recorder, "peek", None)
+        if gate is None or peek is None:
+            return False
+        try:
+            frames = peek()
+            if not frames:
+                return False
+            for f in frames:
+                gate.observe(f)
+            return bool(gate.clip_is_empty(frames))
+        except Exception as exc:  # noqa: BLE001 - never lose a capture over the gate
+            logger.warning(
+                "%s: empty gate raised %s: %s -- recording anyway",
+                record.event_id,
+                type(exc).__name__,
+                exc,
+            )
+            return False
 
     def _record_clip(self, record: CaptureRecord) -> bool:
         dest = self.spool.work_path(record.event_id)

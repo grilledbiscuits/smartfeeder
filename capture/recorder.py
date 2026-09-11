@@ -53,6 +53,21 @@ class Recorder(Protocol):
     def close(self) -> None: ...
 
 
+class FramePeeker(Protocol):
+    """Grab a few frames WITHOUT starting an encode.
+
+    This is what lets the empty-feeder gate run before the recorder rather than
+    after it. Most motion events at a feeder are wind on the shade cloth, and on
+    a Pi 5 -- which has no hardware H.264 encoder -- encoding each of those and
+    then deleting it is the largest avoidable load on the board.
+
+    A recorder that cannot peek simply does not implement this; the pipeline
+    checks and skips the gate, which is the fail-open direction.
+    """
+
+    def peek(self, count: int = 3, interval_seconds: float = 0.25) -> list: ...
+
+
 def _finalise(path: Path, timeout: float = 5.0) -> int:
     """Wait for the file to stop growing, then flush it to the card."""
     deadline = time.monotonic() + timeout
@@ -125,10 +140,12 @@ class Picamera2Recorder:
             picam = Picamera2()
             config = picam.create_video_configuration(
                 main={"size": (self.width, self.height)},
-                controls={"FrameDurationLimits": (
-                    int(1_000_000 / self.framerate),
-                    int(1_000_000 / self.framerate),
-                )},
+                controls={
+                    "FrameDurationLimits": (
+                        int(1_000_000 / self.framerate),
+                        int(1_000_000 / self.framerate),
+                    )
+                },
             )
             picam.configure(config)
             picam.start()
@@ -155,6 +172,33 @@ class Picamera2Recorder:
             self.bitrate // 1000,
         )
         return picam
+
+    def peek(self, count: int = 3, interval_seconds: float = 0.25) -> list:
+        """Grab frames from the live stream without starting the encoder.
+
+        `capture_array` pulls from the preview stream, so no H.264 is produced
+        and nothing is written to the card -- which is the entire point of doing
+        this before `record` rather than after it.
+
+        Returns [] on any failure. The caller treats an empty list as "cannot
+        tell", and the gate fails open from there.
+        """
+        import numpy as np
+
+        try:
+            picam = self._open()
+            if not getattr(picam, "started", False):
+                picam.start()
+                time.sleep(self.warmup_seconds)
+            frames = []
+            for i in range(max(1, int(count))):
+                if i:
+                    time.sleep(max(0.0, interval_seconds))
+                frames.append(np.asarray(picam.capture_array("main"), dtype=np.float32)[..., :3])
+            return frames
+        except Exception as exc:  # noqa: BLE001 - never lose a capture over a peek
+            logger.warning("peek failed: %s: %s", type(exc).__name__, exc)
+            return []
 
     def record(self, dest: Path, seconds: float) -> RecordingResult:
         picam = self._open()
@@ -217,6 +261,50 @@ class ReplayRecorder:
         size = _finalise(dest)
         logger.info("replayed %s -> %s (%d bytes)", self.source.name, dest.name, size)
         return RecordingResult(path=dest, duration_seconds=float(seconds), size_bytes=size)
+
+    def peek(self, count: int = 3, interval_seconds: float = 0.25) -> list:
+        """Decode the first frames of the replay clip.
+
+        Uses the same ffmpeg path the classifier uses, so off-Pi runs exercise
+        the gate on real footage rather than on synthetic arrays.
+        """
+        import subprocess
+        import tempfile
+
+        import numpy as np
+        from PIL import Image
+
+        fps = max(0.1, 1.0 / max(interval_seconds, 1e-3))
+        with tempfile.TemporaryDirectory() as tmp:
+            pattern = str(Path(tmp) / "peek_%03d.jpg")
+            proc = subprocess.run(
+                [
+                    "ffmpeg",
+                    "-v",
+                    "error",
+                    "-i",
+                    str(self.source),
+                    "-vf",
+                    f"fps={fps}",
+                    "-frames:v",
+                    str(int(count)),
+                    "-q:v",
+                    "3",
+                    "-y",
+                    pattern,
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if proc.returncode != 0:
+                logger.warning("peek failed on %s: %s", self.source.name, proc.stderr[-200:])
+                return []
+            out = []
+            for f in sorted(Path(tmp).glob("peek_*.jpg")):
+                with Image.open(f) as im:
+                    out.append(np.asarray(im.convert("RGB"), dtype=np.float32))
+            return out
 
     def close(self) -> None:
         return None

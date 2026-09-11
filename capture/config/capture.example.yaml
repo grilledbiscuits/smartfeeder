@@ -202,3 +202,33 @@ logging:
   # text -- readable, structured fields appended as key=value
   # json -- one object per line, for jq
   format: text
+
+# =============================================================================
+# EMPTY-FEEDER GATE -- checked BEFORE the recorder starts
+# =============================================================================
+# Most triggers at a feeder are wind on the shade cloth. This decides whether
+# anything is at the feeding port before an encode is spent on the clip, using
+# a rolling median background of this fixed camera rather than the classifier.
+#
+# The classifier cannot do this. Measured 2026-09-11, its `empty_feeder` class
+# scored recall 1.000 on the backgrounds it trained on and 0.000 on one it had
+# not seen: it memorised backgrounds, which is the obvious shortcut when the
+# class is defined by the absence of a subject.
+#
+# Geometrically, across all nine recording sessions:
+#   empty frames    median departure at the port   2.93
+#   occupied        median departure at the port  64.02
+#   one threshold at 12.0 -> 98.9% of empty, 97.5% of occupied
+#
+# The gate FAILS OPEN: no background yet, no port found, a recorder that cannot
+# peek, or any exception all mean "record it". A false empty silences a real
+# visit; a false occupied costs one clip.
+empty_gate:
+  enabled: true
+  # Mean absolute difference at the port, 0-255 RGB. The 99th percentile of 476
+  # individually verified empty frames. Occupied frames sit at 13.4 by their 5th
+  # percentile, so the tails are close -- lower this before raising it.
+  threshold: 12.0
+  # Frames held for the rolling median. Sampled across events, so a bird that
+  # perches for minutes stays a minority of the buffer.
+  background_frames: 48

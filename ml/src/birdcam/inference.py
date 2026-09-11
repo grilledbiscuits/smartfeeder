@@ -146,6 +146,14 @@ class Classifier:
         head = cfg.taxonomy_cfg["taxon_head"]
         self._kind: dict[str, str] = {s.slug: "species" for s in cfg.species}
         self._genus_fallbacks = set(head["genus_fallback"])
+        self._suppressed = np.array(
+            [
+                cfg.taxon_class_index[c]
+                for c in head.get("suppressed_at_inference", [])
+                if c in cfg.taxon_class_index
+            ],
+            dtype=int,
+        )
         for slug in head["genus_fallback"]:
             self._kind[slug] = "genus"
         for slug in head["family_fallback"]:
@@ -229,6 +237,13 @@ class Classifier:
             taxon_logits = taxon_logits + self._log_prior
 
         # --- 3. calibrated probabilities -------------------------------------
+        # Suppressed classes are removed BEFORE the softmax, so the remaining
+        # mass renormalises as though the class did not exist. Zeroing after the
+        # softmax would leave the probabilities summing to less than one and
+        # every threshold below reading low.
+        if self._suppressed.size:
+            taxon_logits = taxon_logits.copy()
+            taxon_logits[self._suppressed] = -np.inf
         probs = softmax(taxon_logits, self.temperature)
 
         order = np.argsort(probs)[::-1][:5]

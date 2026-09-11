@@ -70,6 +70,9 @@ class ClipResult:
     frames_scored: int
     keyframe: Path | None = None
     per_frame: list[Any] | None = None
+    # The empty gate short-circuited before the model ran. Distinct from a
+    # `decision` of None, which means classification was attempted and failed.
+    empty: bool = False
 
 
 class ClipClassifier(Protocol):
@@ -211,12 +214,14 @@ class BirdcamClipClassifier:
         sample_fps: float,
         max_frames: int,
         keep_frames: bool = False,
+        empty_gate: Any | None = None,  # capture.emptygate.EmptyGate
     ) -> None:
         self.backbone = backbone
         self.decider = decider
         self.sample_fps = float(sample_fps)
         self.max_frames = int(max_frames)
         self.keep_frames = keep_frames
+        self.empty_gate = empty_gate
 
     def classify(self, clip: Path, work_dir: Path, event_id: str) -> ClipResult:
         frame_dir = work_dir / f"{event_id}_frames"
@@ -225,6 +230,19 @@ class BirdcamClipClassifier:
             if not frames:
                 logger.warning("%s yielded no usable frames", clip.name)
                 return ClipResult(decision=None, frames_scored=0)
+
+            # The feeder is empty far more often than not, and the model cannot
+            # tell -- it memorises backgrounds. The gate answers geometrically
+            # from a rolling background of this fixed camera, and fails open.
+            if self.empty_gate is not None:
+                from capture.emptygate import load_frame
+
+                small = [f for f in (load_frame(p) for p in frames) if f is not None]
+                for f in small:
+                    self.empty_gate.observe(f)
+                if small and self.empty_gate.clip_is_empty(small):
+                    logger.info("%s: feeder empty, not classified", clip.name)
+                    return ClipResult(decision=None, frames_scored=0, empty=True)
 
             batch = np.stack([preprocess_frame(p, self.backbone.image_size) for p in frames])
             out = self.backbone.run(batch)

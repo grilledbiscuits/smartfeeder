@@ -125,6 +125,27 @@ taxon_head:
     - empty_feeder
     - other_animal
 
+  # Classes the model still has an output for, but which must never be EMITTED.
+  #
+  # `empty_feeder` was measured on 2026-09-11 and does not work. It scores
+  # recall 1.000 on backgrounds it trained on and 0.000 on one it has not seen:
+  # the model memorised nine session backgrounds rather than learning what an
+  # unoccupied feeder looks like. Worse than useless, it is actively harmful --
+  # all 7 of its validation predictions were false positives on real subjects,
+  # including an Amethyst Sunbird and a Cape White-eye at 0.97 confidence, each
+  # of which it would have declined to record.
+  #
+  # Emptiness is now decided geometrically on-device instead: the camera is
+  # FIXED, so a rolling background and a check at the feeding port separate
+  # empty from occupied at 98.9% / 97.5% with a single threshold, measured
+  # across all nine sessions. See capture/emptygate.py.
+  #
+  # The output stays in the head so this checkpoint remains loadable; it is
+  # masked before anything reads the probabilities. Drop the class from
+  # `trainable_negatives` at the next retrain.
+  suppressed_at_inference:
+    - empty_feeder
+
 # =============================================================================
 # HEAD 2 -- SEX / PLUMAGE
 # =============================================================================

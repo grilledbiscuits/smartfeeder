@@ -70,13 +70,15 @@ def decide_for(cfg, clf, label: str):
 # --- negatives must never record ----------------------------------------------
 
 
-@pytest.mark.parametrize("label", ["empty_feeder", "other_animal"])
+@pytest.mark.parametrize("label", ["other_animal"])
 def test_negative_classes_never_record(cfg, clf, label) -> None:
     """The regression that motivated this file.
 
     `insect` and `obstruction` are no longer outputs: there is no training data
     for either, and an output that never sees an example can still win an
-    argmax. Both are the novelty gate's job now -- see taxonomy.yaml.
+    argmax. `empty_feeder` is an output but is suppressed before anything reads
+    the probabilities -- see the test below. All three are handled off the
+    classifier now.
     """
     d = decide_for(cfg, clf, label)
     assert d.level == "negative", f"{label} reported level {d.level!r}"
@@ -85,7 +87,41 @@ def test_negative_classes_never_record(cfg, clf, label) -> None:
 
 def test_negative_class_is_not_called_a_species(cfg, clf) -> None:
     """A confident 'nothing here' is not a species identification."""
-    assert decide_for(cfg, clf, "empty_feeder").level != "species"
+    assert decide_for(cfg, clf, "other_animal").level != "species"
+
+
+def test_empty_feeder_can_never_be_emitted(cfg, clf) -> None:
+    """Measured 2026-09-11: the class does not work and is harmful.
+
+    Recall 1.000 on the nine backgrounds it trained on, 0.000 on one it had not
+    seen -- it memorised backgrounds, which is the obvious shortcut when the
+    class is defined by the absence of a subject. All seven of its validation
+    predictions were false positives on real birds, including an Amethyst
+    Sunbird, each of which it would have declined to record.
+
+    So it is masked before the softmax. Emptiness is decided geometrically from
+    a rolling background instead: capture/emptygate.py. The output remains in
+    the head only so the trained checkpoint stays loadable.
+    """
+    d = decide_for(cfg, clf, "empty_feeder")
+    assert d.label != "empty_feeder"
+    assert not any(k == "empty_feeder" for k, _ in d.top_k)
+    assert not d.should_record
+
+
+def test_suppressed_classes_renormalise_rather_than_leak_mass(cfg, clf) -> None:
+    """Masking before the softmax, not zeroing after it.
+
+    Zeroing afterwards would leave the probabilities summing to less than one,
+    and every rollup threshold downstream would read low.
+    """
+    idx = cfg.taxon_class_index
+    z = np.full(len(cfg.taxon_classes), -10.0)
+    z[idx["empty_feeder"]] = 10.0
+    z[idx["cinnyris_chalybeus"]] = 9.0
+    d = clf.decide(z, np.zeros(len(cfg.sex_classes)), features=None)
+    assert d.label == "cinnyris_chalybeus"
+    assert d.confidence > 0.9, "mass did not renormalise onto the surviving classes"
 
 
 # --- fallback nodes describe their own generality -----------------------------

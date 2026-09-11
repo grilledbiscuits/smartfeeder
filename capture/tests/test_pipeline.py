@@ -213,3 +213,89 @@ def test_sidecar_records_the_decision_for_later_audit(spool, event, make_decisio
     assert data["taxon_level"] == "genus"
     assert data["confidence"] == pytest.approx(0.71)
     assert data["frames_scored"] == 4
+
+
+# --- the empty gate, ahead of the recorder ------------------------------------
+#
+# Most triggers at a feeder are wind on the shade cloth. On a Pi 5 -- which has
+# no hardware H.264 encoder -- encoding each of those and then deleting it is
+# the largest avoidable load on the board, so the cheap geometric check runs
+# before the recorder is ever started.
+
+
+class _Gate:
+    def __init__(self, empty: bool, raises: bool = False):
+        self._empty, self._raises = empty, raises
+        self.observed = 0
+
+    def observe(self, frame):
+        if self._raises:
+            raise RuntimeError("background exploded")
+        self.observed += 1
+
+    def clip_is_empty(self, frames):
+        return self._empty
+
+
+class _PeekRecorder(FakeRecorder):
+    """A FakeRecorder that can also peek, counting encodes separately."""
+
+    def __init__(self, frames=None):
+        super().__init__()
+        self.frames = [object()] if frames is None else frames
+
+    def peek(self, count=3, interval_seconds=0.25):
+        return list(self.frames)
+
+
+def test_empty_feeder_is_never_recorded(spool, event, make_decision):
+    rec = _PeekRecorder()
+    pipe = build(spool, decision=make_decision(), recorder=rec, empty_gate=_Gate(empty=True))
+
+    record = pipe.handle(event)
+
+    assert rec.calls == 0, "the recorder was started for an empty feeder"
+    assert record.clip_path is None
+    assert record.outcome is Outcome.DISCARD
+
+
+def test_occupied_feeder_still_records(spool, event, make_decision):
+    rec = _PeekRecorder()
+    pipe = build(spool, decision=make_decision(), recorder=rec, empty_gate=_Gate(empty=False))
+    pipe.handle(event)
+    assert rec.calls == 1
+
+
+def test_gate_failure_records_anyway(spool, event, make_decision):
+    """Fail open: a false empty silences a real visit, a false occupied costs a clip."""
+    rec = _PeekRecorder()
+    pipe = build(
+        spool, decision=make_decision(), recorder=rec, empty_gate=_Gate(True, raises=True)
+    )
+    pipe.handle(event)
+    assert rec.calls == 1
+
+
+def test_recorder_without_peek_is_never_gated(spool, event, make_decision):
+    """Nothing to check means record it -- the gate is skipped, not assumed."""
+    rec = FakeRecorder()
+    pipe = build(spool, decision=make_decision(), recorder=rec, empty_gate=_Gate(empty=True))
+    pipe.handle(event)
+    assert rec.calls == 1
+
+
+def test_peek_returning_nothing_records_anyway(spool, event, make_decision):
+    rec = _PeekRecorder(frames=[])
+    pipe = build(spool, decision=make_decision(), recorder=rec, empty_gate=_Gate(empty=True))
+    pipe.handle(event)
+    assert rec.calls == 1
+
+
+def test_gate_observes_the_frames_it_is_given(spool, event, make_decision):
+    """The background is maintained from live footage, occupied or not."""
+    gate = _Gate(empty=False)
+    pipe = build(
+        spool, decision=make_decision(), recorder=_PeekRecorder(frames=[1, 2, 3]), empty_gate=gate
+    )
+    pipe.handle(event)
+    assert gate.observed == 3

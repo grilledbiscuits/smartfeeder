@@ -236,6 +236,37 @@ def build_pipeline(cfg: CaptureConfig, *, spool, recorder, classifier, publisher
         backoff_initial_seconds=float(pub["backoff_initial_seconds"]),
         backoff_max_seconds=float(pub["backoff_max_seconds"]),
         backoff_factor=float(pub["backoff_factor"]),
+        empty_gate=_build_empty_gate(cfg),
+    )
+
+
+def _build_empty_gate(cfg: CaptureConfig):
+    """The geometric empty-feeder gate, unless it is switched off.
+
+    Returns None when disabled, which makes the pipeline skip the check -- the
+    fail-open direction. The classifier cannot answer this question: measured
+    2026-09-11, its `empty_feeder` class scored recall 1.000 on backgrounds it
+    trained on and 0.000 on one it had not seen.
+    """
+    from capture.config import CaptureConfigError
+    from capture.emptygate import DEFAULT_BACKGROUND_FRAMES, DEFAULT_THRESHOLD, EmptyGate
+
+    def opt(key: str, default):
+        # cfg.get is deliberately strict -- it names a missing key rather than
+        # guessing. This section is optional so that a config written before the
+        # gate existed still starts, so absence is handled here instead of by
+        # weakening that guarantee for every other key.
+        try:
+            return cfg.get(f"empty_gate.{key}")
+        except CaptureConfigError:
+            return default
+
+    if not bool(opt("enabled", True)):
+        logger.info("empty-feeder gate disabled by config")
+        return None
+    return EmptyGate(
+        threshold=float(opt("threshold", DEFAULT_THRESHOLD)),
+        background_frames=int(opt("background_frames", DEFAULT_BACKGROUND_FRAMES)),
     )
 
 

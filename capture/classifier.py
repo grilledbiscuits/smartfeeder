@@ -103,7 +103,8 @@ def sample_frames(
     pattern = str(out_dir / "frame_%03d.jpg")
     cmd = [
         "ffmpeg", "-v", "error", "-threads", "2", "-i", str(clip),
-        "-vf", f"fps={fps},scale=-1:{short_side}",
+        "-vf", f"fps={fps},scale=w={short_side}:h={short_side}"
+               ":force_original_aspect_ratio=increase",
         "-frames:v", str(int(max_frames)),
         "-q:v", "3", "-y", pattern,
     ]  # fmt: skip

@@ -85,6 +85,7 @@ class CapturePipeline:
             return record
 
         if self._feeder_is_empty(record):
+            record.empty = True
             record.outcome = Outcome.DISCARD
             logger.info("%s: feeder empty, nothing recorded", event.event_id)
             log_event(logger, logging.INFO, "capture skipped", record.log_fields())

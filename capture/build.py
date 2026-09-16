@@ -275,7 +275,7 @@ def _build_empty_gate(cfg: CaptureConfig):
     trained on and 0.000 on one it had not seen.
     """
     from capture.config import CaptureConfigError
-    from capture.emptygate import DEFAULT_BACKGROUND_FRAMES, DEFAULT_THRESHOLD, EmptyGate
+    from capture.emptygate import DEFAULT_THRESHOLD, TrustedEmptyGate, load_frame
 
     def opt(key: str, default):
         # cfg.get is deliberately strict -- it names a missing key rather than
@@ -287,13 +287,19 @@ def _build_empty_gate(cfg: CaptureConfig):
         except CaptureConfigError:
             return default
 
-    if not bool(opt("enabled", True)):
+    if not bool(opt("enabled", False)):
         logger.info("empty-feeder gate disabled by config")
         return None
-    return EmptyGate(
-        threshold=float(opt("threshold", DEFAULT_THRESHOLD)),
-        background_frames=int(opt("background_frames", DEFAULT_BACKGROUND_FRAMES)),
-    )
+    if not opt("reference", None):
+        logger.warning("empty gate bypassed: no verified empty_gate.reference supplied")
+        return None
+    reference = load_frame(cfg.resolve_path("empty_gate.reference"))
+    if reference is None:
+        raise CaptureConfigError("cannot read empty_gate.reference")
+    try:
+        return TrustedEmptyGate(reference, threshold=float(opt("threshold", DEFAULT_THRESHOLD)))
+    except ValueError as exc:
+        raise CaptureConfigError(f"invalid empty_gate.reference or threshold: {exc}") from exc
 
 
 def build_service(

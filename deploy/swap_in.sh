@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+# Swap a staged build into /opt/smartfeeder, validate it, and roll back on failure.
+#
+#   bash deploy/swap_in.sh ~/birdcam-next
+#
+# Run ON THE PI. Order is the design:
+#
+#   1. back up the live code, model, reports and config (never var/, never .venv)
+#   2. stop the service
+#   3. copy the staged build in, keeping root ownership on code the service
+#      only needs to READ
+#   4. run `python -m capture --check` AS THE SERVICE USER before starting
+#   5. start, then watch the log; any ERROR in the first window rolls back
+#
+# `--check` builds every component -- config cross-checks, ONNX session, the
+# graph/calibration pairing guard -- without touching the camera or GPIO. A
+# build that fails there would fail on start, and it is far better found before
+# the service is down than after.
+#
+# var/ is deliberately untouched in both directions: it holds the dashboard
+# database, published media and the capture spool, which belong to the running
+# deployment, not to a build.
+
+set -euo pipefail
+
+STAGE="${1:?usage: swap_in.sh STAGED_BUILD_DIR}"
+LIVE=/opt/smartfeeder
+SERVICE=birdcam-capture
+BACKUP="$HOME/birdcam-backup-$(date +%Y%m%d_%H%M%S)"
+PY="$LIVE/.venv/bin/python"
+WATCH_SECONDS="${WATCH_SECONDS:-45}"
+
+say() { printf '[swap_in %s] %s\n' "$(date +%H:%M:%S)" "$*"; }
+
+sync_code() {  # src dst -- code the service reads; root-owned, world-readable
+  sudo -n rsync -a --delete --chown=root:root --chmod=D755,F644 \
+    --exclude='__pycache__/' --exclude='*.pyc' "$1/" "$2/"
+}
+
+rollback() {
+  say "ROLLING BACK from $BACKUP"
+  sudo -n /usr/bin/systemctl stop "$SERVICE" || true
+  for d in capture ml/src ml/config web deploy; do
+    [ -d "$BACKUP/$d" ] && sync_code "$BACKUP/$d" "$LIVE/$d"
+  done
+  rsync -a "$BACKUP/ml/data/export/" "$LIVE/ml/data/export/"
+  rsync -a "$BACKUP/ml/reports/" "$LIVE/ml/reports/"
+  sudo -n /usr/bin/systemctl start "$SERVICE"
+  say "rolled back; service is $(systemctl is-active "$SERVICE")"
+}
+
+[ -d "$STAGE/capture" ] || { say "no staged build at $STAGE"; exit 1; }
+sudo -n true || { say "passwordless sudo is required"; exit 1; }
+
+say "backing up live build to $BACKUP"
+mkdir -p "$BACKUP/ml/data" "$BACKUP/ml"
+for d in capture web deploy; do rsync -a "$LIVE/$d" "$BACKUP/"; done
+rsync -a "$LIVE/ml/src" "$LIVE/ml/config" "$LIVE/ml/reports" "$BACKUP/ml/"
+rsync -a "$LIVE/ml/data/export" "$BACKUP/ml/data/"
+
+say "stopping $SERVICE"
+sudo -n /usr/bin/systemctl stop "$SERVICE"
+trap 'say "failed mid-swap"; rollback; exit 1' ERR
+
+say "installing staged build"
+for d in capture ml/src ml/config web deploy; do
+  [ -d "$STAGE/$d" ] && sync_code "$STAGE/$d" "$LIVE/$d"
+done
+rsync -a "$STAGE/ml/data/export/" "$LIVE/ml/data/export/"
+rsync -a "$STAGE/ml/reports/" "$LIVE/ml/reports/"
+
+say "validating as the service user"
+if ! (cd "$LIVE" && sudo -n -u birdcam "$PY" -m capture --check \
+        --config "$LIVE/capture/config/capture.yaml"); then
+  trap - ERR
+  say "--check FAILED"
+  rollback
+  exit 1
+fi
+
+say "starting $SERVICE"
+sudo -n /usr/bin/systemctl start "$SERVICE"
+trap - ERR
+
+say "watching the log for ${WATCH_SECONDS}s"
+MARK=$(date '+%Y-%m-%d %H:%M:%S')
+sleep "$WATCH_SECONDS"
+if [ "$(systemctl is-active "$SERVICE")" != active ]; then
+  say "service is not active after start"
+  rollback
+  exit 1
+fi
+if awk -v m="$MARK" '$1" "$2 >= m' "$LIVE/var/capture/capture.log" 2>/dev/null \
+     | grep -E ' (ERROR|CRITICAL) ' ; then
+  say "errors logged after start"
+  rollback
+  exit 1
+fi
+
+say "deployed. backup kept at $BACKUP"
+say "to roll back by hand:  bash $LIVE/deploy/rollback.sh $BACKUP"

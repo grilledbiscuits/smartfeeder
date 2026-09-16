@@ -124,22 +124,35 @@ def run_model(path: Path, providers: list[str], size: int, seconds: float, warmu
 
 
 def bench_empty_gate(frames: int = 48, side: int = 320, reps: int = 20) -> dict:
-    """The rolling-median background and one port check, as the gate does it."""
+    """The rolling background and one port check, as capture.emptygate does them.
+
+    Two numbers, because the gate takes two different paths. The FIRST pass has
+    to median whole frames -- the port has to be found before it can be cropped
+    to -- and every pass after that medians the port box alone. Both are timed,
+    because the expensive one happens once per camera position and the cheap one
+    happens on every motion event.
+    """
     h = int(side * 9 / 16)
-    buf = [np.random.rand(side, h, 3).astype(np.float32) * 255 for _ in range(frames)]
-    med, chk = [], []
+    buf = [np.random.rand(h, side, 3).astype(np.float32) * 255 for _ in range(frames)]
+    box = (side // 2 - 50, h // 2 - 50, side // 2 + 50, h // 2 + 50)
+    x0, y0, x1, y1 = box
+
+    first, roll, chk = [], [], []
+    for _ in range(max(3, reps // 4)):
+        t0 = time.perf_counter()
+        np.median(np.stack(buf), axis=0)
+        first.append((time.perf_counter() - t0) * 1000.0)
     for _ in range(reps):
         t0 = time.perf_counter()
-        bg = np.median(np.stack(buf), axis=0)
-        med.append((time.perf_counter() - t0) * 1000.0)
-        box = bg[40:140, 40:140]
+        bg = np.median(np.stack([f[y0:y1, x0:x1] for f in buf]), axis=0)
+        roll.append((time.perf_counter() - t0) * 1000.0)
         t0 = time.perf_counter()
-        float(np.abs(buf[0][40:140, 40:140] - box).mean())
+        float(np.abs(buf[0][y0:y1, x0:x1] - bg).mean())
         chk.append((time.perf_counter() - t0) * 1000.0)
     return {
-        "background_median_ms": round(statistics.median(med), 1),
+        "first_background_full_frame_ms": round(statistics.median(first), 1),
+        "rolling_background_port_box_ms": round(statistics.median(roll), 1),
         "port_check_ms": round(statistics.median(chk), 3),
-        "note": "background is recomputed only when the buffer changes, not per check",
     }
 
 

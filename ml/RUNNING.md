@@ -1,83 +1,52 @@
-# In-flight run
+# In flight — Pi 4B deployment (paused 2026-09-16 ~20:10, session limit)
 
-Scratch state for work currently in progress. Delete when it finishes and the
-results are folded into DECISIONS.md / ASSUMPTIONS.md.
+## State right now
 
-## Drive B can be unmounted (2026-09-10)
+**The Pi is safe and unchanged.** `birdcam-capture` is active on `sunfeed`
+(192.168.0.224, user grilledbiscuits, SSH key auth; `.local` does not resolve)
+running the **August 62-class FP32** build. Nothing under `/opt/smartfeeder`
+has been modified. Today's code is staged separately at `~/birdcam-next` on the
+Pi, plus 10 replay clips in `~/birdcam-next/replay/`.
 
-Extraction finished at 12:07. Everything the training path needs is on local
-disk:
+sudo is now passwordless for ALL commands (main sudoers was edited). Narrow it
+back to the birdcam-capture restart rule after deploying.
 
-- `ml/data/field/frames/` — 22,213 extracted frames, 513 MB, **real files, no
-  symlinks**. Verified: 0 of 9,139 field training records resolve onto `/media`.
-- `ml/data/field/frames.json` — the frame index.
-- `ml/data/field/empty_candidates.json` — the mined empty-feeder set.
+## Done today (committed)
 
-`ml/training/*` are still symlinks into `/media/grilledbiscuits/B` and will
-dangle once the drive is out. That only matters if you want to **re-extract**
-from the original video — remount the drive, or re-point them. Nothing was ever
-written to the drive.
+- Retrained: 37 classes, best epoch 13, Tier A recall 0.7341, ECE 0.0324.
+- `empty_feeder` suppressed at inference; emptiness decided geometrically
+  (`capture/emptygate.py`, 98.9% / 97.5%).
+- INT8 with FIELD calibration: field 0.8857 -> 0.8647, web 0.7300 -> 0.6955.
+  Field calibration is best or tied on every metric vs mixed and web.
+- Pi latency measured: INT8 52 ms/frame, 0.62 s per clip. XNNPACK absent, no cost.
+- Camera hardware check passed: record() works after peek().
+- `empty_gate.placement` switch, default `after_record`: peek costs ~2 s on the
+  Pi 4B, which delayed every recording. Fixed an empty-clip-retained bug.
+- `deploy/swap_in.sh` (backup, --check as birdcam, auto-rollback) and
+  `deploy/rollback.sh`. WRITTEN BUT NEVER RUN.
 
-Frames are the reproducible artefact here, not the video. The video is the
-archive copy.
+## Remaining, in order
 
-## Ready to retrain
-
-```bash
-uv run python -m birdcam.train.train_full --estimate     # ETA first
-uv run python -m birdcam.train.train_full
-```
-
-Measured on this laptop: 22.7 min/epoch, ~5.7 h for 15 epochs at
-`freeze_blocks=4`. Checkpointed every epoch; `--resume` continues.
-
-**Corpus: 41,056** = 31,917 web (iNaturalist) + 9,139 field.
-
-All 37 taxon outputs have training data. Zero empty classes.
-
-| field class | frames |
-|---|---|
-| Southern Double-collared Sunbird | 4,499 |
-| Cape White-eye | 1,358 |
-| Amethyst Sunbird | 1,220 |
-| Fork-tailed Drongo | 1,093 |
-| Empty feeder | 476 |
-| Cape Bulbul | 450 |
-| Other animal (hands) | 43 |
-
-Sex head, after the two labelling passes: 6,923 female, 10,226 male, 588
-juvenile, 11,849 not applicable, 11,518 indeterminate (all from web sources
-that genuinely carry no annotation), 35 unsupervised. **No field frame claims
-`indeterminate`.**
-
-The 62-vs-64 checkpoint blocker is **gone**: the drongo now has 1,686 fetched
-images of its own, so the new head is trained rather than warm-started, and no
-class-index remapping is needed. `student_best.pt` is superseded, not reused.
-
-### After the run
-
-1. Refit per-class thresholds.
-2. Rebuild the novelty bundle (`ml/data/export/novelty_knn.npz`).
-3. Re-export ONNX — A26 records the on-disk export as the pre-fine-tune model.
-4. Report web and field accuracy **separately**. A single number hides the thing
-   worth knowing: whether the field frames helped in the field.
-
-### The one number to move first
-
-`train.field_weight` in `config/train.yaml` is **0.3**, and it is a placeholder
-— chosen, not measured. 9,139 field frames come from about thirty recording
-sessions; 21,449 web images come from thousands of photographers. If field
-performance disappoints, this is the first dial.
-
-## Still missing field footage entirely
-
-Cape Sugarbird, Greater Double-collared Sunbird, Malachite Sunbird,
-Orange-breasted Sunbird. All four are Tier A.
-
-## Open, not blocking
-
-- `multibird/` (75 frames) is quarantined: two birds in frame, no single taxon
-  is true of it. Needs per-frame labels to be usable.
-- Tier B (13 species) has no images by design — D9 folds them into genus
-  fallbacks — but that means 13 head outputs can never receive a positive
-  example. Worth revisiting whether they should be classes at all.
+1. **Wait for / re-run extraction** (was ~75% at pause; writes
+   `ml/data/embeddings/finetuned/student_best_{id,ood}.npz`, now includes field):
+       python -m birdcam.eval.extract --checkpoint student_best.pt --batch-size 64
+2. **Refit per-class thresholds** (writes operating_points_finetuned.json AND
+   taxonomy.yaml per_class_thresholds, which is what inference reads):
+       python -m birdcam.eval.thresholds --checkpoint student_best.pt --target-precision 0.8 --write-config
+3. **Refit the novelty energy threshold.** The service scores energy on RAW
+   logits at T=1, before prior and temperature. Old value -5.669 = 90th
+   percentile of energy over FIELD bird frames (reject 10%). Recompute on val
+   field bird frames. Then compare against INT8 logits
+   (`scratchpad/int8_val.npz` if it survived, else recompute) — the Pi runs INT8.
+4. **Build the deploy config**: `capture/config/capture.example.yaml` with
+   `onnx_path: ml/data/export/birdcam_student_int8.onnx`, the new novelty
+   threshold, and `empty_gate.placement: after_record`.
+5. **Stage artefacts** to `~/birdcam-next/ml/data/export/`
+   (`birdcam_student_int8.onnx` + `birdcam_student_int8.json`) and
+   `~/birdcam-next/ml/reports/operating_points_finetuned.json`; re-sync code.
+6. **Replay test** on the Pi (needs a staging config with the replay recorder):
+       python deploy/replay_sequence.py --config <staging yaml> --clips replay/
+7. **Deploy** — run on the Pi in `tmux`/`nohup`, never over a bare SSH
+   session that can drop mid-swap:
+       bash deploy/swap_in.sh ~/birdcam-next
+8. **Soak**, then check memory, errors, `vcgencmd get_throttled`.

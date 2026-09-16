@@ -96,7 +96,15 @@ class CapturePipeline:
 
         self._classify(record)
 
-        record.outcome = decide_outcome(record.decision, retain_uncertain=self.retain_uncertain)
+        if record.empty:
+            # The gate ran on the recorded clip and found nothing at the port.
+            # Must be checked BEFORE decide_outcome: an empty clip carries no
+            # decision, and the policy reads a missing decision as a classifier
+            # failure and retains the clip -- the safe choice for a real failure,
+            # and exactly wrong here.
+            record.outcome = Outcome.DISCARD
+        else:
+            record.outcome = decide_outcome(record.decision, retain_uncertain=self.retain_uncertain)
         logger.info("%s: %s", event.event_id, describe(record.decision, record.outcome))
 
         try:
@@ -190,6 +198,7 @@ class CapturePipeline:
         record.decision = result.decision
         record.frames_scored = result.frames_scored
         record.keyframe_path = result.keyframe
+        record.empty = bool(getattr(result, "empty", False))
 
     def _act(self, record: CaptureRecord) -> None:
         if record.outcome is Outcome.DISCARD:

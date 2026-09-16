@@ -175,8 +175,7 @@ def build_clip_classifier(cfg: CaptureConfig, birdcam_config: Any | None):
         )
         if not section.get("allow_artefact_mismatch"):
             raise ClassifierUnavailable(
-                message
-                + "\n\nRefusing to start. Both artefacts are individually valid, "
+                message + "\n\nRefusing to start. Both artefacts are individually valid, "
                 "which is what makes the pairing dangerous: nothing would fail, "
                 "the labels would simply be wrong. Set "
                 "classifier.allow_artefact_mismatch: true to override "
@@ -194,9 +193,7 @@ def build_clip_classifier(cfg: CaptureConfig, birdcam_config: Any | None):
         providers=list(section["providers"]),
         image_size=int(sidecar.get("image_size", 224)),
     )
-    novelty = build_novelty_scorer(
-        section["novelty"], graph_emits_features=backbone.emits_features
-    )
+    novelty = build_novelty_scorer(section["novelty"], graph_emits_features=backbone.emits_features)
 
     from birdcam.inference import Classifier
 
@@ -219,6 +216,7 @@ def build_clip_classifier(cfg: CaptureConfig, birdcam_config: Any | None):
         sample_fps=float(section["sample_fps"]),
         max_frames=int(section["max_frames"]),
         keep_frames=bool(section.get("keep_frames")),
+        empty_gate=_build_empty_gate(cfg) if _gate_placement(cfg) == "after_record" else None,
     )
 
 
@@ -236,8 +234,36 @@ def build_pipeline(cfg: CaptureConfig, *, spool, recorder, classifier, publisher
         backoff_initial_seconds=float(pub["backoff_initial_seconds"]),
         backoff_max_seconds=float(pub["backoff_max_seconds"]),
         backoff_factor=float(pub["backoff_factor"]),
-        empty_gate=_build_empty_gate(cfg),
+        empty_gate=_build_empty_gate(cfg) if _gate_placement(cfg) == "before_record" else None,
     )
+
+
+def _gate_placement(cfg: CaptureConfig) -> str:
+    """Where the empty gate runs: before the recorder starts, or on the clip.
+
+    `after_record` is the default, and the reason is a measurement on the target.
+    Running the gate first needs frames before the recorder starts, and on a Pi
+    4B with Camera Module 3 a `peek()` took 1.76-2.03 s -- the camera is stopped
+    after every recording and has to restart and settle. So every recording
+    began ~2 s after the PIR fired, which for a sunbird that sips for two or
+    three seconds loses the arrival or the whole visit.
+
+    What the gate saves on this board is CLASSIFICATION, not the encode: the Pi
+    4B keeps its hardware H.264 encoder, so recording is nearly free. The
+    classifier is skipped just as well after recording, with no delay. On a
+    Pi 5 -- no hardware encoder -- `before_record` would be the better trade.
+    """
+    from capture.config import CaptureConfigError
+
+    try:
+        placement = str(cfg.get("empty_gate.placement"))
+    except CaptureConfigError:
+        placement = "after_record"
+    if placement not in ("after_record", "before_record"):
+        raise CaptureConfigError(
+            f"empty_gate.placement must be after_record or before_record, got {placement!r}"
+        )
+    return placement
 
 
 def _build_empty_gate(cfg: CaptureConfig):

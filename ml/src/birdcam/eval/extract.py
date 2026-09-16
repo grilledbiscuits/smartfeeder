@@ -231,7 +231,13 @@ def run(cfg, checkpoint_name: str = "student_best.pt", batch_size: int = 32) -> 
     written: dict[str, Path] = {}
 
     with open_manifest(cfg.path("manifest_db")) as m:
-        sets = {"id": load_labelled(cfg, m), "ood": ood_items(cfg, m)}
+        # Field frames included. Thresholds fitted on web photographs alone
+        # describe a distribution the device never sees: capture.example.yaml
+        # records field confidence sitting ~0.2 lower than web (A27), which is
+        # the gap that made the web-fitted novelty threshold gate almost nothing
+        # on real footage. thresholds.run_from_extraction must load the same set,
+        # because this file is fingerprinted by image id.
+        sets = {"id": load_labelled(cfg, m, include_field=True), "ood": ood_items(cfg, m)}
 
     for kind, items in sets.items():
         if not items:

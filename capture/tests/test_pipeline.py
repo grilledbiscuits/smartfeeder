@@ -145,9 +145,7 @@ def test_backoff_defers_the_next_attempt(spool, event, make_decision):
 def test_retry_succeeds_once_the_backoff_elapses(spool, event, make_decision):
     clock = {"now": datetime(2026, 8, 27, 12, 0, 0)}
     publisher = FakePublisher(fail_times=1)
-    pipe = build(
-        spool, decision=make_decision(), publisher=publisher, now=lambda: clock["now"]
-    )
+    pipe = build(spool, decision=make_decision(), publisher=publisher, now=lambda: clock["now"])
 
     pipe.handle(event)
     assert spool.pending_count() == 1
@@ -269,9 +267,7 @@ def test_occupied_feeder_still_records(spool, event, make_decision):
 def test_gate_failure_records_anyway(spool, event, make_decision):
     """Fail open: a false empty silences a real visit, a false occupied costs a clip."""
     rec = _PeekRecorder()
-    pipe = build(
-        spool, decision=make_decision(), recorder=rec, empty_gate=_Gate(True, raises=True)
-    )
+    pipe = build(spool, decision=make_decision(), recorder=rec, empty_gate=_Gate(True, raises=True))
     pipe.handle(event)
     assert rec.calls == 1
 
@@ -299,3 +295,52 @@ def test_gate_observes_the_frames_it_is_given(spool, event, make_decision):
     )
     pipe.handle(event)
     assert gate.observed == 3
+
+
+# --- the gate on the recorded clip (after_record, the Pi 4B default) -----------
+#
+# peek() measured 1.76-2.03 s on a Pi 4B with Camera Module 3, so gating before
+# the recorder delayed every recording by ~2 s. On this board the encode is free
+# in hardware; what the gate saves is classification, and it saves that just as
+# well after recording.
+
+
+class _EmptyClipClassifier:
+    """What BirdcamClipClassifier returns when its gate finds nothing at the port."""
+
+    def __init__(self):
+        self.calls = 0
+
+    def classify(self, clip, work_dir, event_id):
+        from capture.classifier import ClipResult
+
+        self.calls += 1
+        return ClipResult(decision=None, frames_scored=0, empty=True)
+
+
+def test_empty_clip_is_discarded_not_retained(spool, event):
+    """The bug this guards: an empty clip carries no decision.
+
+    decide_outcome reads a missing decision as a classifier FAILURE and retains
+    the clip, which is right for a failure and exactly wrong for an empty
+    feeder -- review storage would fill with clips of nothing.
+    """
+    publisher = FakePublisher()
+    pipe = build(spool, classifier=_EmptyClipClassifier(), publisher=publisher)
+
+    record = pipe.handle(event)
+
+    assert record.empty
+    assert record.outcome is Outcome.DISCARD, "an empty clip was retained for review"
+    assert publisher.published == []
+    assert not any(spool.review_dir.iterdir())
+
+
+def test_a_real_classifier_failure_is_still_retained(spool, event):
+    """The empty verdict must not swallow the failure case it resembles."""
+    from capture.classifier import ClassifierUnavailable
+
+    pipe = build(spool, classifier=FakeClassifier(error=ClassifierUnavailable("boom")))
+    record = pipe.handle(event)
+    assert not record.empty
+    assert record.outcome is Outcome.RETAIN

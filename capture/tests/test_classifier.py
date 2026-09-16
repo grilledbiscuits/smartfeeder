@@ -154,3 +154,37 @@ def test_empty_weights_block_warns(tmp_path, caplog):
     with caplog.at_level("WARNING"):
         assert load_range_prior(site) == {}
     assert "A21" in caplog.text
+
+
+@pytest.mark.parametrize("width,height", [(320, 180), (180, 320)])
+def test_sampling_preserves_portrait_short_side(tmp_path, width, height):
+    import shutil
+    import subprocess
+
+    from PIL import Image
+
+    from capture.classifier import sample_frames
+
+    if not shutil.which("ffmpeg"):
+        pytest.skip("ffmpeg unavailable")
+    clip = tmp_path / "orientation.mp4"
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-v",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            f"color=c=red:s={width}x{height}:d=1",
+            "-c:v",
+            "mpeg4",
+            str(clip),
+        ],
+        check=True,
+        timeout=30,
+    )
+    frames = sample_frames(clip, tmp_path / "frames", fps=1, max_frames=1)
+    with Image.open(frames[0]) as im:
+        assert min(im.size) == 256
+        assert (im.width > im.height) == (width > height)

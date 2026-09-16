@@ -12,6 +12,21 @@ from capture.config import CaptureConfig, CaptureConfigError, expand_env
 EXAMPLE = Path(__file__).resolve().parents[1] / "config" / "capture.example.yaml"
 
 
+def test_enabled_empty_gate_without_reference_fails_open(tmp_path):
+    from capture.build import _build_empty_gate
+
+    path = write(tmp_path, lambda d: d["empty_gate"].update(enabled=True, reference=None))
+    assert _build_empty_gate(CaptureConfig.load(path, root=tmp_path)) is None
+
+
+def test_explicit_missing_empty_reference_is_a_config_error(tmp_path):
+    from capture.build import _build_empty_gate
+
+    path = write(tmp_path, lambda d: d["empty_gate"].update(enabled=True, reference="missing.jpg"))
+    with pytest.raises(CaptureConfigError, match="reference"):
+        _build_empty_gate(CaptureConfig.load(path, root=tmp_path))
+
+
 def write(tmp_path, mutate=None) -> Path:
     data = yaml.safe_load(EXAMPLE.read_text())
     if mutate:

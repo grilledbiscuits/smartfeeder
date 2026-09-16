@@ -18,6 +18,26 @@ import pytest
 from capture.emptygate import DEFAULT_THRESHOLD, EmptyGate, find_port, port_box
 
 
+def test_trusted_reference_cannot_absorb_a_persistent_bird():
+    from capture.emptygate import TrustedEmptyGate
+
+    gate = TrustedEmptyGate(scene())
+    bird = scene(bird=True)
+    assert gate.is_empty(scene())
+    for _ in range(100):
+        gate.observe(bird)
+        assert not gate.is_empty(bird)
+    assert not gate.clip_is_empty([scene(), bird])
+    assert not gate.is_empty(scene(w=640, h=360))
+
+
+def test_trusted_reference_requires_a_visible_port():
+    from capture.emptygate import TrustedEmptyGate
+
+    with pytest.raises(ValueError, match="port"):
+        TrustedEmptyGate(np.zeros((180, 320, 3)))
+
+
 def scene(w=320, h=180, port=(200, 90), bird=False) -> np.ndarray:
     """A grey scene with a red feeding port, optionally with a bird at it.
 

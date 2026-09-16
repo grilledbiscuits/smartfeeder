@@ -201,6 +201,17 @@ class Classifier:
 
     # -- main ------------------------------------------------------------------
 
+    def probability_logits(self, taxon_logits: np.ndarray) -> np.ndarray:
+        """Shared pre-temperature transform for inference and calibration.
+
+        Accepts one frame or a batch. Novelty must still use the RAW logits.
+        """
+        z = np.asarray(taxon_logits, dtype=np.float64).copy()
+        if self._log_prior is not None:
+            z += self._log_prior
+        z[..., self._suppressed] = -np.inf
+        return z
+
     def decide(
         self,
         taxon_logits: np.ndarray,
@@ -233,18 +244,13 @@ class Classifier:
         #
         # This is also the principled form -- a prior over classes is additive
         # in log space, which is what a logit is.
-        if self._log_prior is not None:
-            taxon_logits = taxon_logits + self._log_prior
 
         # --- 3. calibrated probabilities -------------------------------------
         # Suppressed classes are removed BEFORE the softmax, so the remaining
         # mass renormalises as though the class did not exist. Zeroing after the
         # softmax would leave the probabilities summing to less than one and
         # every threshold below reading low.
-        if self._suppressed.size:
-            taxon_logits = taxon_logits.copy()
-            taxon_logits[self._suppressed] = -np.inf
-        probs = softmax(taxon_logits, self.temperature)
+        probs = softmax(self.probability_logits(taxon_logits), self.temperature)
 
         order = np.argsort(probs)[::-1][:5]
         top_k = [(self.taxon_classes[i], float(probs[i])) for i in order]

@@ -1,45 +1,20 @@
-"""Is anything at the feeder at all? Decided geometrically, not by the model.
+"""Optional fixed-camera empty-feeder screening at the feeding port.
 
-The classifier cannot answer this and the reason is structural. Measured
-2026-09-11 on the trained checkpoint: the `empty_feeder` class scored recall
-**1.000** on the nine session backgrounds it trained on and **0.000** on a
-background it had not seen, where it called every empty frame a Cape White-eye.
-It had memorised backgrounds rather than learning what an unoccupied feeder
-looks like -- an unsurprising shortcut, since an empty-feeder frame is nothing
-*but* background. It was also actively harmful: all seven of its validation
-predictions were false positives on real subjects, each of which it would have
-declined to record.
+Production uses TrustedEmptyGate with an explicitly verified empty reference.
+It never learns from PIR-triggered footage: repeated foreground subjects can
+otherwise become the background and be discarded. A missing reference disables
+screening. Moving the camera requires a new reference and new validation.
 
-The fix is to stop asking a classifier a question the geometry answers better.
-**The camera is fixed.** That fact is thrown away by treating every frame as an
-independent image, and it is exactly what makes background subtraction work:
+EmptyGate retains the original rolling-median implementation for experiments;
+it is NOT safe as a production background estimator from PIR-only samples.
+Historical static-background frame results (98.9% empty / 97.5% occupied) do not
+validate its rolling behavior. In the 2026-09-16 Pi replay, a fixed reference
+rejected two of three OTHER empty clips while passing all six bird clips.
+That small development sample does not certify unseen scenes or lighting.
 
-    empty frames   median departure   2.93
-    occupied       median departure  64.02
-
-    one threshold at 12.01 -> 98.9% of empty frames, 97.5% of occupied ones,
-    measured across all nine recording sessions.
-
-Two details carry that separation, and both were learned the hard way while
-mining training negatives:
-
-* **Look only at the feeding port.** A sunbird is a percent or two of the frame
-  and the shade cloth behind the feeder moves in wind across all of it, so a
-  whole-frame score loses the bird in the noise. Restricted to the port, the
-  bird *is* the signal. The port needs no model to find: it is the only strongly
-  red thing in the scene.
-
-* **Take a MEDIAN over many frames for the background, never a mean.** The
-  median survives birds being present in a minority of frames, which is what
-  lets the background be maintained from live footage rather than needing a
-  known-empty reference.
-
-## Failing open
-
-Every uncertain path here returns "not empty". A false *empty* silences a real
-visit, which is the one error this system must not make; a false *occupied*
-costs one classifier call. So a missing background, an undetectable port or an
-unreadable frame all pass the frame through.
+Only the port region is compared. Subjects outside that region may be missed;
+lighting and camera changes can also invalidate the comparison. The threshold
+must be assessed with occupied and empty visits from the installed view.
 """
 
 from __future__ import annotations
@@ -119,10 +94,9 @@ def port_box(
 class EmptyGate:
     """Rolling background for one fixed camera, and the check against it.
 
-    Feed it frames with `observe`; ask it with `is_empty`. It is safe to observe
-    every frame, occupied or not -- the median is what makes that work, and
-    feeding only known-empty frames would defeat the point of maintaining a
-    background from live footage.
+    Experimental only. A median assumes the foreground is absent in most
+    observations, which PIR-triggered clips do not guarantee. Use the fixed
+    TrustedEmptyGate through the production builder instead.
     """
 
     def __init__(
@@ -214,6 +188,32 @@ class EmptyGate:
         if not frames:
             return False
         return all(self.is_empty(f) for f in frames)
+
+
+class TrustedEmptyGate(EmptyGate):
+    """Compare against an explicitly verified empty frame; never learn from triggers.
+
+    The reference must use the deployment camera's framing. Replace it after
+    moving the camera. This prevents foreground absorption, but does not certify
+    that all animals will differ sufficiently within the port region.
+    """
+
+    def __init__(self, reference: np.ndarray, threshold: float = DEFAULT_THRESHOLD):
+        a = np.asarray(reference, dtype=np.float32)
+        if a.ndim != 3 or a.shape[2] != 3 or not np.isfinite(a).all():
+            raise ValueError("empty reference must be finite RGB")
+        if not np.isfinite(threshold) or threshold <= 0:
+            raise ValueError("empty threshold must be positive and finite")
+        super().__init__(threshold=threshold, background_frames=8)
+        for _ in range(8):
+            super().observe(a.copy())
+        if self.background() is None:
+            raise ValueError("feeding port not found in empty reference")
+
+    def observe(self, frame: np.ndarray) -> None:
+        # Incoming PIR clips are untrusted: even repeated birds must never
+        # become the reference against which they themselves are judged.
+        pass
 
 
 def load_frame(path: Path, max_side: int = 320) -> np.ndarray | None:

@@ -8,24 +8,18 @@ Every stage is the production one -- recorder, empty gate, INT8 classifier,
 novelty gate, rollup, vote, keep/discard decision, publication -- and only the
 camera is replaced, by a recorder that copies a clip instead of filming.
 
-## Why a SEQUENCE and not one clip at a time
+## Scope
 
-`python -m capture --replay CLIP` exercises one event. The empty gate cannot be
-tested that way: its background is a rolling median built from the frames it
-has seen, so a single event against a fresh gate always fails open. What the
-gate does in the field depends on history, so this reuses one pipeline across
-every clip and swaps only the replay source between events.
+Reuses one pipeline across clips to exercise persistent state. Production uses
+an explicitly supplied empty reference; the reference clip must be excluded
+from reported evaluation counts. An empty clip succeeds when discarded, whether
+screening ran before or after recording. Identification success on a bird does
+not by itself establish correct publication policy; soak_replay also checks
+whether the truth belongs to the capture allowlist.
 
-## What counts as correct
-
-* An **empty** clip is correct if nothing was recorded. That is the whole
-  point of running the gate ahead of the recorder.
-* A **bird** clip is correct if it was recorded and the voted label is the
-  bird -- or a coarser answer whose group contains it, since "one of the
-  double-collared sunbirds" is an honest answer and not an error.
-
-Clips must come from the TEST split. A clip the model trained on measures
-memory, not the pipeline.
+Prefer clips with traceable split/image provenance. Repeatedly examined test
+clips are development evidence, not an untouched field holdout. Replay bypasses
+PIR admission and camera timing; it cannot test missed arrivals in hardware.
 """
 
 from __future__ import annotations
@@ -45,10 +39,17 @@ def _genus_of(slug: str) -> str:
 
 
 def is_correct(truth: str, record) -> tuple[bool, str]:
+    from capture.events import Outcome
+
+    if record.error:
+        return False, f"pipeline error: {record.error}"
     d = record.decision
     recorded = record.clip_path is not None
     if truth == "empty_feeder":
-        return (not recorded, "not recorded" if not recorded else "recorded an empty feeder")
+        discarded = record.outcome == Outcome.DISCARD
+        return discarded, "discarded empty clip" if discarded else "empty clip kept"
+    if record.empty:
+        return False, "occupied clip rejected by empty gate"
     if not recorded:
         return (False, "bird not recorded")
     if d is None:
@@ -94,7 +95,7 @@ def main() -> None:
 
         d = rec.decision
         ok, why = is_correct(m["truth"], rec)
-        gated = rec.clip_path is None and rec.outcome is not None and d is None
+        gated = rec.empty
         row = {
             "file": m["file"],
             "truth": m["truth"],
@@ -123,7 +124,7 @@ def main() -> None:
     summary = {
         "clips": len(rows),
         "correct": sum(r["correct"] for r in rows),
-        "empty_clips_not_recorded": f"{sum(r['correct'] for r in empties)}/{len(empties)}",
+        "empty_clips_discarded": f"{sum(r['correct'] for r in empties)}/{len(empties)}",
         "bird_clips_correct": f"{sum(r['correct'] for r in birds)}/{len(birds)}",
         "median_seconds_recorded_event": sorted(r["seconds"] for r in rows if r["recorded"])[
             len([r for r in rows if r["recorded"]]) // 2

@@ -375,7 +375,9 @@ def run(cfg: Config, feature_file: str, target_precision: float = 0.90, epochs: 
     ood = np.load(emb / f"ood_{feature_file}")
 
     with open_manifest(cfg.path("manifest_db")) as m:
-        items = load_labelled(cfg, m)
+        # Must match birdcam.eval.extract exactly -- the extraction is
+        # fingerprinted by image id and refuses a different set.
+        items = load_labelled(cfg, m, include_field=True)
         ood_rows = list(m.iter_rows("tier='OOD' AND status='downloaded'"))
     if len(X) != len(items):
         raise RuntimeError(f"misalignment: {len(X)} features vs {len(items)} items")
@@ -435,7 +437,9 @@ def run_from_extraction(
     emb = cfg.path("embeddings_dir") / "finetuned"
 
     with open_manifest(cfg.path("manifest_db")) as m:
-        items = load_labelled(cfg, m)
+        # Must match birdcam.eval.extract exactly -- the extraction is
+        # fingerprinted by image id and refuses a different set.
+        items = load_labelled(cfg, m, include_field=True)
         ood_rows = list(m.iter_rows("tier='OOD' AND status='downloaded'"))
         ood_it = ood_items(cfg, m)
 

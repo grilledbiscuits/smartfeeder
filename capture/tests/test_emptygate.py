@@ -29,9 +29,9 @@ def scene(w=320, h=180, port=(200, 90), bird=False) -> np.ndarray:
     """
     a = np.full((h, w, 3), 120.0, dtype=np.float32)
     px, py = port
-    a[py - 6 : py + 6, px - 9 : px + 9] = (205, 30, 38)          # the port
+    a[py - 6 : py + 6, px - 9 : px + 9] = (205, 30, 38)  # the port
     if bird:
-        a[py - 34 : py + 26, px - 46 : px + 14] = (35, 70, 45)   # a bird at the port
+        a[py - 34 : py + 26, px - 46 : px + 14] = (35, 70, 45)  # a bird at the port
     return a
 
 
@@ -118,7 +118,7 @@ def test_background_survives_a_bird_in_a_minority_of_frames() -> None:
     """The median is what lets the background be built from live footage."""
     g = EmptyGate()
     for i in range(40):
-        g.observe(scene(bird=(i % 4 == 0)))   # occupied a quarter of the time
+        g.observe(scene(bird=(i % 4 == 0)))  # occupied a quarter of the time
     assert g.is_empty(scene())
     assert not g.is_empty(scene(bird=True))
 
@@ -148,3 +148,49 @@ def test_threshold_is_the_only_knob(thr) -> None:
     g = EmptyGate(threshold=thr)
     fill(g)
     assert g.is_empty(scene()) == (thr > 0)
+
+
+# --- placement ----------------------------------------------------------------
+
+
+def _cfg(tmp_path, placement=None):
+    """A stand-in with CaptureConfig's strict get(): a missing key raises.
+
+    CaptureConfig.load validates every section, so a real one would fail here
+    for reasons that have nothing to do with placement.
+    """
+    from capture.config import CaptureConfigError
+
+    values = {"empty_gate.enabled": True}
+    if placement is not None:
+        values["empty_gate.placement"] = placement
+
+    class _Cfg:
+        def get(self, dotted):
+            if dotted not in values:
+                raise CaptureConfigError(f"Missing config key {dotted!r}")
+            return values[dotted]
+
+    return _Cfg()
+
+
+def test_placement_defaults_to_after_record(tmp_path):
+    """Measured on a Pi 4B: gating before the recorder cost ~2 s per event."""
+    from capture.build import _gate_placement
+
+    assert _gate_placement(_cfg(tmp_path)) == "after_record"
+
+
+def test_placement_can_be_set_to_before_record(tmp_path):
+    """The right trade on a board without a hardware encoder, e.g. a Pi 5."""
+    from capture.build import _gate_placement
+
+    assert _gate_placement(_cfg(tmp_path, "before_record")) == "before_record"
+
+
+def test_unknown_placement_is_refused(tmp_path):
+    from capture.build import _gate_placement
+    from capture.config import CaptureConfigError
+
+    with pytest.raises(CaptureConfigError):
+        _gate_placement(_cfg(tmp_path, "sometimes"))

@@ -276,8 +276,7 @@ class CaptureConfig:
                 f"{cam['bitrate_kbps']}kbps",
                 f"cooldown        : {cap['cooldown_seconds']}s, "
                 f"on_busy={cap['on_busy']} max_queued={cap['max_queued']}",
-                f"classifier      : {'on' if cls_['enabled'] else 'OFF'} "
-                f"({cls_['onnx_path']})",
+                f"classifier      : {'on' if cls_['enabled'] else 'OFF'} ({cls_['onnx_path']})",
                 f"novelty gate    : {'on' if cls_['novelty'].get('enabled') else 'OFF'}",
                 f"work dir        : {self.resolve_path('storage.work_dir')}",
                 f"pending dir     : {self.resolve_path('storage.pending_dir')}",

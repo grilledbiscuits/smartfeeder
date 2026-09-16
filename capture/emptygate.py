@@ -184,9 +184,7 @@ class EmptyGate:
                 return None
         if self._background is None:
             x0, y0, x1, y1 = self._box
-            self._background = np.median(
-                np.stack([f[y0:y1, x0:x1] for f in self._buf]), axis=0
-            )
+            self._background = np.median(np.stack([f[y0:y1, x0:x1] for f in self._buf]), axis=0)
         return self._background
 
     def score(self, frame: np.ndarray) -> float | None:

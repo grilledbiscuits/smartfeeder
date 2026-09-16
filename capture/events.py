@@ -79,6 +79,11 @@ class CaptureRecord:
     # birdcam.inference.Decision, kept untyped so this module does not import
     # numpy just to describe a field.
     decision: Any | None = None
+    # The empty-feeder gate decided nothing was at the port. Distinct from a
+    # `decision` of None, which the policy correctly treats as a classifier
+    # failure and RETAINS -- conflating the two would fill review storage with
+    # clips of an empty feeder.
+    empty: bool = False
 
     @property
     def event_id(self) -> str:
@@ -94,6 +99,7 @@ class CaptureRecord:
             "clip": self.clip_path.name if self.clip_path else None,
             "duration_s": self.duration_seconds,
             "frames_scored": self.frames_scored,
+            "empty": self.empty,
             "label": getattr(d, "label", None),
             "taxon_level": getattr(d, "level", None),
             "confidence": round(getattr(d, "confidence", 0.0), 4) if d else None,

@@ -63,9 +63,7 @@ def _warn_if_memory_tight(n_calib: int) -> None:
     try:
         with open("/proc/meminfo", encoding="utf-8") as fh:
             avail_mb = next(
-                int(line.split()[1]) // 1024
-                for line in fh
-                if line.startswith("MemAvailable")
+                int(line.split()[1]) // 1024 for line in fh if line.startswith("MemAvailable")
             )
     except (OSError, StopIteration):
         return
@@ -75,7 +73,9 @@ def _warn_if_memory_tight(n_calib: int) -> None:
             "calibration with %d images needs roughly %d MB but only %d MB is "
             "available. Reduce --calib-size or free memory; ORT buffers every "
             "intermediate tensor and will be OOM-killed rather than degrade.",
-            n_calib, estimate_mb, avail_mb,
+            n_calib,
+            estimate_mb,
+            avail_mb,
         )
 
 
@@ -102,11 +102,27 @@ class _CalibrationReader:
         self._i = 0
 
 
-def build_calibration_set(cfg: Config, n: int, image_size: int, seed: int = 0) -> np.ndarray:
+def build_calibration_set(
+    cfg: Config, n: int, image_size: int, seed: int = 0, source: str = "field"
+) -> np.ndarray:
     """Sample preprocessed images from the TRAIN split as calibration data.
 
     Train, never test: calibration is part of fitting the model, and using test
     images would leak.
+
+    `source` decides WHICH train images, and it is the substitution this module's
+    docstring calls the highest-value one in the export path. Calibration fixes
+    the activation ranges the INT8 graph will use, so the set has to resemble
+    what the camera will actually produce -- a feeder at 720p through a Camera
+    Module 3, not a photographer's crop of a perched bird. Those differ in noise,
+    blur, exposure and framing, and the August export was calibrated on web
+    images only because field frames did not exist yet. They do now.
+
+    Class coverage is deliberately NOT the goal here. Activation ranges are set
+    by image statistics rather than by which species is in the frame, so a
+    calibration set drawn from the seven taxa that appear at the feeder is a
+    better match than one spanning all 37 from a different imaging pipeline.
+    `mixed` is available for comparison; `web` reproduces the old behaviour.
     """
     import timm
     from PIL import Image
@@ -115,9 +131,18 @@ def build_calibration_set(cfg: Config, n: int, image_size: int, seed: int = 0) -
     from birdcam.data.manifest import open_manifest
 
     with open_manifest(cfg.path("manifest_db")) as m:
-        items = [i for i in load_labelled(cfg, m) if i.split == "train"]
+        items = [i for i in load_labelled(cfg, m, include_field=True) if i.split == "train"]
+    if source == "field":
+        pool = [i for i in items if i.source == "field"]
+        if not pool:
+            logger.warning("no field frames available; falling back to web calibration")
+            pool = items
+    elif source == "web":
+        pool = [i for i in items if i.source == "web"]
+    else:
+        pool = items
     rng = np.random.RandomState(seed)
-    picked = [items[i] for i in rng.choice(len(items), min(n, len(items)), replace=False)]
+    picked = [pool[i] for i in rng.choice(len(pool), min(n, len(pool)), replace=False)]
 
     model = timm.create_model(
         cfg.train_cfg["backbone"]["student"]["name"], pretrained=False, num_classes=0
@@ -130,7 +155,7 @@ def build_calibration_set(cfg: Config, n: int, image_size: int, seed: int = 0) -
     for k, it in enumerate(picked):
         with Image.open(it.path) as im:
             out[k] = tf(im.convert("RGB")).numpy()
-    logger.info("calibration set: %d images from the train split", len(out))
+    logger.info("calibration set: %d %s images from the train split", len(out), source)
     return out
 
 
@@ -140,6 +165,7 @@ def quantize(
     out_path: Path | None = None,
     method: str = "MinMax",
     calib_size: int | None = None,
+    calib_source: str = "field",
 ) -> Path:
     """Static INT8 quantisation of the exported ONNX graph.
 
@@ -160,7 +186,7 @@ def quantize(
     size = cfg.train_cfg["backbone"]["student"]["image_size"]
     n_calib = calib_size or qc["calibration_size"]
     _warn_if_memory_tight(n_calib)
-    calib = build_calibration_set(cfg, n_calib, size)
+    calib = build_calibration_set(cfg, n_calib, size, source=calib_source)
 
     import onnxruntime as ort
 
@@ -190,13 +216,25 @@ def quantize(
     prepped.unlink(missing_ok=True)
     logger.info(
         "INT8 model: %s (%.1f MB, was %.1f MB)",
-        out_path, out_path.stat().st_size / 1e6, fp32_path.stat().st_size / 1e6,
+        out_path,
+        out_path.stat().st_size / 1e6,
+        fp32_path.stat().st_size / 1e6,
     )
     return out_path
 
 
-def compare(cfg: Config, fp32_path: Path, int8_path: Path, limit: int | None = None) -> dict:
-    """Run both models over the test split and report per-class deltas."""
+def compare(
+    cfg: Config,
+    fp32_path: Path,
+    int8_path: Path,
+    limit: int | None = None,
+    calib_source: str | None = None,
+) -> dict:
+    """Run both models over the test split and report per-class deltas.
+
+    Field frames are included. The August comparison used web images only, which
+    measures quantisation damage on a distribution the device never sees.
+    """
     import onnxruntime as ort
     import timm
     from PIL import Image
@@ -205,7 +243,7 @@ def compare(cfg: Config, fp32_path: Path, int8_path: Path, limit: int | None = N
     from birdcam.data.manifest import open_manifest
 
     with open_manifest(cfg.path("manifest_db")) as m:
-        items = [i for i in load_labelled(cfg, m) if i.split == "test"]
+        items = [i for i in load_labelled(cfg, m, include_field=True) if i.split == "test"]
     if limit:
         items = items[:limit]
 
@@ -269,24 +307,46 @@ def compare(cfg: Config, fp32_path: Path, int8_path: Path, limit: int | None = N
         )
     per_class.sort(key=lambda r: r["delta"])
 
+    by_source = {}
+    for name in ("field", "web"):
+        sel = np.array([i.source == name for i in items])
+        if sel.any():
+            by_source[name] = {
+                "n": int(sel.sum()),
+                "fp32": round(float((p32[sel] == y[sel]).mean()), 4),
+                "int8": round(float((p8[sel] == y[sel]).mean()), 4),
+                "agreement": round(float((p32[sel] == p8[sel]).mean()), 4),
+            }
+
     return {
         "n_test": len(items),
+        "by_source": by_source,
         "fp32_accuracy": round(float((p32 == y).mean()), 4),
         "int8_accuracy": round(float((p8 == y).mean()), 4),
         "agreement": round(float((p32 == p8).mean()), 4),
         "fp32_mb": round(fp32_path.stat().st_size / 1e6, 1),
         "int8_mb": round(int8_path.stat().st_size / 1e6, 1),
-        "calibration_source": cfg.train_cfg["export"]["quantize"]["calibration_source"],
+        "calibration_source": calib_source
+        or cfg.train_cfg["export"]["quantize"]["calibration_source"],
         "per_class": per_class,
     }
 
 
 def print_report(res: dict) -> None:
-    print(f"\nFP32 {res['fp32_mb']} MB -> INT8 {res['int8_mb']} MB "
-          f"({res['fp32_mb'] / max(res['int8_mb'], 1e-9):.1f}x smaller)")
-    print(f"accuracy {res['fp32_accuracy']:.4f} -> {res['int8_accuracy']:.4f} "
-          f"({res['int8_accuracy'] - res['fp32_accuracy']:+.4f})")
+    print(
+        f"\nFP32 {res['fp32_mb']} MB -> INT8 {res['int8_mb']} MB "
+        f"({res['fp32_mb'] / max(res['int8_mb'], 1e-9):.1f}x smaller)"
+    )
+    print(
+        f"accuracy {res['fp32_accuracy']:.4f} -> {res['int8_accuracy']:.4f} "
+        f"({res['int8_accuracy'] - res['fp32_accuracy']:+.4f})"
+    )
     print(f"the two models agree on {res['agreement']:.1%} of test images")
+    for name, b in (res.get("by_source") or {}).items():
+        print(
+            f"  {name:<6} n={b['n']:<5} {b['fp32']:.4f} -> {b['int8']:.4f} "
+            f"({b['int8'] - b['fp32']:+.4f})  agree {b['agreement']:.1%}"
+        )
 
     if res["calibration_source"].startswith("provisional"):
         print("\n*** CALIBRATION SET IS PROVISIONAL ***")
@@ -299,8 +359,10 @@ def print_report(res: dict) -> None:
     print("-" * 59)
     for r in res["per_class"][:10]:
         mark = "  <-- FLAGGED" if r["flagged"] else ""
-        print(f"{r['class'].replace('_',' '):<30}{r['n']:>5}{r['fp32']:>8.3f}"
-              f"{r['int8']:>8.3f}{r['delta']:>+8.3f}{mark}")
+        print(
+            f"{r['class'].replace('_', ' '):<30}{r['n']:>5}{r['fp32']:>8.3f}"
+            f"{r['int8']:>8.3f}{r['delta']:>+8.3f}{mark}"
+        )
     if flagged:
         print(f"\n{len(flagged)} class(es) degraded beyond threshold. Fine-grained classes")
         print("sit close together in feature space and INT8 smears them unevenly --")
@@ -315,11 +377,18 @@ def main() -> None:
 
     ap = argparse.ArgumentParser(description="INT8 quantise and report per-class delta.")
     ap.add_argument("--limit", type=int, default=None, help="test images to evaluate")
-    ap.add_argument("--method",
-                    default=None,  # falls back to config
-
-                    choices=["MinMax", "Percentile", "Entropy"])
+    ap.add_argument(
+        "--method",
+        default=None,  # falls back to config
+        choices=["MinMax", "Percentile", "Entropy"],
+    )
     ap.add_argument("--calib-size", type=int, default=None)
+    ap.add_argument(
+        "--calib-source",
+        default="field",
+        choices=["field", "web", "mixed"],
+        help="which train images calibrate the activation ranges; field is what the camera sees",
+    )
     ap.add_argument("--skip-compare", action="store_true")
     args = ap.parse_args()
 
@@ -328,14 +397,14 @@ def main() -> None:
     method = args.method or cfg.train_cfg["export"]["quantize"].get(
         "calibrate_method", "Percentile"
     )
-    int8 = quantize(cfg, method=method, calib_size=args.calib_size)
+    int8 = quantize(cfg, method=method, calib_size=args.calib_size, calib_source=args.calib_source)
     if args.skip_compare:
         return
-    res = compare(cfg, fp32, int8, limit=args.limit)
+    res = compare(cfg, fp32, int8, limit=args.limit, calib_source=args.calib_source)
     res["calibrate_method"] = method
-    res["calibration_size"] = args.calib_size or cfg.train_cfg["export"]["quantize"][
-        "calibration_size"
-    ]
+    res["calibration_size"] = (
+        args.calib_size or cfg.train_cfg["export"]["quantize"]["calibration_size"]
+    )
     print_report(res)
 
     # Accumulate per method so a killed run loses only its own result.
@@ -353,7 +422,10 @@ def main() -> None:
                 all_res = existing["by_method"]
         except json.JSONDecodeError:
             all_res = {}
-    all_res[f"{method}_calib{res['calibration_size']}"] = res
+    # The calibration SOURCE belongs in the key. Without it a field-calibrated
+    # run silently overwrites a web-calibrated one of the same size, which is
+    # exactly the comparison this report exists to make.
+    all_res[f"{method}_calib{res['calibration_size']}_{args.calib_source}"] = res
     out.write_text(json.dumps({"by_method": all_res}, indent=2), encoding="utf-8")
     print(f"\nreport: {out}  (methods recorded: {sorted(all_res)})")
 

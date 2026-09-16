@@ -157,16 +157,36 @@ class EmptyGate:
                 a.shape,
             )
             self._buf.clear()
+            self._box = None  # the port must be re-found in the new framing
         self._buf.append(a)
-        self._background = None  # recomputed lazily
-        self._box = None
+        self._background = None  # recomputed lazily, port box reused
 
     def background(self) -> np.ndarray | None:
+        """The port-box background, recomputed only when the buffer has changed.
+
+        Only the port box is ever scored, so only the port box is reduced. The
+        first pass has to take the median of whole frames -- the port has to be
+        found before it can be cropped to -- but every pass after that medians
+        the crop alone, which is about a sixth of the pixels.
+
+        That is not a micro-optimisation. Measured on an x86 laptop, a full-frame
+        median over 48 frames at 320px costs 295 ms; a Pi 4B is several times
+        slower again, and this runs on every motion event before the recorder is
+        started. A gate that costs a second to say "nothing there" would spend
+        more than it saves.
+        """
         if not self.ready:
             return None
+        if self._box is None:
+            full = np.median(np.stack(self._buf), axis=0)
+            self._box = port_box(full)
+            if self._box is None:
+                return None
         if self._background is None:
-            self._background = np.median(np.stack(self._buf), axis=0)
-            self._box = port_box(self._background)
+            x0, y0, x1, y1 = self._box
+            self._background = np.median(
+                np.stack([f[y0:y1, x0:x1] for f in self._buf]), axis=0
+            )
         return self._background
 
     def score(self, frame: np.ndarray) -> float | None:
@@ -175,10 +195,10 @@ class EmptyGate:
         if bg is None or self._box is None:
             return None
         a = np.asarray(frame, dtype=np.float32)
-        if a.shape != bg.shape:
+        if a.shape[:2] != self._buf[0].shape[:2]:
             return None
         x0, y0, x1, y1 = self._box
-        return float(np.abs(a[y0:y1, x0:x1] - bg[y0:y1, x0:x1]).mean())
+        return float(np.abs(a[y0:y1, x0:x1] - bg).mean())
 
     def is_empty(self, frame: np.ndarray) -> bool:
         """True only when the port is measurably unoccupied. Fails open."""

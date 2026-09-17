@@ -1,12 +1,12 @@
 # In flight — isolated Pi replay soak (updated 2026-09-16)
 
-**Read first:** Codex continued after Claude's session limit. An isolated overnight
-replay soak is running on the desk Pi (started 20:41:57 SAST, expected finish
-September 17 ~02:52). The live service is unchanged. The candidate still has five
-wrong-action cases among 39 development clips and is NOT ready for field release.
-See **“Overnight stability test — RUNNING”** and **“Next-session priorities”** below
-for commands, paths, PID and remaining issues. Earlier sections preserve the
-original handover and investigation history, not the latest deployment approval.
+**Read first — completed September 17:** The isolated Pi soak finished normally
+at **02:52:27 SAST**, after 6h 10m 30s: 741 events, zero runtime errors. All 39
+clips produced the same label/outcome across 19 cycles. Capture actions remain
+correct on 34/39 distinct development clips; the same five failures persist.
+Live service is active with zero restarts since September 16 19:55:37.
+**Do not deploy the candidate to the field yet.** Earlier RUNNING/PID instructions
+below are historical; the soak has finished. See completion results at the end.
 
 ## Codex verification — 2026-09-16
 
@@ -291,3 +291,28 @@ rsync -a grilledbiscuits@192.168.0.224:birdcam-next/desk-test/ml/reports/ \
 
 Final local verification before this handover: 292 tests passing, Ruff checks
 passing. Deployment shell syntax passed earlier; neither swap/rollback executed.
+
+
+## Overnight completion — verified 2026-09-17
+
+- Finished normally at 02:52:27 SAST, elapsed 6.175 hours, 741 events / 19 cycles
+  of 39 distinct clips. Zero runtime errors. No label/outcome/gate variations
+  for a given clip across cycles.
+- 646/741 correct actions = the same 34/39 distinct clips passing every time;
+  repeated trials are stability evidence, not independent accuracy samples.
+- Same five wrong-action clips listed above remain: one empty published, two
+  Amethyst visits discarded at family fallback, two Southern Double-collared
+  visits discarded as other_animal. No thresholds changed after seeing results.
+- Sampled temperature 39.4–47.7 C. Every sampled throttle word was 0x80000;
+  no current low-four-bit warning flags appeared. Historical flag unchanged.
+- RSS peaked at 162.793 MiB. Cycle median rose from 157.352 MiB during initial
+  warmup to 162.543 on cycle 1 and 162.793 on cycle 18: small subsequent growth
+  (~0.25 MiB), no large memory accumulation in this six-hour test. This does not
+  prove indefinite leak-free operation.
+- Live birdcam-capture remained active, NRestarts=0, active since 2026-09-16
+  19:55:37 SAST. Current board temperature at this check was 38.4 C.
+- Complete event log and status retrieved with rsync to
+  `ml/reports/desk-20260916/pi/soak-overnight/`; derived summary in `analysis.json`.
+- No service/config/model changes made while checking completion. Next task is
+  visual diagnosis of the five failures, followed by independent scene/visit
+  validation. Camera/PIR timing was not part of this replay soak.

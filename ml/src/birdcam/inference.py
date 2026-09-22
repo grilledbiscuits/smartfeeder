@@ -165,16 +165,26 @@ class Classifier:
 
         # Capture allowlist: the labels worth committing video for. Tier A is
         # the deployment target; Tier B/C exist as hard negatives so the model
-        # can recognise a bystander without recording it. A genus fallback
-        # qualifies only if that genus actually contains a target, so
-        # `cinnyris_indet` ("one of the double-collareds") records while
-        # `nectariniidae_indet` ("some sunbird") does not -- the latter is too
-        # vague to be worth storage.
-        targets = {s.slug for s in cfg.species_by_tier("A")}
-        target_genera = {s.genus for s in cfg.species_by_tier("A")}
-        self._capture_targets = set(targets)
+        # can recognise a bystander without recording it. A genus or family
+        # fallback qualifies only if it actually contains a target, so
+        # `cinnyris_indet` ("one of the double-collareds") and
+        # `nectariniidae_indet` ("some sunbird") record while
+        # `zosteropidae_indet` does not.
+        #
+        # Family was added 2026-09-17. In the Pi replay soak, female Amethyst
+        # Sunbird visits resolved to the family at 0.94-0.96 confidence and
+        # were discarded; a dull female sunbird is the commonest hard case at
+        # this feeder, and losing the visit costs more than storing a clip a
+        # reviewer can name. The guild ("some nectarivore") stays off the list.
+        tier_a = cfg.species_by_tier("A")
+        target_genera = {s.genus for s in tier_a}
+        target_families = {self._genus_to_family.get(g) for g in target_genera} - {None}
+        self._capture_targets = {s.slug for s in tier_a}
         for slug, spec in head["genus_fallback"].items():
             if spec.get("genus") in target_genera:
+                self._capture_targets.add(slug)
+        for slug, spec in head["family_fallback"].items():
+            if spec.get("family") in target_families:
                 self._capture_targets.add(slug)
 
     # -- rollup helpers --------------------------------------------------------

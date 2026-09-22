@@ -200,6 +200,22 @@ class Picamera2Recorder:
             logger.warning("peek failed: %s: %s", type(exc).__name__, exc)
             return []
 
+    def snapshot(self):
+        """One frame for the empty gate's background, then stop the camera.
+
+        Taken only while the PIR is quiet, every few minutes. The camera is
+        stopped again afterwards so an idle feeder does not keep the sensor and
+        ISP running between snapshots; `peek` and `record` restart it.
+        """
+        frames = self.peek(count=1)
+        try:
+            if self._picam is not None and getattr(self._picam, "started", False):
+                self._picam.stop()
+        except Exception as exc:  # noqa: BLE001 - the next open recovers
+            logger.warning("stopping the camera after a snapshot failed: %s", exc)
+            self.close()
+        return frames[0] if frames else None
+
     def record(self, dest: Path, seconds: float) -> RecordingResult:
         picam = self._open()
         dest.parent.mkdir(parents=True, exist_ok=True)

@@ -139,9 +139,11 @@ class CapturePipeline:
             frames = peek()
             if not frames:
                 return False
-            for f in frames:
-                gate.observe(f)
-            return bool(gate.clip_is_empty(frames))
+            # Triggered frames are judged, never learned from: see
+            # capture/emptygate.py for how a regular visitor became background.
+            from capture.emptygate import shrink
+
+            return bool(gate.clip_is_empty([shrink(f) for f in frames]))
         except Exception as exc:  # noqa: BLE001 - never lose a capture over the gate
             logger.warning(
                 "%s: empty gate raised %s: %s -- recording anyway",

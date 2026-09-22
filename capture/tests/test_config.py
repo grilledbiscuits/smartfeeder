@@ -12,11 +12,13 @@ from capture.config import CaptureConfig, CaptureConfigError, expand_env
 EXAMPLE = Path(__file__).resolve().parents[1] / "config" / "capture.example.yaml"
 
 
-def test_enabled_empty_gate_without_reference_fails_open(tmp_path):
+def test_example_config_builds_the_idle_snapshot_gate(tmp_path):
     from capture.build import _build_empty_gate
+    from capture.emptygate import IdleBackgroundGate
 
-    path = write(tmp_path, lambda d: d["empty_gate"].update(enabled=True, reference=None))
-    assert _build_empty_gate(CaptureConfig.load(path, root=tmp_path)) is None
+    gate = _build_empty_gate(CaptureConfig.load(write(tmp_path), root=tmp_path))
+    assert isinstance(gate, IdleBackgroundGate)
+    assert not gate.ready, "no snapshots yet: must fail open"
 
 
 def test_explicit_missing_empty_reference_is_a_config_error(tmp_path):

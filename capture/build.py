@@ -274,8 +274,8 @@ def _build_empty_gate(cfg: CaptureConfig):
     2026-09-11, its `empty_feeder` class scored recall 1.000 on backgrounds it
     trained on and 0.000 on one it had not seen.
     """
+    from capture import emptygate as eg
     from capture.config import CaptureConfigError
-    from capture.emptygate import DEFAULT_THRESHOLD, TrustedEmptyGate, load_frame
 
     def opt(key: str, default):
         # cfg.get is deliberately strict -- it names a missing key rather than
@@ -287,19 +287,30 @@ def _build_empty_gate(cfg: CaptureConfig):
         except CaptureConfigError:
             return default
 
-    if not bool(opt("enabled", False)):
+    if not bool(opt("enabled", True)):
         logger.info("empty-feeder gate disabled by config")
         return None
-    if not opt("reference", None):
-        logger.warning("empty gate bypassed: no verified empty_gate.reference supplied")
-        return None
-    reference = load_frame(cfg.resolve_path("empty_gate.reference"))
-    if reference is None:
-        raise CaptureConfigError("cannot read empty_gate.reference")
+    max_age = opt("max_age_seconds", eg.DEFAULT_MAX_AGE_SECONDS)
     try:
-        return TrustedEmptyGate(reference, threshold=float(opt("threshold", DEFAULT_THRESHOLD)))
+        gate = eg.IdleBackgroundGate(
+            threshold=float(opt("threshold", eg.DEFAULT_THRESHOLD)),
+            background_frames=int(opt("background_frames", eg.DEFAULT_IDLE_FRAMES)),
+            snapshot_interval_seconds=float(
+                opt("snapshot_interval_seconds", eg.DEFAULT_SNAPSHOT_INTERVAL_SECONDS)
+            ),
+            quiet_seconds=float(opt("quiet_seconds", eg.DEFAULT_QUIET_SECONDS)),
+            max_age_seconds=None if max_age is None else float(max_age),
+        )
+        # An optional known-empty seed, for replay where there are no quiet
+        # periods to snapshot. In the field, real snapshots displace it.
+        if opt("reference", None):
+            seed = eg.load_frame(cfg.resolve_path("empty_gate.reference"))
+            if seed is None:
+                raise CaptureConfigError("cannot read empty_gate.reference")
+            gate.seed(seed)
     except ValueError as exc:
-        raise CaptureConfigError(f"invalid empty_gate.reference or threshold: {exc}") from exc
+        raise CaptureConfigError(f"invalid empty_gate settings: {exc}") from exc
+    return gate
 
 
 def build_service(
@@ -328,6 +339,7 @@ def build_service(
         pipeline=pipeline,
         gate=gate,
         recorder=recorder,
+        empty_gate=pipeline.empty_gate or getattr(classifier, "empty_gate", None),
         drain_interval_seconds=max(5.0, float(cfg.get("publish.backoff_initial_seconds"))),
     )
     return service, pipeline

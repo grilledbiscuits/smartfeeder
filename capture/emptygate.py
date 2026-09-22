@@ -1,26 +1,41 @@
-"""Optional fixed-camera empty-feeder screening at the feeding port.
+"""Is anything at the feeding port? Decided geometrically, not by the model.
 
-Production uses TrustedEmptyGate with an explicitly verified empty reference.
-It never learns from PIR-triggered footage: repeated foreground subjects can
-otherwise become the background and be discarded. A missing reference disables
-screening. Moving the camera requires a new reference and new validation.
+The classifier cannot answer this: its `empty_feeder` class memorised session
+backgrounds (recall 1.000 on seen backgrounds, 0.000 on an unseen one), and with
+that class suppressed the Pi replay published all four empty clips as birds.
 
-EmptyGate retains the original rolling-median implementation for experiments;
-it is NOT safe as a production background estimator from PIR-only samples.
-Historical static-background frame results (98.9% empty / 97.5% occupied) do not
-validate its rolling behavior. In the 2026-09-16 Pi replay, a fixed reference
-rejected two of three OTHER empty clips while passing all six bird clips.
-That small development sample does not certify unseen scenes or lighting.
+The camera is fixed, so compare the port region against a background. The hard
+part is where the background comes from:
 
-Only the port region is compared. Subjects outside that region may be missed;
-lighting and camera changes can also invalidate the comparison. The threshold
-must be assessed with occupied and empty visits from the installed view.
+* **Not from triggered clips.** A median over PIR-triggered frames assumes the
+  foreground is a minority; at a busy feeder it is not, and a regular visitor
+  becomes the background and is discarded as "empty" (reproduced 2026-09-16).
+* **Not from one fixed reference.** Outdoors the light moves all day; a single
+  morning frame stops matching by afternoon and the gate silently never fires.
+
+`IdleBackgroundGate` takes a snapshot every few minutes while the PIR has been
+quiet, and medians the last few. Triggered frames never touch it. It tracks the
+light, and a bird perched during one snapshot is outvoted by the others.
+
+## Failing open
+
+Every uncertain path returns "not empty": no fresh background (e.g. a feeder
+busy for longer than `max_age_seconds`), no port found, a frame shape that does
+not match the snapshots, an unreadable frame. A false empty silences a real
+visit; a false occupied costs one classifier call.
+
+Only the port region is compared, so a subject away from the port can be missed.
+The threshold (12.0, measured on static session backgrounds) must be revalidated
+with installed-camera snapshots, which come from the camera's preview stream
+rather than decoded H.264.
 """
 
 from __future__ import annotations
 
 import logging
+import time
 from collections import deque
+from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
@@ -37,6 +52,14 @@ DEFAULT_THRESHOLD = 12.0
 # Frames held for the rolling background. Sampled sparsely over a long window so
 # a bird that perches for several minutes is still a minority of the buffer.
 DEFAULT_BACKGROUND_FRAMES = 48
+
+# Idle snapshots: one every `interval` once the PIR has been quiet for `quiet`
+# seconds; median of the last `frames`, trusted for `max_age` after the newest.
+# Six at five minutes spans half an hour of light.
+DEFAULT_IDLE_FRAMES = 6
+DEFAULT_SNAPSHOT_INTERVAL_SECONDS = 300.0
+DEFAULT_QUIET_SECONDS = 120.0
+DEFAULT_MAX_AGE_SECONDS = 900.0
 
 # Fraction of the longer image edge used as the half-width of the port box.
 PORT_BOX_FRAC = 0.16
@@ -168,6 +191,14 @@ class EmptyGate:
             return None
         a = np.asarray(frame, dtype=np.float32)
         if a.shape[:2] != self._buf[0].shape[:2]:
+            if not getattr(self, "_warned_shape", False):
+                # Otherwise the gate is silently off for every clip.
+                logger.warning(
+                    "empty gate disabled for frames of shape %s: background is %s",
+                    a.shape[:2],
+                    self._buf[0].shape[:2],
+                )
+                self._warned_shape = True
             return None
         x0, y0, x1, y1 = self._box
         return float(np.abs(a[y0:y1, x0:x1] - bg).mean())
@@ -190,30 +221,84 @@ class EmptyGate:
         return all(self.is_empty(f) for f in frames)
 
 
-class TrustedEmptyGate(EmptyGate):
-    """Compare against an explicitly verified empty frame; never learn from triggers.
+class IdleBackgroundGate(EmptyGate):
+    """Background from quiet-period snapshots only; triggered clips never update it."""
 
-    The reference must use the deployment camera's framing. Replace it after
-    moving the camera. This prevents foreground absorption, but does not certify
-    that all animals will differ sufficiently within the port region.
-    """
-
-    def __init__(self, reference: np.ndarray, threshold: float = DEFAULT_THRESHOLD):
-        a = np.asarray(reference, dtype=np.float32)
-        if a.ndim != 3 or a.shape[2] != 3 or not np.isfinite(a).all():
-            raise ValueError("empty reference must be finite RGB")
+    def __init__(
+        self,
+        threshold: float = DEFAULT_THRESHOLD,
+        background_frames: int = DEFAULT_IDLE_FRAMES,
+        *,
+        snapshot_interval_seconds: float = DEFAULT_SNAPSHOT_INTERVAL_SECONDS,
+        quiet_seconds: float = DEFAULT_QUIET_SECONDS,
+        max_age_seconds: float | None = DEFAULT_MAX_AGE_SECONDS,
+        monotonic: Callable[[], float] = time.monotonic,
+    ) -> None:
         if not np.isfinite(threshold) or threshold <= 0:
             raise ValueError("empty threshold must be positive and finite")
-        super().__init__(threshold=threshold, background_frames=8)
-        for _ in range(8):
-            super().observe(a.copy())
-        if self.background() is None:
-            raise ValueError("feeding port not found in empty reference")
+        if int(background_frames) < 1:
+            raise ValueError("background_frames must be at least 1")
+        super().__init__(threshold=threshold, background_frames=background_frames)
+        self.snapshot_interval = float(snapshot_interval_seconds)
+        self.quiet = float(quiet_seconds)
+        self.max_age = None if max_age_seconds is None else float(max_age_seconds)
+        self._monotonic = monotonic
+        self._last_snapshot = float("-inf")
+        self._newest = float("-inf")
+
+    @property
+    def min_frames(self) -> int:
+        return min(3, self._buf.maxlen)
+
+    @property
+    def ready(self) -> bool:
+        if len(self._buf) < self.min_frames:
+            return False
+        return self.max_age is None or self._monotonic() - self._newest <= self.max_age
 
     def observe(self, frame: np.ndarray) -> None:
-        # Incoming PIR clips are untrusted: even repeated birds must never
-        # become the reference against which they themselves are judged.
-        pass
+        """Triggered frames are ignored: a regular visitor must never become background."""
+
+    def snapshot_due(self, last_motion: float) -> bool:
+        now = self._monotonic()
+        return (
+            now - self._last_snapshot >= self.snapshot_interval and now - last_motion >= self.quiet
+        )
+
+    def observe_idle(self, frame: np.ndarray | None) -> None:
+        """Add a quiet-period snapshot. `None` (a failed grab) still resets the timer."""
+        self._last_snapshot = self._monotonic()
+        if frame is None:
+            return
+        a = shrink(frame)
+        if a.ndim != 3 or a.shape[2] != 3 or not np.isfinite(a).all():
+            logger.warning("empty gate ignored a malformed snapshot of shape %s", a.shape)
+            return
+        super().observe(a)
+        self._newest = self._last_snapshot
+        self._warned_shape = False
+
+    def seed(self, frame: np.ndarray) -> None:
+        """Fill the buffer from one known-empty frame (replay and testing)."""
+        for _ in range(self._buf.maxlen):
+            self.observe_idle(frame)
+        if self.background() is None:
+            raise ValueError("feeding port not found in the seed frame")
+
+
+def shrink(frame: np.ndarray, max_side: int = 320) -> np.ndarray:
+    """Downscale an RGB array exactly as `load_frame` downscales a sampled JPEG."""
+    a = np.asarray(frame)
+    if a.ndim != 3:
+        return a
+    if max(a.shape[:2]) <= max_side:
+        return np.asarray(a, dtype=np.float32)
+    from PIL import Image
+
+    im = Image.fromarray(np.clip(a[..., :3], 0, 255).astype(np.uint8))
+    scale = max_side / max(im.size)
+    im = im.resize((max(1, round(im.width * scale)), max(1, round(im.height * scale))))
+    return np.asarray(im, dtype=np.float32)
 
 
 def load_frame(path: Path, max_side: int = 320) -> np.ndarray | None:

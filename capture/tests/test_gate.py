@@ -93,3 +93,76 @@ def test_next_event_returns_none_when_idle(clock):
 
 def test_counts_cover_every_admission_kind(clock):
     assert set(gate(clock).counts) == {a.value for a in Admission}
+
+
+# --- idle snapshots for the empty gate ----------------------------------------
+
+
+class _SnapGate:
+    def __init__(self, due=True):
+        self.due, self.seen, self.asked = due, [], []
+
+    def snapshot_due(self, last_motion):
+        self.asked.append(last_motion)
+        return self.due
+
+    def observe_idle(self, frame):
+        self.seen.append(frame)
+
+
+class _SnapRecorder:
+    def __init__(self, fail=False):
+        self.fail, self.calls = fail, 0
+
+    def snapshot(self):
+        self.calls += 1
+        if self.fail:
+            raise RuntimeError("camera busy")
+        return "frame"
+
+
+def _service(gate, recorder):
+    from capture.service import CaptureService, TriggerGate
+
+    return CaptureService(
+        motion_source=None,
+        pipeline=None,
+        gate=TriggerGate(cooldown_seconds=0),
+        recorder=recorder,
+        empty_gate=gate,
+    )
+
+
+def test_idle_snapshot_feeds_the_empty_gate():
+    gate, rec = _SnapGate(), _SnapRecorder()
+    _service(gate, rec)._maybe_snapshot()
+    assert rec.calls == 1 and gate.seen == ["frame"]
+
+
+def test_no_snapshot_when_not_due():
+    gate, rec = _SnapGate(due=False), _SnapRecorder()
+    _service(gate, rec)._maybe_snapshot()
+    assert rec.calls == 0 and gate.seen == []
+
+
+def test_motion_is_passed_to_the_gate_as_last_motion():
+    from capture.events import MotionEvent, Trigger
+
+    gate, rec = _SnapGate(due=False), _SnapRecorder()
+    svc = _service(gate, rec)
+    before = svc._last_motion
+    svc._on_motion(MotionEvent.now(trigger=Trigger.MOCK))
+    svc._maybe_snapshot()
+    assert gate.asked[-1] >= before
+
+
+def test_failed_snapshot_does_not_stop_the_loop():
+    gate, rec = _SnapGate(), _SnapRecorder(fail=True)
+    _service(gate, rec)._maybe_snapshot()
+    assert gate.seen == [None], "a failed grab must still reset the snapshot timer"
+
+
+def test_recorder_without_snapshot_is_skipped():
+    gate = _SnapGate()
+    _service(gate, object())._maybe_snapshot()
+    assert gate.seen == []

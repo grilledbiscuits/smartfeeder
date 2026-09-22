@@ -18,26 +18,6 @@ import pytest
 from capture.emptygate import DEFAULT_THRESHOLD, EmptyGate, find_port, port_box
 
 
-def test_trusted_reference_cannot_absorb_a_persistent_bird():
-    from capture.emptygate import TrustedEmptyGate
-
-    gate = TrustedEmptyGate(scene())
-    bird = scene(bird=True)
-    assert gate.is_empty(scene())
-    for _ in range(100):
-        gate.observe(bird)
-        assert not gate.is_empty(bird)
-    assert not gate.clip_is_empty([scene(), bird])
-    assert not gate.is_empty(scene(w=640, h=360))
-
-
-def test_trusted_reference_requires_a_visible_port():
-    from capture.emptygate import TrustedEmptyGate
-
-    with pytest.raises(ValueError, match="port"):
-        TrustedEmptyGate(np.zeros((180, 320, 3)))
-
-
 def scene(w=320, h=180, port=(200, 90), bird=False) -> np.ndarray:
     """A grey scene with a red feeding port, optionally with a bird at it.
 
@@ -214,3 +194,110 @@ def test_unknown_placement_is_refused(tmp_path):
 
     with pytest.raises(CaptureConfigError):
         _gate_placement(_cfg(tmp_path, "sometimes"))
+
+
+# --- the production gate: quiet-period snapshots only ---------------------------
+
+
+class _Clock:
+    def __init__(self) -> None:
+        self.t = 1000.0
+
+    def __call__(self) -> float:
+        return self.t
+
+
+def idle_gate(clock=None, **kw):
+    from capture.emptygate import IdleBackgroundGate
+
+    return IdleBackgroundGate(monotonic=clock or _Clock(), **kw)
+
+
+def test_triggered_frames_never_become_background() -> None:
+    """Reproduces the 2026-09-16 failure: a regular visitor absorbed as background."""
+    g = idle_gate()
+    for _ in range(6):
+        g.observe_idle(scene())
+    bird = scene(bird=True)
+    for _ in range(200):
+        g.observe(bird)
+        assert not g.is_empty(bird)
+    assert g.is_empty(scene())
+
+
+def test_background_tracks_the_light_through_snapshots() -> None:
+    """A single morning reference stops matching; rolling snapshots follow."""
+    g = idle_gate()
+    for _ in range(6):
+        g.observe_idle(scene())
+    afternoon = scene() * 0.7
+    assert not g.is_empty(afternoon), "precondition: the light change exceeds the threshold"
+    for _ in range(6):
+        g.observe_idle(scene() * 0.7)
+    assert g.is_empty(afternoon)
+    assert not g.is_empty(afternoon * 0 + scene(bird=True) * 0.7)
+
+
+def test_a_bird_in_one_snapshot_is_outvoted() -> None:
+    g = idle_gate()
+    for i in range(6):
+        g.observe_idle(scene(bird=(i == 2)))
+    assert g.is_empty(scene())
+    assert not g.is_empty(scene(bird=True))
+
+
+def test_stale_background_fails_open() -> None:
+    clock = _Clock()
+    g = idle_gate(clock, max_age_seconds=900)
+    for _ in range(6):
+        g.observe_idle(scene())
+    assert g.is_empty(scene())
+    clock.t += 901
+    assert not g.ready
+    assert not g.is_empty(scene())
+    g.observe_idle(scene())
+    assert g.is_empty(scene())
+
+
+def test_too_few_snapshots_fail_open() -> None:
+    g = idle_gate()
+    g.observe_idle(scene())
+    g.observe_idle(scene())
+    assert not g.is_empty(scene())
+
+
+def test_snapshot_waits_for_quiet_and_interval() -> None:
+    clock = _Clock()
+    g = idle_gate(clock, snapshot_interval_seconds=300, quiet_seconds=120)
+    assert not g.snapshot_due(last_motion=clock.t - 60), "PIR fired a minute ago"
+    assert g.snapshot_due(last_motion=clock.t - 121)
+    g.observe_idle(None)  # a failed grab still waits out the interval
+    clock.t += 200
+    assert not g.snapshot_due(last_motion=0.0)
+    clock.t += 100
+    assert g.snapshot_due(last_motion=0.0)
+
+
+def test_full_resolution_snapshot_matches_a_sampled_frame() -> None:
+    """Camera arrays are shrunk to the size load_frame gives a sampled JPEG."""
+    g = idle_gate()
+    big = np.kron(scene(), np.ones((4, 4, 1), dtype=np.float32))  # 1280x720
+    for _ in range(6):
+        g.observe_idle(big)
+    assert g.score(scene()) is not None
+    assert g.is_empty(scene())
+
+
+def test_shape_mismatch_warns_once(caplog) -> None:
+    g = idle_gate()
+    for _ in range(6):
+        g.observe_idle(scene())
+    with caplog.at_level("WARNING"):
+        assert not g.is_empty(scene(w=300, h=300))
+        assert not g.is_empty(scene(w=300, h=300))
+    assert caplog.text.count("empty gate disabled") == 1
+
+
+def test_seed_requires_a_visible_port() -> None:
+    with pytest.raises(ValueError, match="port"):
+        idle_gate().seed(np.zeros((180, 320, 3)))

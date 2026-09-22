@@ -204,18 +204,24 @@ logging:
   format: text
 
 # =============================================================================
-# EMPTY-FEEDER GATE -- optional, checked on the recorded clip
+# EMPTY-FEEDER GATE -- checked on the recorded clip
 # =============================================================================
-# Requires a human-verified empty frame from the SAME camera position, decoded
-# like the sampled clip frames. Recreate it after moving the camera. Triggered
-# clips must never update this reference: repeated birds can become a rolling
-# background and then be discarded as empty.
+# The classifier cannot tell an empty feeder from a bird (it memorised session
+# backgrounds), so emptiness is decided geometrically at the feeding port
+# against a background built ONLY from snapshots taken while the PIR is quiet.
+# Triggered clips never update it: at a busy feeder a regular visitor would
+# otherwise become the background and be discarded as empty.
 #
-# No reference means the gate is bypassed. Differences caused by lighting can
-# also pass an empty scene to the classifier. Threshold 12 is provisional;
-# validate it on separate occupied/empty visits with the installed camera.
+# Fails open: no fresh background (the newest snapshot older than
+# max_age_seconds), no port found, or mismatched frame sizes all mean "classify
+# it". The threshold was measured on static session backgrounds; revalidate it
+# with snapshots from the installed camera.
 empty_gate:
-  enabled: false
+  enabled: true
   placement: after_record
-  reference: null
   threshold: 12.0
+  background_frames: 6            # median of the newest snapshots
+  snapshot_interval_seconds: 300
+  quiet_seconds: 120              # no PIR edge for this long before a snapshot
+  max_age_seconds: 900            # older background -> gate off until refreshed
+  reference: null                 # optional known-empty seed frame (replay only)

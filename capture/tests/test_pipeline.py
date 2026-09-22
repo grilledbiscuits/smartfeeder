@@ -227,11 +227,11 @@ class _Gate:
         self.observed = 0
 
     def observe(self, frame):
-        if self._raises:
-            raise RuntimeError("background exploded")
         self.observed += 1
 
     def clip_is_empty(self, frames):
+        if self._raises:
+            raise RuntimeError("background exploded")
         return self._empty
 
 
@@ -287,14 +287,14 @@ def test_peek_returning_nothing_records_anyway(spool, event, make_decision):
     assert rec.calls == 1
 
 
-def test_gate_observes_the_frames_it_is_given(spool, event, make_decision):
-    """The background is maintained from live footage, occupied or not."""
+def test_gate_never_learns_from_triggered_frames(spool, event, make_decision):
+    """A regular visitor must not become background; only idle snapshots feed it."""
     gate = _Gate(empty=False)
     pipe = build(
         spool, decision=make_decision(), recorder=_PeekRecorder(frames=[1, 2, 3]), empty_gate=gate
     )
     pipe.handle(event)
-    assert gate.observed == 3
+    assert gate.observed == 0
 
 
 # --- the gate on the recorded clip (after_record, the Pi 4B default) -----------

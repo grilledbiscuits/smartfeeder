@@ -234,13 +234,12 @@ class BirdcamClipClassifier:
 
             # The feeder is empty far more often than not, and the model cannot
             # tell -- it memorises backgrounds. The gate answers geometrically
-            # from a rolling background of this fixed camera, and fails open.
+            # against quiet-period snapshots of this fixed camera, and fails
+            # open. These triggered frames are never added to its background.
             if self.empty_gate is not None:
                 from capture.emptygate import load_frame
 
                 small = [f for f in (load_frame(p) for p in frames) if f is not None]
-                for f in small:
-                    self.empty_gate.observe(f)
                 if small and self.empty_gate.clip_is_empty(small):
                     logger.info("%s: feeder empty, not classified", clip.name)
                     return ClipResult(decision=None, frames_scored=0, empty=True)

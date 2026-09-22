@@ -137,6 +137,7 @@ class CaptureService:
         *,
         recorder=None,
         drain_interval_seconds: float = 30.0,
+        empty_gate=None,
     ) -> None:
         self.motion_source = motion_source
         self.pipeline = pipeline
@@ -145,6 +146,10 @@ class CaptureService:
         self.drain_interval = float(drain_interval_seconds)
         self._stop = threading.Event()
         self._last_drain = 0.0
+        self.empty_gate = empty_gate
+        # Any PIR edge, admitted or dropped, counts as motion. Starting at
+        # "now" means the first snapshot waits for a full quiet period.
+        self._last_motion = time.monotonic()
 
     def request_stop(self, *_args) -> None:
         logger.info("shutdown requested")
@@ -186,6 +191,7 @@ class CaptureService:
         return 0
 
     def _on_motion(self, event: MotionEvent) -> None:
+        self._last_motion = time.monotonic()
         admission = self.gate.offer(event)
         if admission is Admission.ACCEPTED:
             logger.info("%s: motion admitted (queued=%d)", event.event_id, self.gate.queued)
@@ -195,6 +201,7 @@ class CaptureService:
             event = self.gate.next_event(timeout=1.0)
             if event is None:
                 self._maybe_drain()
+                self._maybe_snapshot()
                 continue
             try:
                 self.pipeline.handle(event)
@@ -213,6 +220,24 @@ class CaptureService:
             self.pipeline.drain_pending()
         except Exception:  # noqa: BLE001 - a stuck queue must not kill the loop
             logger.exception("draining the pending queue failed; will retry")
+
+    def _maybe_snapshot(self) -> None:
+        """Refresh the empty gate's background while nothing is moving.
+
+        Runs on the worker thread between events, so it never competes with a
+        recording for the camera.
+        """
+        gate, recorder = self.empty_gate, self.recorder
+        snap = getattr(recorder, "snapshot", None)
+        if gate is None or snap is None or not hasattr(gate, "snapshot_due"):
+            return
+        if not gate.snapshot_due(self._last_motion):
+            return
+        try:
+            gate.observe_idle(snap())
+        except Exception:  # noqa: BLE001 - the gate fails open; the loop carries on
+            logger.exception("empty-gate snapshot failed")
+            gate.observe_idle(None)
 
     def _shutdown(self) -> None:
         try:

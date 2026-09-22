@@ -3,6 +3,13 @@
 Fits on validation only using capture preprocessing and inference's own logit
 transform. Reported validation results are fitting diagnostics, not held-out
 accuracy. Replay and field validation are required before deployment.
+
+Pillarboxed field frames are excluded from the fit by default (2026-09-21).
+They are portrait video padded into landscape frames, a geometry the Pi's camera
+never produces, and they are 43% of the field validation set. Including them
+pushed the novelty threshold from -5.01 out to -4.76, so the open-set failsafe
+rejected 6.4% of deployment-framed bird frames where the design intends 10%.
+`--include-letterboxed` restores the old behaviour for comparison.
 """
 
 from __future__ import annotations
@@ -122,6 +129,11 @@ def main():
     ap.add_argument("--onnx", type=Path, required=True)
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--site", type=Path, default=Path("ml/config/sites/rondebosch.yaml"))
+    ap.add_argument(
+        "--include-letterboxed",
+        action="store_true",
+        help="fit on pillarboxed field frames too (a geometry the Pi never sees)",
+    )
     args = ap.parse_args()
     import onnxruntime as ort
 
@@ -173,7 +185,21 @@ def main():
         )
         temp.replace(cache)
     prior = load_range_prior(args.site)
-    report = fit_operating_points(cfg, logits, items, prior)
+
+    # Logits are computed over every validation frame so the cache stays valid
+    # whichever way this is fitted; the exclusion applies to the FIT.
+    from birdcam.data.letterbox import letterboxed_ids
+
+    barred = letterboxed_ids(items, cache_path=Path("ml/data/letterboxed.json"))
+    keep = np.array([args.include_letterboxed or i.image_id not in barred for i in items])
+    fit_items = [i for i, k in zip(items, keep, strict=True) if k]
+    report = fit_operating_points(cfg, logits[keep], fit_items, prior)
+    report.update(
+        letterboxed_excluded_from_fit=int((~keep).sum()),
+        letterboxed_policy=(
+            "included" if args.include_letterboxed else "excluded: not the deployment framing"
+        ),
+    )
     report.update(
         source=f"INT8 checkpoint {meta['checkpoint']} @ {meta['checkpoint_sha'][:12]}",
         checkpoint_sha=meta["checkpoint_sha"],

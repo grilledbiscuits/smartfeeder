@@ -38,6 +38,14 @@ def _genus_of(slug: str) -> str:
     return slug.split("_", 1)[0]
 
 
+def _family_of(slug: str) -> str | None:
+    from birdcam.config import load_config
+
+    cfg = load_config()
+    genus = next((s.genus for s in cfg.species if s.slug == slug), None)
+    return cfg.genus_to_family.get(genus) if genus else None
+
+
 def is_correct(truth: str, record) -> tuple[bool, str]:
     from capture.events import Outcome
 
@@ -59,6 +67,10 @@ def is_correct(truth: str, record) -> tuple[bool, str]:
         return (True, "exact")
     if label.endswith("_indet") and label.startswith(_genus_of(truth)):
         return (True, "genus rollup")
+    if getattr(d, "level", "") == "family":
+        family = _family_of(truth)
+        if family and label == f"{family.lower()}_indet":
+            return (True, "family rollup")
     return (False, f"called it {label}")
 
 

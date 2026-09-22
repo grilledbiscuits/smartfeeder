@@ -28,10 +28,10 @@ def test_genus_fallback_on_the_allowlist_is_published(make_decision):
 
 @pytest.mark.parametrize(
     "label",
-    ["pycnonotus_capensis", "nectariniidae_indet", "empty_feeder", "insect", "other_animal"],
+    ["pycnonotus_capensis", "nectarivore_indet", "empty_feeder", "insect", "other_animal"],
 )
 def test_non_allowlisted_labels_are_discarded(make_decision, label):
-    """A Tier C bird, a too-vague fallback and the negatives all go.
+    """A Tier C bird, the too-vague guild fallback and the negatives all go.
 
     ASSUMPTIONS.md A27 measured this working on real footage: Cape Bulbul was
     98.1% correctly identified and 0.0% recorded.

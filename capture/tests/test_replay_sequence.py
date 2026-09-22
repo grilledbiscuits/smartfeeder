@@ -19,3 +19,17 @@ def test_recording_error_cannot_pass_as_empty():
         error="camera failed", decision=None, clip_path=None, empty=False, outcome=None
     )
     assert not is_correct("empty_feeder", record)[0]
+
+
+def test_family_rollup_containing_the_truth_is_correct():
+    def rec(label):
+        d = SimpleNamespace(label=label, level="family")
+        return SimpleNamespace(
+            error=None, decision=d, clip_path="c.mp4", empty=False, outcome=Outcome.PUBLISH
+        )
+
+    assert is_correct("chalcomitra_amethystina", rec("nectariniidae_indet")) == (
+        True,
+        "family rollup",
+    )
+    assert not is_correct("chalcomitra_amethystina", rec("zosteropidae_indet"))[0]

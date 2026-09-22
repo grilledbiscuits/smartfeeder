@@ -200,12 +200,25 @@ def test_target_bearing_genus_fallback_records(cfg, clf) -> None:
     assert d.should_record
 
 
-def test_vague_fallbacks_do_not_record(cfg, clf) -> None:
-    """'Some sunbird' is too vague to justify storage."""
-    assert not distribute(cfg, clf, _even(_slugs_in_family(cfg, "Nectariniidae"))).should_record
+def test_target_bearing_family_fallback_records(cfg, clf) -> None:
+    """'Some sunbird' records: female sunbirds often resolve no further."""
+    d = distribute(cfg, clf, _even(_slugs_in_family(cfg, "Nectariniidae")))
+    assert d.label == "nectariniidae_indet"
+    assert d.should_record
+
+
+def test_non_target_family_fallback_does_not_record(cfg, clf) -> None:
+    assert "zosteropidae_indet" not in clf._capture_targets
+    assert "dicruridae_indet" not in clf._capture_targets
+
+
+def test_guild_fallback_does_not_record(cfg, clf) -> None:
+    """'Some nectarivore' is too vague to justify storage."""
     w = _even(_slugs_in_family(cfg, "Nectariniidae") + _slugs_in_family(cfg, "Promeropidae"))
     w["promerops_cafer"] = 2.5
-    assert not distribute(cfg, clf, w).should_record
+    d = distribute(cfg, clf, w)
+    assert d.level == "guild"
+    assert not d.should_record
 
 
 # --- the unknown gate still wins ----------------------------------------------

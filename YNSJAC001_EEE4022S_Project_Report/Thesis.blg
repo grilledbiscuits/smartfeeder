@@ -1,0 +1,56 @@
+This is BibTeX, Version 0.99d (TeX Live 2023/Debian)
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: Thesis.aux
+A level-1 auxiliary file: 2_Preface/0_Abstract.aux
+A level-1 auxiliary file: 2_Preface/1_Acknowledgements.aux
+A level-1 auxiliary file: 2_Preface/2_PlagiarismDeclaration.aux
+A level-1 auxiliary file: 1_Glossaries/Glossary.aux
+A level-1 auxiliary file: 3_Chapters/1_Chapter_Introduction/Introduction.aux
+A level-1 auxiliary file: 3_Chapters/2_Chapter_LiteratureReview/LiteratureReview.aux
+A level-1 auxiliary file: 3_Chapters/3_Chapter_Methodology/Methodology.aux
+A level-1 auxiliary file: 3_Chapters/4_Chapter_Design/Design.aux
+A level-1 auxiliary file: 3_Chapters/5_Chapter_Results/Results.aux
+A level-1 auxiliary file: 3_Chapters/6_Chapter_Conclusions/Conclusions.aux
+The style file: ieeetr.bst
+Database file #1: 4_References/References.bib
+You've used 64 entries,
+            1876 wiz_defined-function locations,
+            881 strings with 17682 characters,
+and the built_in function-call counts, 17598 in all, are:
+= -- 1751
+> -- 772
+< -- 1
++ -- 287
+- -- 223
+* -- 1209
+:= -- 2466
+add.period$ -- 88
+call.type$ -- 64
+change.case$ -- 64
+chr.to.int$ -- 0
+cite$ -- 64
+duplicate$ -- 810
+empty$ -- 1616
+format.name$ -- 223
+if$ -- 4301
+int.to.chr$ -- 0
+int.to.str$ -- 64
+missing$ -- 39
+newline$ -- 219
+num.names$ -- 64
+pop$ -- 251
+preamble$ -- 1
+purify$ -- 0
+quote$ -- 0
+skip$ -- 654
+stack$ -- 0
+substring$ -- 1120
+swap$ -- 374
+text.length$ -- 1
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 0
+warning$ -- 0
+while$ -- 161
+width$ -- 66
+write$ -- 645

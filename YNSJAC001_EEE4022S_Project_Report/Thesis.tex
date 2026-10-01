@@ -1,0 +1,198 @@
+% 4022 Project Thesis Template
+% University of Cape Town Department of Electrical Engineering
+% Template Version 0.1 - August 2021
+% Adapted from the following 2 sources by J Wyngaard
+% https://code.engineering.queensu.ca/ece/thesis-template-for-latex
+% https://github.com/jpt13653903/LaTeX_UCT_Report.git
+
+% NOTES TO USER:
+% You should not need to edit this file (aside from section "TITLE PAGE"). Edit the individual files that are loaded. 
+% For example, where you see \include{3_Preface/0_Preface/0_Abstract}, this loads your abstract from the file at Thesis/3_Preface/0_Preface/0_Abstract.tex. Open the file 0_Abstract.tex and edit.
+
+% -> FILE DESCRIPTION :: Thesis.tex
+%	This is the master file for your write-up.  It will combine all of the files together to create your thesis (Thesis.pdf). 
+
+%	Thesis.tex will perform the following actions:
+%	 1) Import all the supplemental packages
+%	 2) Set the styling for the document
+%	 3) Combine the various chapters, sections and other components of your thesis into one document.
+%	 4) Create LaTex generated sections, such as Table of Context, Glossary, and Bibliography  
+
+%*************************************************************************************************************
+% DO NOT MODIFY:
+%*************************************************************************************************************
+
+\input{0_Config/Preamble}
+\begin{document}
+
+%*************************************************************************************************************
+% TITLE PAGE 
+%	INSERT THE DETAILS OF YOUR THESIS
+%	REMOVE THE '%' TO UN-COMMENT LINE
+%*************************************************************************************************************
+\makeatletter
+\title{Design and development of a smart sunbird feeder for autonomous video-based behavioral monitoring}\let\Title\@title
+\author{Jack Youens}            \let\Author\@author
+\makeatother
+
+\supervisor{Yaaseen Martin}
+\dept{Electrical Engineering}
+\degree{Mechatronic Engineering}
+\copyrightyear{2026}
+
+\beforepreface
+
+%*******************************************************************************
+% ABSTRACT
+%*******************************************************************************
+\include{2_Preface/0_Abstract}   
+
+%*******************************************************************************
+% ACKNOWLEDGEMENTS
+%*******************************************************************************
+\include{2_Preface/1_Acknowledgements}   
+
+%*******************************************************************************
+% PLAGIARISM DECLARATION
+%*******************************************************************************
+\include{2_Preface/2_PlagiarismDeclaration}   
+
+%*******************************************************************************
+% Table of Contents
+%*******************************************************************************
+% Print the Table of Contents 
+\PageContentstrue
+
+% To disable, use the following:
+%\PageContentsfalse
+
+%*******************************************************************************
+% The following lists can be commented out if not necessary for your thesis:
+%*******************************************************************************
+
+%*******************************************************************************
+% Glossary
+%*******************************************************************************
+% The Glossary 
+\PageGlossariestrue
+
+% To disable, use the following:
+%\PageGlossariesfalse
+
+% Include Glossary
+\include{1_Glossaries/Glossary}
+
+% This line forces all entries into glossary, even if they have not been referenced
+% UNCOMMENT THIS LINE TO INCLUDE ALL GLOSSARY ITEMS (Not just those referenced)
+% \glsaddall
+
+% UNCOMMENT INDIVIDUAL GLOSSARIES TO BE PRINTED (IF not using \PageGlossariestrue) %
+% \printglossaries % Prints ALL glossaries.
+% \printglossary % Print the terms glossary
+% \printglossary[title = Nomenclature] % Print the terms glossary
+% \printglossary[type=symbol, title=List of Symbols] % Prints the acronym glossary
+%\printglossary[type=\acronymtype,title=Glossary of Abbreviations] % Prints the abbreviation glossary
+
+%*******************************************************************************
+% List of Tables
+%*******************************************************************************
+% Print the List of Tables
+\PageTablestrue
+
+% To disable, use the following:
+%\PageTablesfalse
+
+%*******************************************************************************
+% List of Figures
+%*******************************************************************************
+% Print the List of Figures
+\PageFigurestrue
+
+% To disable, use the following:
+%\PageFiguresfalse
+
+
+%*******************************************************************************
+% List of Code Snippets
+%*******************************************************************************
+% Print the List of Code Snippets
+%\PageCodeSnippetstrue
+
+% To disable, use the following:
+\PageCodeSnippetsfalse
+
+%*******************************************************************************
+% List of Equations
+%*******************************************************************************
+% Print a list of all equations
+%\PageEquationstrue
+
+% To disable, use the following:
+\PageEquationsfalse
+
+%*******************************************************************************
+% Apply Apply After Preface - DO NOT MODIFY
+%*******************************************************************************
+% Create afterpreface sections
+\afterpreface
+
+
+%*******************************************************************************
+% 0.7 - CHAPTERS
+%*******************************************************************************
+% Include Chapters. Chapters are kept separated to make editing easier.
+
+\include{3_Chapters/1_Chapter_Introduction/Introduction}
+\include{3_Chapters/2_Chapter_LiteratureReview/LiteratureReview}
+\include{3_Chapters/3_Chapter_Methodology/Methodology}
+\include{3_Chapters/4_Chapter_Design/Design}
+\include{3_Chapters/5_Chapter_Results/Results}
+\include{3_Chapters/6_Chapter_Conclusions/Conclusions}
+
+%*******************************************************************************
+% 0.8 - BIBLIOGRAPHY
+%*******************************************************************************
+
+% Put in \nocite{*} so all entries in the bibliography are included
+\nocite{*}
+
+% Print Bibliogrpahy
+\phantomsection
+
+% Uncomment for a plain bibliography else use IEEE style below
+%\bibliographystyle{plain}
+%\bibliography{4_References/References}
+
+% IEEE-style bibliography (included with standard LaTeX distributions)
+\bibliographystyle{ieeetr}
+\bibliography{4_References/References}
+
+\clearpage
+
+%*******************************************************************************
+% 0.9.1 - APPENDICES
+%*******************************************************************************
+
+\appendix
+
+% Appendix A
+\updatechaptername
+\input{5_Appendices/Appendix_A/Appendix_A}
+
+% Appendix B
+\updatechaptername
+\input{5_Appendices/Appendix_B/Appendix_B}
+
+
+%*******************************************************************************
+% 0.9.2 - INDEX
+%*******************************************************************************
+% Creates the index
+% Uncomment if an INDEX should be created
+
+% \printindex
+
+%*************************************************************************************************************
+% 1.0 - END OF DOCUMENT
+%*************************************************************************************************************
+\end{document}

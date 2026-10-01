@@ -118,6 +118,15 @@ class CaptureConfig:
     # -- validation ------------------------------------------------------------
 
     _SCHEMA: ClassVar[dict[str, tuple[str, ...]]] = {
+        "motion": (
+            "sensor_type",
+            "i2c_bus",
+            "i2c_address",
+            "detection_range_mm",
+            "warmup_seconds",
+            "read_rate_hz",
+            "interrupt_pin",
+        ),
         "gpio": ("pin", "sample_rate_hz", "queue_len", "warmup_seconds"),
         "camera": ("width", "height", "framerate", "bitrate_kbps", "warmup_seconds"),
         "capture": ("clip_seconds", "cooldown_seconds", "on_busy", "max_queued"),

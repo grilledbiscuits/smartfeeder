@@ -36,6 +36,7 @@ class Trigger(StrEnum):
     """Why an event entered the pipeline."""
 
     PIR = "pir"
+    TOF = "tof"  # Time-of-Flight (VL53L1X)
     MOCK = "mock"
     MANUAL = "manual"  # one-shot --classify of an existing clip
 

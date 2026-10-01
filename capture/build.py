@@ -23,7 +23,7 @@ from capture.classifier import (
     load_range_prior,
 )
 from capture.config import CaptureConfig
-from capture.motion import MockMotionSource, PirMotionSource
+from capture.motion import MockMotionSource, PirMotionSource, ToFMotionSource
 from capture.pipeline import CapturePipeline
 from capture.publisher import build_local_publisher
 from capture.recorder import Picamera2Recorder, ReplayRecorder
@@ -96,13 +96,29 @@ def build_recorder(cfg: CaptureConfig, replay: Path | None = None):
 def build_motion_source(cfg: CaptureConfig, *, mock: bool = False, schedule=None):
     if mock:
         return MockMotionSource(schedule=schedule)
-    gpio = cfg.section("gpio")
-    return PirMotionSource(
-        pin=int(gpio["pin"]),
-        sample_rate_hz=float(gpio["sample_rate_hz"]),
-        queue_len=int(gpio["queue_len"]),
-        warmup_seconds=float(gpio["warmup_seconds"]),
-    )
+
+    motion = cfg.section("motion")
+    sensor_type = str(motion["sensor_type"]).lower()
+
+    if sensor_type == "pir":
+        gpio = cfg.section("gpio")
+        return PirMotionSource(
+            pin=int(gpio["pin"]),
+            sample_rate_hz=float(gpio["sample_rate_hz"]),
+            queue_len=int(gpio["queue_len"]),
+            warmup_seconds=float(gpio["warmup_seconds"]),
+        )
+    elif sensor_type == "tof":
+        return ToFMotionSource(
+            i2c_bus=int(motion["i2c_bus"]),
+            i2c_address=int(motion["i2c_address"]),
+            detection_range_mm=int(motion["detection_range_mm"]),
+            warmup_seconds=float(motion["warmup_seconds"]),
+            read_rate_hz=float(motion["read_rate_hz"]),
+            interrupt_pin=motion.get("interrupt_pin"),
+        )
+    else:
+        raise ValueError(f"unknown motion.sensor_type: {sensor_type!r}")
 
 
 def build_gate(cfg: CaptureConfig) -> TriggerGate:

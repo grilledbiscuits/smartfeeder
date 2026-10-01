@@ -1,0 +1,576 @@
+\glsresetall % reset the glossary to expand acronyms again
+\chapter{Methodology and Design}
+\label{ch:Methodology}
+
+\section{Introduction}
+\label{sec:MethodologyIntro}
+
+This chapter will be dedicated to describing the methodology used in designing and realising this project, as well as detailing the design choices and process. The first section of this chapter will deal with the former of these two topics. 
+%\par\vspace{6pt}
+
+\section{Project Methodology}
+\label{sec:Methodology}
+
+The goals and requirements of this project were stated in Chapter \ref{ch:Introduction} of this report. In Chapter \ref{ch:LitReview} I investigated the methods used by others to accomplish similar goals and meet similar requirements. Using this knowledge and input from my supervisor, I have devised an appropriate methodology to implement when undertaking this project. This methodology caters toward the specific nature of this project (many subsystems, hardware + software, etc), as well as the many constraints around this project (budget, time, etc).
+
+Okay, so basically the method outline is:
+\begin{enumerate}
+    \item Identify problem
+    \item Set goals and requirements
+    \item Research literature and similar existing projects
+    \item Decide overall system design
+    \item Decide on what hardware and software to use
+    \item Design and test each subsystem
+    \item Assemble complete system and test
+    \item Look for and make improvements where possible
+    \item Cross-reference complete system against initial goals and requirements
+    \item Measure and remark on results
+    \item Identify future work and system's shortcomings, if applicable
+    \item Prioritise something that works over something that would be cool if it worked
+\end{enumerate}
+
+\section{Requirements Definition}
+\label{sec:RequirementsDefinition}
+
+Again, the aims and goals of this project were stated in Chapter \ref{ch:Introduction}. As an engineer, it is important to translate these sometimes vague/broad points into technical requirements. Using the aims and goals in Chapter \ref{ch:Introduction} as an introduction, I developed the following requirements for the final system:
+These requirements outline the appropriate final specifications needed for the system.
+
+\subsection{Functional Requirements}
+\label{subsec:FunctionalRequirements}
+\begin{itemize}
+    \item The system must detect any significant motion at the feeder port
+    \item The system must trigger the classification algorithm once motion is detected
+    \item The system must categorize detected subjects into a defined list of species
+    \item The system must manage low-confidence or unrecognised classes appropriately
+    \item The system must record a video if the classification algorithm determines the source of motion to be of a class of interest
+    \item The system must store any recorded footage in a non-volatile storage medium
+    \item The system must charge from a solar power source utilise a battery for energy storage
+    \item The system must make recorded footage accessible from a self-hosted web page for users to interact with
+    \item The system must utilize an 'energy-saving' mode when idle
+    
+\end{itemize}
+
+\subsection{Non-Functional Requirements}
+\label{subsec:NonFunctionalRequirements}
+\begin{itemize}
+    \item The system's feeder must be easily accessible and refillable
+    \item The system must be able to classify within x seconds of motion detection
+    \item Recording of a visit must begin y seconds after motion detection trigger
+    \item Recorded footage should meet a minimum resolution/frame-rate requirement sufficient for classification
+    \item Classification accuracy must be at least z\%
+    \item False positive events must be less than a\%
+    \item User interaction with the system's web interface must be intuitive, easy and well-documented
+    \item The total Bill of Materials must amount to less than R\_
+    \item The system must have an uptime of at least \_ hours per day, under full sunlight
+    \item The electronic subsystem must be protected from environmental elements by the system's housing
+    \item The system should not present sharp edges, trapping hazards or harmful contamination risks to birds
+    \item Electronics must remain within their allowable operating temperature range during deployment
+    \item The project must contain sufficient design and build documentation
+\end{itemize}
+
+\section{Acceptance Testing Procedures}
+\label{sec:AcceptanceTestingProcedures}
+
+Explain the experimental approach used to determine whether the completed system satisfied the requirements established in Section~\ref{sec:RequirementsDefinition}.
+\par\vspace{6pt}
+Main categories of system evaluation:
+\begin{itemize}
+    \item Mechanical and feeder performance: Verify feeder stability, enclosure protection, and ease of refilling and cleaning.
+    
+    \item Visit detection performance: Measure successful detections and false-positive and false-negative rates against the acceptance limits.
+    
+    \item Video capture performance: Verify that visits are sufficiently recorded and that image quality, focus, frame rate and camera positioning meet requirements.
+    
+    \item Data storage and logging: Verify that videos and metadata are stored correctly, retained after restart or power loss, and that storage remains reliable.
+    
+    \item Classification performance: Measure classification accuracy, false-identification rate, inference time, per-class performance where relevant, and low-confidence rejection performance.
+    
+    \item Web interface performance: Verify access to visit records, classification results and video playback, and confirm correct operation of required functions.
+    
+    \item Embedded-system performance and reliability: Run the system continuously for a defined period and record crashes, missed events, storage errors or interruptions. Verify automatic recovery where required.
+    
+    \item Power consumption and autonomy: Measure power use during idle, recording and classification, and determine battery runtime from a full charge.
+    
+    \item Solar charging performance: Measure whether the solar subsystem can recharge or sustain the battery under representative sunlight conditions.
+    
+    \item Overall integrated-system performance: Verify that visits are detected, recorded, classified, stored and made available to the user without manual intervention, and record any subsystem-integration failures.
+\end{itemize}
+
+\section{Design Decisions}
+\label{sec:DesignDecisions}
+
+Introduction to overall system, with basic block diagram of all the interacting subsystems. Explain the pipeline of operation briefly.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+    node distance=1.5cm and 1.8cm,
+    >=Latex,
+    block/.style={
+        rectangle,
+        draw,
+        rounded corners,
+        align=center,
+        minimum width=4.4cm,
+        minimum height=1.0cm,
+        text width=4.0cm
+    },
+    feederblock/.style={
+        block,
+        fill=green!20
+    },
+    camerablock/.style={
+        block,
+        fill=blue!15
+    },
+    computerblock/.style={
+        block,
+        fill=orange!20
+    },
+    powerblock/.style={
+        block,
+        fill=yellow!25
+    },
+    line/.style={draw, -Latex, thick}
+]
+
+% Main blocks
+\node[feederblock] (feeder) {Nectar feeder and\\bird interaction subsystem};
+
+\node[camerablock, below=of feeder] (detection) {Visit detection and\\camera subsystem};
+
+\node[computerblock, below=of detection] (processing) {Embedded processing and\\species identification subsystem};
+
+\node[computerblock, below=of processing] (storage) {Local storage and\\database subsystem};
+
+\node[computerblock, below=of storage] (web) {Self-hosted web\\interface subsystem};
+
+\node[powerblock, left=4.8cm of processing] (power) {Solar panel, battery and\\power management subsystem};
+
+% Main flow arrows
+\draw[line] (feeder) -- (detection);
+\draw[line] (detection) -- (processing);
+\draw[line] (processing) -- (storage);
+\draw[line] (storage) -- (web);
+
+% Power connections
+\draw[line] (power.east) -- ++(1.0,0) |- (detection.west);
+\draw[line] (power.east) -- ++(1.0,0) |- (processing.west);
+\draw[line] (power.east) -- ++(1.0,0) |- (storage.west);
+\draw[line] (power.east) -- ++(1.0,0) |- (web.west);
+
+% Colour legend
+\node[
+    rectangle,
+    draw,
+    fill=green!20,
+    minimum width=0.8cm,
+    minimum height=0.4cm,
+    below=1.2cm of web,
+    xshift=-2.2cm
+] (leg1) {};
+
+\node[
+    anchor=west,
+    right=0.2cm of leg1
+] {\small Feeder / mechanical subsystem};
+
+
+\node[
+    rectangle,
+    draw,
+    fill=blue!15,
+    minimum width=0.8cm,
+    minimum height=0.4cm,
+    below=0.35cm of leg1
+] (leg2) {};
+
+\node[
+    anchor=west,
+    right=0.2cm of leg2
+] {\small Camera / sensing subsystem};
+
+
+\node[
+    rectangle,
+    draw,
+    fill=orange!20,
+    minimum width=0.8cm,
+    minimum height=0.4cm,
+    below=0.35cm of leg2
+] (leg3) {};
+
+\node[
+    anchor=west,
+    right=0.2cm of leg3
+] {\small Microcomputer-based subsystem};
+
+
+\node[
+    rectangle,
+    draw,
+    fill=yellow!25,
+    minimum width=0.8cm,
+    minimum height=0.4cm,
+    below=0.35cm of leg3
+] (leg4) {};
+
+\node[
+    anchor=west,
+    right=0.2cm of leg4
+] {\small Power subsystem};
+
+\end{tikzpicture}
+\caption{High-level block diagram of the proposed smart sunbird feeder system. Blocks are coloured according to the primary hardware subsystem on which they rely.}
+\label{fig:system_block_diagram}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+    node distance=1.3cm,
+    >=Latex,
+    block/.style={
+        rectangle,
+        draw,
+        rounded corners,
+        align=center,
+        minimum width=4.6cm,
+        minimum height=0.95cm
+    },
+    decision/.style={
+        diamond,
+        draw,
+        align=center,
+        aspect=2.2,
+        inner sep=1pt
+    },
+    line/.style={draw, -Latex, thick},
+    dashedline/.style={draw, -Latex, dashed, thick}
+]
+
+\node[block] (idle) {Idle monitoring state};
+\node[block, below=of idle] (visit) {Bird visits feeder};
+\node[block, below=of visit] (detect) {Visit or motion detected};
+\node[block, below=of detect] (classify) {Run classification algorithm};
+\node[decision, below=1.5cm of classify] (decision) {Class of interest?};
+\node[block, below=1.5cm of decision] (record) {Record visit video};
+\node[block, below=of record] (store) {Store video and metadata};
+\node[block, below=of store] (display) {Display result on local web interface};
+
+\node[block, right=3.2cm of decision] (returnidle) {Return to idle state};
+
+\draw[line] (idle) -- (visit);
+\draw[line] (visit) -- (detect);
+\draw[line] (detect) -- (classify);
+\draw[line] (classify) -- (decision);
+\draw[line] (decision) -- node[right] {Yes} (record);
+\draw[line] (record) -- (store);
+\draw[line] (store) -- (display);
+\draw[dashedline] (decision.east) -- node[above] {No} (returnidle.west);
+\draw[dashedline] (display.east) -| (returnidle.south);
+\draw[dashedline] (returnidle.north) |- (idle.east);
+
+\end{tikzpicture}
+\caption{Operational pipeline of the proposed smart sunbird feeder system.}
+\label{fig:system_pipeline}
+\end{figure}
+
+\subsection{Hardware Design Decisions}
+\label{subsec:HardwareDesignDecisions}
+
+\paragraph{Microcomputer}
+
+Reiterate that a microcontroller is inadequate for the inference speed required for this project. Basically, besides the fact that we already had it, the RPi 4B was chosen because:
+
+\begin{itemize}
+    \item It is the least computationally-expensive option that can get the job done
+    \item It is also one of the more budget-friendly options that can get the job done
+    \item Unlike its more expensive couterparts, the 4B has onboard FHD video encoding, which is much less power intensive when recording and storing videos
+    \item It was already available and has been proven to work well for a similar application, so less design risk and lead time
+\end{itemize}
+
+The candidate platforms were compared according to processing capability, camera compatibility, software support, energy consumption and integration risk. Table~\ref{tab:microcomputer-comparison} shows that the Raspberry Pi 4B provides the most appropriate balance for the project.
+
+\begin{table}[htbp]
+    \centering
+    \caption{Comparison of candidate processing platforms}
+    \label{tab:microcomputer-comparison}
+    \small
+    \renewcommand{\arraystretch}{1.15}
+
+    \begin{tabularx}{\textwidth}{
+        >{\raggedright\arraybackslash}p{2.2cm}
+        >{\raggedright\arraybackslash}X
+        >{\centering\arraybackslash}p{1.3cm}
+        >{\centering\arraybackslash}p{1.9cm}
+        >{\raggedright\arraybackslash}X}
+
+        \toprule
+        \textbf{Platform} & \textbf{Key capability} &
+        \textbf{Power} & \textbf{Approx. cost} &
+        \textbf{Assessment} \\
+        \midrule
+
+        \rowcolor{green!12}
+        \textbf{Raspberry Pi 4B} &
+        Native Camera Module 3 support and sufficient ML performance &
+        Moderate &
+        R0\textsuperscript{*} &
+        \textbf{Selected:} sufficient performance, lower energy demand and no acquisition cost. \\
+
+        Raspberry Pi 5 4GB &
+        Faster CPU and greater processing headroom &
+        High &
+        R2\,845 \cite{CommunicaRPi5} &
+        Extra performance did not justify its higher cost and power demand. \\
+
+        NVIDIA Jetson Orin Nano Super &
+        GPU acceleration providing up to 67 TOPS &
+        Very high &
+        R8\,669 \cite{RSJetsonOrinNano} &
+        Powerful, but well above the budget and unsuitable for solar operation. \\
+
+        ESP32-S3 &
+        Low-power microcontroller with wireless connectivity &
+        Very low &
+        R200 \cite{PiShopESP32S3} &
+        Unable to support the required camera, video and Linux-based ML stack. \\
+
+        \bottomrule
+    \end{tabularx}
+
+    \vspace{2pt}
+    \footnotesize{\textsuperscript{*}The Raspberry Pi 4B was supplied at no
+    project cost. A comparable 4GB board retailed for approximately
+    R1\,639 \cite{PrototypeDIYRPi4B}. Prices include VAT and were accessed
+    on 16 September 2026.}
+\end{table}
+
+\paragraph{Camera Module}
+\par\vspace{6pt}
+Introduce the Camera Module 3 as the standard camera module for RPis. Mention the other types of camera modules and then explain why the basic Camera Module 3 was eventually chosen:
+\begin{itemize}
+    \item It has ample resolution and framerate for the task at hand
+    \item It doesn't have an IR filter, which helps identify the iridescent sunbirds much more easily
+    \item It is the most affordable camera module in the family
+    \item It has a variable focus, which the cheaper Module 2 does not
+\end{itemize}
+Talk about how the more expensive modules were unnecessarily complicating the objective at a higher price
+The candidate cameras were compared according to image quality, focusing capability, cost and integration requirements, as summarised in Table~\ref{tab:camera-comparison}.
+\begin{table}[htbp]
+    \centering
+    \caption{Comparison of candidate camera modules}
+    \label{tab:camera-comparison}
+    \small
+    \renewcommand{\arraystretch}{1.15}
+    
+    \begin{tabularx}{\textwidth}{
+        >{\raggedright\arraybackslash}p{2.4cm}
+        >{\raggedright\arraybackslash}p{2.3cm}
+        >{\centering\arraybackslash}p{1.6cm}
+        >{\centering\arraybackslash}p{2.2cm}
+        >{\raggedright\arraybackslash}X}
+        
+        \toprule
+        \textbf{Camera} & \textbf{Imaging capability} &
+        \textbf{Focus} & \textbf{Approx. cost} &
+        \textbf{Assessment} \\
+        \midrule
+        
+        \rowcolor{green!12}
+        \textbf{Camera Module 3} &
+        12\,MP, HDR &
+        Autofocus &
+        R0\textsuperscript{*} &
+        \textbf{Selected:} best balance of image quality, size, compatibility and cost. \\
+        
+        Camera Module 2 &
+        8\,MP &
+        Fixed &
+        R290 \cite{PrototypeDIYCameraModule2} &
+        Lower resolution and limited focusing flexibility. \\
+        
+        HQ Camera and lens &
+        12.3\,MP, adjustable optics &
+        Manual &
+        R1\,950 \cite{PiShopHQCamera,PiShopZoomLens} &
+        Greater optical control, but bulky and unnecessarily expensive. \\
+        
+        Raspberry Pi AI Camera &
+        12\,MP, on-sensor inference &
+        Manual &
+        R1\,325 \cite{PiShopAICamera} &
+        Onboard inference adds cost and deployment complexity. \\
+        
+        \bottomrule
+    \end{tabularx}
+    
+    \vspace{2pt}
+    \footnotesize{\textsuperscript{*}The Camera Module 3 was provided at no cost; its retail price was approximately R505 \cite{PiShopCameraModule3}. Prices include VAT.}
+\end{table}
+
+\paragraph{Motion Sensor}
+\par\vspace{6pt}
+Introduce the VL53L1X ToF sensor as the chosen motion sensor and justify its use over others because:
+\begin{itemize}
+    \item Programmable FOV, which decreases risk of background distrubances triggering it
+    \item Interrupt output for RPi triggering without camera monitoring
+    \item 50Hz measurement rate. Very fast response time
+    \item ToF sensors enable birds to remain detected while stationary and feeding
+    \item Its infrared emitter is eye-safe
+    \item Ideal for short-range detection, with an adjustable threshold
+\end{itemize}
+
+Candidate visit-detection sensors were compared according to their detection method, sensing region, cost and suitability for monitoring the feeder port, as shown in Table~\ref{tab:motion-sensor-comparison}.
+
+\begin{table}[htbp]
+    \centering
+    \caption{Comparison of candidate visit-detection sensors}
+    \label{tab:motion-sensor-comparison}
+    \small
+    \renewcommand{\arraystretch}{1.15}
+    
+    \begin{tabularx}{\textwidth}{
+        >{\raggedright\arraybackslash}p{2.2cm}
+        >{\raggedright\arraybackslash}p{2.2cm}
+        >{\centering\arraybackslash}p{2.0cm}
+        >{\centering\arraybackslash}p{1.8cm}
+        >{\raggedright\arraybackslash}X}
+        
+        \toprule
+        \textbf{Sensor} & \textbf{Detection method} &
+        \textbf{Detection region} & \textbf{Approx. cost} &
+        \textbf{Assessment} \\
+        \midrule
+        
+        \rowcolor{green!12}
+        \textbf{VL53L1X} &
+        Optical time-of-flight &
+        Up to 4\,m; adjustable region &
+        R220 \cite{MantechVL53L1X} &
+        \textbf{Selected:} precise detection zone and reliable stationary-object detection. \\
+        
+        HC-SR501 &
+        Passive infrared &
+        Wide, adjustable cone &
+        R22 \cite{PiShopHCSR501} &
+        Low power, but detects thermal motion rather than feeder occupancy. \\
+        
+        HC-SR04 &
+        Ultrasonic ranging &
+        0.02--4\,m cone &
+        R37 \cite{DIYEHCSR04} &
+        Low cost, but less directional and sensitive to outdoor conditions. \\
+        
+        VL53L0X &
+        Optical time-of-flight &
+        Up to 2\,m; fixed region &
+        R40 \cite{PiShopVL53L0X} &
+        Cheaper, but offers less range and detection-region control. \\
+        
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
+\paragraph{Solar Power System}
+\par\vspace{6pt}
+Waveshare Model B power management system with MP 133x110 2.4W panel
+\begin{itemize}
+    \item Wide input range of solar voltage: 6-24V
+    \item Protection against overcharging, over-discharging, excessive current, overheating and reversed solar-panel polarity
+    \item USB-C charging capability in case of insufficient solar energy input
+    \item 5V/3A output matches RPi power input requirements
+\end{itemize}
+
+\paragraph{Housing}
+\par\vspace{6pt}
+3D printed with white PLA because:
+\begin{itemize}
+    \item Cheap and easily accessible thanks to the university's printing lab.
+    \item Ideal for frequently-evolving prototypes that require quick production.
+    \item Allows for an entirely customisable shape and features as required by the project.
+    \item White colour specifically to minimise the heat absorbed from the sun and helps keep electronics cool.
+\end{itemize}
+
+\subsection{Software Design Decisions}
+\label{subsec:SoftwareDesignDecisions}
+
+\paragraph{Operating System}
+\par\vspace{6pt}
+Introduce RPi Lite x64 as the selected OS, among several candidate OSs for the RPi 4B. It was selected because:
+\begin{itemize}
+    \item It is headless, which meant it is one of the least computationally and energy-intensive OSs since there are no unneeded applications etc running
+    \item It is 64-bit, which makes it compatible for use with all the libraries used by the classification algorithm. 32-bit would not have worked
+\end{itemize}
+
+The correct term is Raspberry Pi OS Lite (64-bit/ARM64) rather than x64, which normally refers to the x86-64 architecture. The candidates were compared according to resource demand, hardware support and software compatibility, as summarised in Table~\ref{tab:os-comparison}.
+
+\begin{table}[htbp]
+    \centering
+    \caption{Comparison of candidate operating systems}
+    \label{tab:os-comparison}
+    \small
+    \renewcommand{\arraystretch}{1.15}
+
+    \begin{tabularx}{\textwidth}{
+        >{\raggedright\arraybackslash}p{2.7cm}
+        >{\centering\arraybackslash}p{1.5cm}
+        >{\centering\arraybackslash}p{1.5cm}
+        >{\raggedright\arraybackslash}X
+        >{\raggedright\arraybackslash}X}
+
+        \toprule
+        \textbf{Operating system} & \textbf{Interface} &
+        \textbf{Demand} & \textbf{Project compatibility} &
+        \textbf{Assessment} \\
+        \midrule
+
+        \rowcolor{green!12}
+        \textbf{Raspberry Pi OS Lite 64-bit}
+        \cite{RaspberryPiOS,RaspberryPiOS64} &
+        Headless &
+        Low &
+        Native camera and GPIO support; compatible with ARM64 ML software &
+        \textbf{Selected:} provides the required functionality with minimal overhead. \\
+
+        Raspberry Pi OS Lite 32-bit
+        \cite{RaspberryPiOS} &
+        Headless &
+        Low &
+        Native hardware support, but limited to ARM32 software &
+        Suitable for legacy software, but offers less ML compatibility and performance headroom. \\
+
+        Raspberry Pi OS Desktop 64-bit
+        \cite{RaspberryPiOS} &
+        Desktop GUI &
+        Higher &
+        Same Raspberry Pi hardware support &
+        The graphical desktop unnecessarily consumes storage, memory and processing resources. \\
+
+        Ubuntu Server 64-bit
+        \cite{UbuntuRaspberryPi} &
+        Headless &
+        Moderate &
+        Supports the Pi 4B, but requires more Pi-specific configuration &
+        Capable, but less directly aligned with the official camera software stack. \\
+
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
+\paragraph{Classification Model}
+\par\vspace{6pt}
+EfficientNetV2 was chosen as the convolutional backbone of the classification model, pretrained on the ImageNet dataset.
+
+\paragraph{Dataset}
+\par\vspace{6pt}
+Mention licensing and their corresponding usage limitations.
+
+\paragraph{Web Page}
+\par\vspace{6pt}
+
+
+\section{Conclusion}
+\label{sec:MethodologyConclusion}
+

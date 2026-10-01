@@ -1,0 +1,18 @@
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {2.1}{\ignorespaces Generic functional pipeline for an autonomous, camera-based bird-monitoring system. Solid arrows represent the primary data path, while the dashed arrow represents optional user access.}}{12}{figure.caption.11}%
+\contentsline {figure}{\numberline {2.2}{\ignorespaces Comparison of the scale of selected bird-image datasets }}{16}{figure.caption.13}%
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {3.1}{\ignorespaces High-level block diagram of the proposed smart sunbird feeder system. Blocks are coloured according to the primary hardware subsystem on which they rely.}}{23}{figure.caption.15}%
+\contentsline {figure}{\numberline {3.2}{\ignorespaces Operational pipeline of the proposed smart sunbird feeder system.}}{24}{figure.caption.16}%
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {4.1}{\ignorespaces Hardware interfacing diagram of the smart sunbird feeder, showing the hardware subsystems and the power and signal connections between them.}}{30}{figure.caption.30}%
+\contentsline {figure}{\numberline {4.2}{\ignorespaces The commercially available Stodels 750\,ml sunbird nectar feeder used in this project \cite {StodelsSunbirdFeeder}.}}{30}{figure.caption.31}%
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {5.1}{\ignorespaces The correlation coefficient as a function of sample count}}{37}{figure.caption.32}%
+\contentsline {figure}{\numberline {5.2}{\ignorespaces Oscilloscope measurement showing physical line signals on both ends of a transmission line during master switch-over}}{37}{figure.caption.33}%
+\contentsline {figure}{\numberline {5.3}{\ignorespaces An example image with custom scaling}}{38}{figure.caption.34}%
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {B.1}{\ignorespaces You must prepare to defend your thesis.}}{48}{figure.caption.37}%

@@ -1,0 +1,168 @@
+\glsdefs@newdocentry{diction}%
+{%
+name={diction},%
+sort={diction},%
+type={main},%
+first={diction},%
+firstplural={dictions},%
+text={diction},%
+plural={dictions},%
+description={the choice and use of words and phrases in speech or writing},%
+descriptionplural={the choice and use of words and phrases in speech or writing},%
+symbol={\relax },%
+symbolplural={\relax },%
+user1={},%
+user2={},%
+user3={},%
+user4={},%
+user5={},%
+user6={},%
+long={},%
+longplural={},%
+short={},%
+shortplural={},%
+counter={page},%
+parent={},%
+%
+}%
+
+\glsdefs@newdocentry{lexicon}%
+{%
+name={lexicon},%
+sort={lexicon},%
+type={main},%
+first={lexicon},%
+firstplural={lexicons},%
+text={lexicon},%
+plural={lexicons},%
+description={the vocabulary of a person, language, or branch of knowledge},%
+descriptionplural={the vocabulary of a person, language, or branch of knowledge},%
+symbol={\relax },%
+symbolplural={\relax },%
+user1={},%
+user2={},%
+user3={},%
+user4={},%
+user5={},%
+user6={},%
+long={},%
+longplural={},%
+short={},%
+shortplural={},%
+counter={page},%
+parent={},%
+%
+}%
+
+\glsdefs@newdocentry{prose}%
+{%
+name={prose},%
+sort={prose},%
+type={main},%
+first={prose},%
+firstplural={proses},%
+text={prose},%
+plural={proses},%
+description={written or spoken language in its ordinary form, without metrical structure},%
+descriptionplural={written or spoken language in its ordinary form, without metrical structure},%
+symbol={\relax },%
+symbolplural={\relax },%
+user1={},%
+user2={},%
+user3={},%
+user4={},%
+user5={},%
+user6={},%
+long={},%
+longplural={},%
+short={},%
+shortplural={},%
+counter={page},%
+parent={},%
+%
+}%
+
+\glsdefs@newdocentry{ADC}%
+{%
+name={ADC},%
+sort={ADC},%
+type={main},%
+first={ADC},%
+firstplural={ADCs},%
+text={ADC},%
+plural={ADCs},%
+description={Analogue-to-Digital Converter},%
+descriptionplural={Analogue-to-Digital Converter},%
+symbol={\relax },%
+symbolplural={\relax },%
+user1={},%
+user2={},%
+user3={},%
+user4={},%
+user5={},%
+user6={},%
+long={},%
+longplural={},%
+short={},%
+shortplural={},%
+counter={page},%
+parent={},%
+%
+}%
+
+\glsdefs@newdocentry{lol}%
+{%
+name={\acronymfont {\glsentryshort {lol}}},%
+sort={LOL!},%
+type={acronym},%
+first={LOL!},%
+firstplural={LOL!s},%
+text={LOL!},%
+plural={LOL!s},%
+description={Laugh Out Loud},%
+descriptionplural={Laugh Out Loud},%
+symbol={\relax },%
+symbolplural={\relax },%
+user1={},%
+user2={},%
+user3={},%
+user4={},%
+user5={},%
+user6={},%
+long={Laugh Out Loud},%
+longplural={Laugh Out Louds},%
+short={LOL!},%
+shortplural={LOL!s},%
+counter={page},%
+parent={},%
+%
+}%
+
+\glsdefs@newdocentry{mySymbol}%
+{%
+name={\textrm {$\Upsilon $}},%
+sort={thresh},%
+type={symbol},%
+first={\protect \textrm  {$\Upsilon $}},%
+firstplural={\protect \textrm  {$\Upsilon $}s},%
+text={\protect \textrm  {$\Upsilon $}},%
+plural={\protect \textrm  {$\Upsilon $}s},%
+description={Arbitrary symbol.},%
+descriptionplural={Arbitrary symbol.},%
+symbol={\relax },%
+symbolplural={\relax },%
+user1={},%
+user2={},%
+user3={},%
+user4={},%
+user5={},%
+user6={},%
+long={},%
+longplural={},%
+short={},%
+shortplural={},%
+counter={page},%
+parent={},%
+%
+}%
+

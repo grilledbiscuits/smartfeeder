@@ -14,7 +14,32 @@
 version: 1
 
 # =============================================================================
-# GPIO -- HC-SR501 PIR
+# MOTION SENSOR
+# =============================================================================
+motion:
+  # Sensor type: pir (HC-SR501) or tof (VL53L1X)
+  sensor_type: tof
+
+  # --- ToF-specific settings (VL53L1X on I2C) ---
+  # I2C bus number (0 or 1). Bus 1 uses GPIO 2/3 (standard camera pins).
+  i2c_bus: 1
+  # I2C address in hex. Default 0x29 can be changed by soldering ADDR pin.
+  i2c_address: 0x29
+  # Detection range in millimeters. Object closer than this fires motion.
+  # Tuning: start at 500 mm, decrease if false-negatives (misses birds),
+  # increase if false-positives (records empty feeder).
+  detection_range_mm: 500
+  # Time to wait after power-on for sensor to stabilize (seconds).
+  warmup_seconds: 1.0
+  # Polling rate (Hz). Higher = faster response, higher CPU. 10 Hz is typical.
+  read_rate_hz: 10.0
+  # Optional interrupt pin (BCM numbering). null disables interrupt mode.
+  # If set, sensor fires GPIO interrupt; if null, polling only. Currently
+  # polling-only, so leave this null.
+  interrupt_pin: null
+
+# =============================================================================
+# GPIO -- HC-SR501 PIR (ignored if motion.sensor_type is tof)
 # =============================================================================
 gpio:
   # BCM numbering, not physical pin numbers. GPIO4 is physical pin 7.

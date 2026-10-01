@@ -1,0 +1,312 @@
+% 4022 Project Thesis Template
+% University of Cape Town Department of Electrical Engineering
+% Template Version 0.1 - August 2021
+% Adapted from the following 2 sources by J Wyngaard
+% https://code.engineering.queensu.ca/ece/thesis-template-for-latex
+% https://github.com/jpt13653903/LaTeX_UCT_Report.git
+
+% -> FILE DESCRIPTION :: UCT_EE_Thesis_style.sty
+%	This files defines the format of the document.
+
+% Created in 1988 By Joseph Pallas, Stanford University
+% Updated in  ??  By Bob Burke, Queen's University
+% Updated in 2003 By Dean Jin, Queen's University
+% Updated in 2017 By Ian Maquignaz, Queen's University
+% Modified in 2021 By Jane Wyngaard, University of Cape Town
+
+
+\typeout{Document Style Option `UCT EE Thesis Style' <1-Aug-2021>.}
+
+\long\def\comment#1{}
+\comment{
+
+Example of use:
+
+    \documentclass[12pt]{report} % or could use `book' style
+
+    \usepackage{quthesis}
+
+    \begin{document}
+    \title{How to Write Theses\\
+        With Two Line Titles}
+    \author{John Henry Candidate}
+	\supervisor{Professor Bob}
+    \beforepreface
+    \prefacesection{Preface}
+        This thesis tells you all you need to know about...
+    \prefacesection{Acknowledgements}
+        I would like to thank...
+    \afterpreface
+
+    \chapter{Introduction}
+         ...
+    \chapter{Conclusions}
+         ...
+    \bibliographystyle{plain}
+    \bibliography{4_References/References}
+    ...
+    \appendix
+    \chapter{A Long Proof}
+        ...
+    \chapter*{Vita}
+    \end{document}
+
+
+Documentation:
+
+    This style file modifies the standard report or book styles to
+    follow the School of Graduate Studies and Research's "General Form
+    of Thesis."  It sets the margins and interline spacing and disallows
+    page breaks at hyphens.
+
+    The \beforepreface command creates the title page.  Then the user
+    should put preface section(s), using the command:
+
+        \prefacesection{section title}
+
+    The \afterpreface command then produces the tables of contents,
+    tables and figures, and sets things up to start the main body (on
+    arabic page 1).
+
+    The following commands can control what goes in the front matter
+    material:
+
+    \title{thesis title}
+    \author{author's name}
+    \supervisor{Supervisor, ie. Facilitating Professor}
+    \dept{author's department}
+        - Electrical Engineering if omitted
+    \submitdate{month year in which submitted to GPO}
+        - date LaTeX'd if omitted
+    \copyrightyear{year degree conferred}
+        - year LaTeX'd if omitted
+    \figurespagetrue or \figurespagefalse
+        - produce or don't produce a List of Figures page
+          (true by default)
+    \tablespagetrue or \tablespagefalse
+        - produce or don't produce a List of Tables page
+          (true by default)
+
+
+    The example above shows the 12pt substyle being used.  This
+    seems to give acceptable looking results, but it may be omitted
+    to get smaller print.
+}
+\RequirePackage{etex}
+\usepackage{fancyhdr} % For Header Formating
+\usepackage{graphicx} % For Logo
+\usepackage{setspace} % For \singlespacing and \doublespacing
+
+% First thing we do is make sure that report has been loaded.  A
+% common error is to try to use quthesis as a documentstyle.
+\@ifundefined{chapter}{\@latexerr{The `quthesis' option should be used
+with the `report' or `book' document styles}{You should probably read the
+quthesis documentation.}}{}
+
+% IK PRINTING FOR A BOOK:
+% We need 1" margins except on the binding edge, where it is 1 1/2"
+% Theses are single-sided, so we don't care about \evensidemargin
+%\oddsidemargin 0.5in \evensidemargin 0in
+
+\marginparwidth 40pt \marginparsep 10pt
+\topmargin 0pt \headsep .5in
+\textheight 8.1in \textwidth 6in
+
+% Fixes the less than 1 inch at the bottom of the page problem
+\footskip 20pt
+
+% Disallow page breaks at hyphens (this will give some underfull vbox's,
+% so an alternative is to use \brokenpenalty=100 and manually search
+% for and fix such page breaks)
+\brokenpenalty=10000
+
+% %---Set up double spacing (code taken from setspace.sty)
+% \ifcase \@ptsize \relax % 10pt
+%     \setstretch{1.2}
+%   \fi
+ 
+% Remove the unnecessary white space around figs   
+\renewcommand{\topfraction}{0.85}
+\renewcommand{\textfraction}{0.1}
+\renewcommand{\floatpagefraction}{0.75}
+
+% Redefine the macro used for footnotes to use single spacing
+\long\def\@footnotetext#1{\insert\footins{\setstretch{1.4}\footnotesize
+    \interlinepenalty\interfootnotelinepenalty
+    \splittopskip\footnotesep
+    \splitmaxdepth \dp\strutbox \floatingpenalty \@MM
+    \hsize\columnwidth \@parboxrestore
+   \edef\@currentlabel{\csname p@footnote\endcsname\@thefnmark}\@makefntext
+    {\rule{\z@}{\footnotesep}\ignorespaces
+      #1\strut}}}
+
+% Document Parameters - Set from input
+\def\dept#1{\gdef\@dept{#1}}
+\def\degree#1{\gdef\@degree{#1}}
+\def\supervisor#1{\gdef\@supervisor{#1}}
+\def\submitdate#1{\gdef\@submitdate{#1}}
+\def\copyrightyear#1{\gdef\@copyrightyear{#1}}
+
+% Document Parameters - DEFAULT PARAMETERS
+\def\@title{A LaTex Thesis Template}
+\def\@author{University of Cape Town}
+\def\@dept{Department of Electrical Engineering}
+\def\@degree{Master of Applied Science}
+\def\@supervisor{A Professor}
+\def\@submitdate{\ifcase\the\month\or
+  January\or February\or March\or April\or May\or June\or
+  July\or August\or September\or October\or November\or December\fi
+  ,\space \number\the\year}
+\def\@copyrightyear{\number\the\year}
+
+% Declare If Statements for Optional Pages
+\newif\ifPageFigures 
+\newif\ifPageTables
+\newif\ifPageGlossaries
+\newif\ifPageContents
+\newif\ifPageCodeSnippets
+\newif\ifPageEquations
+
+% Set Default States for Optional Pages
+\PageFiguresfalse 
+\PageTablesfalse
+\PageGlossariesfalse
+\PageContentsfalse
+\PageCodeSnippetsfalse
+\PageEquationsfalse
+
+% Create the PDF
+\usepackage[bookmarks,pdfauthor={\@author}, pdftitle={Thesis}]{hyperref}
+
+% Format - Title Page
+\def\titlep{%
+    \thispagestyle{empty}%
+    \setstretch{1.4}
+    
+    \begin{center}
+        {\Huge\@title}\\[1cm]
+        \hrule
+		\mbox{}\\[1cm]
+		\includegraphics[height=60mm]{2_Preface/UCT_Circular.pdf}    
+		\mbox{}\\[1cm]
+        {\large Presented by: \\
+        \@author\\[1cm]}
+        {\large Prepared for: \\
+        \@supervisor\\[1cm]
+        \today\\[1cm]}
+    \end{center}
+
+	\begin{center}
+		%\mbox{}\\[1cm]
+		Submitted to the Department of \@dept\space at the University of Cape Town in partial fulfilment of the academic requirements for the degree of \@degree.
+	\end{center}
+
+    
+    % \begin{center}
+    % 	\singlespacing
+    % 	\mbox{}\\[0.7in] 
+    %     University of Cape Town\\
+    %     Cape Town, South Africa\\
+    %     \@submitdate\\
+    %     \mbox{}\\[0.3in]
+    %     Copyright \copyright\ \@author, \@copyrightyear
+    % \end{center}
+    \clearpage
+}
+
+% Define Format - Before Preface
+\def\beforepreface{
+    \titlep
+    \pagenumbering{roman}
+    \pagestyle{plain}
+}
+
+% Define Format - Preface Section
+\def\prefacesection#1{
+    \clearpage
+    \addcontentsline{toc}{chapter}{#1}
+    \chapter*{#1}
+}
+
+\fancypagestyle{CustomPageStyle}{%
+	\fancyhf{}% Clear header and footer
+	\fancyhead[L]{\rightmark}
+	\fancyhead[R]{}
+	\fancyfoot[C]{\thepage}
+	\renewcommand{\headrulewidth}{0.5pt}% Line at the header visible
+	\renewcommand{\footrulewidth}{0.5pt}% Line at the footer visible
+}
+
+% Define Format - After Preface
+\def\afterpreface{
+	\clearpage
+    
+    % Table of Contents Page
+    \ifPageContents
+    	\addcontentsline{toc}{chapter}{Table of Contents}
+    	\index{Table of Contents}
+    	\tableofcontents
+		\clearpage
+	\fi
+	
+	% Table of Figures Page
+    \ifPageFigures
+        \phantomsection
+        \addcontentsline{toc}{chapter}{List of Figures}
+        \index{List of Figures}
+        \listoffigures
+        \clearpage
+    \fi
+    
+    % Tables of Tables page
+    \ifPageTables
+        \phantomsection
+        \addcontentsline{toc}{chapter}{List of Tables}
+        \index{List of Tables}
+        \listoftables
+        \clearpage
+    \fi
+    
+    % Table of Code Listings
+    \ifPageCodeSnippets
+        \phantomsection
+	    \addcontentsline{toc}{chapter}{List of Code Listings}
+	    \index{List of Code Listings}
+		\lstlistoflistings
+	    \clearpage
+    \fi
+    
+    % List of Equations
+    \ifPageEquations
+        \phantomsection
+    	\addcontentsline{toc}{chapter}{List of Equations}
+    	\index{List of Equations}
+	    \newfloat{Equation}{!h}{equ}[chapter]
+	    \newcommand{\listequationsname}{List of Equations}
+	    \listof{Equation}{\listequationsname}
+	    \clearpage
+    \fi
+    
+    % Glossary Pages
+    \ifPageGlossaries
+        \index{List of Symbols}
+        \printglossary[type=symbol, title=List of Symbols] % Prints the acronym glossary
+        \index{Nomenclature}
+        \printglossary[title = Nomenclature] % Prints the terms glossary
+        % \index{Glossary of Abbreviations}
+        % \printglossary[type=\acronymtype,title=Glossary of Abbreviations] % Prints the abbreviation glossary
+        \clearpage
+    \fi
+    
+    \pagenumbering{arabic}    
+    %\pagestyle{fancyplain}
+    \pagestyle{CustomPageStyle}
+}
+
+% Redefine \thebibliography to go to a new page and put an entry in the
+% table of contents
+\let\@ldthebibliography\thebibliography
+\renewcommand{\thebibliography}[1]{\clearpage
+    \addcontentsline{toc}{chapter}{Bibliography}
+    \@ldthebibliography{#1}}
+

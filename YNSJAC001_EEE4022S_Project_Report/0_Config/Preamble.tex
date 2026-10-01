@@ -1,0 +1,373 @@
+% !TeX root = ../Thesis.tex
+% 4022 Project Thesis Template
+% University of Cape Town Department of Electrical Engineering
+% Template Version 0.1 - August 2021
+% Adapted from the following 2 sources by J Wyngaard
+% https://code.engineering.queensu.ca/ece/thesis-template-for-latex
+% https://github.com/jpt13653903/LaTeX_UCT_Report.git
+
+% -> FILE DESCRIPTION :: Preamble.tex
+%	This files defines the imports necessary for proper compiling of the thesis document and create the styling of the document.
+
+%*************************************************************************************************************
+% DOCUMENT
+%*************************************************************************************************************
+% -> This section defines the basic thesis document. 
+
+% Set Document Type
+\documentclass[12pt]{report}  
+
+% Select Thesis Package
+\usepackage{0_Config/1_Styles/UCT_EE_Thesis_Style}
+    
+%*************************************************************************************************************
+% PATCHING
+%*************************************************************************************************************
+% -> This section imports functionality which fixes Latex bugs
+
+% Modern LaTeX provides enough output streams without the legacy morewrites
+% compatibility package, which can corrupt deferred writes during shipout.
+
+%*************************************************************************************************************
+% SPACING
+%*************************************************************************************************************
+% -> This section defines the basic spacing options for the thesis document. 
+
+\usepackage{parskip} % Block paragraphs: no first-line indent, a blank gap between paragraphs instead
+
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepackage{float}
+\usepackage{rotating}
+\usepackage{tikz}
+\usetikzlibrary{
+    arrows.meta,
+    positioning,
+    shapes.geometric,
+    fit,
+    backgrounds
+}
+
+%*******************************************************************************
+% HEADINGS
+%*******************************************************************************
+% -> This changes the headings go that they are prettier, this can be commented out for traditional headings.
+
+\usepackage{sectsty}
+
+%*************************************************************************************************************
+% FONTS
+%*************************************************************************************************************
+% -> This section defines the fonts for various document entities.
+
+\allsectionsfont{\bfseries}% set all the section font to bfseries
+\chapterfont{\Huge} % set the sizes of chapters, sections ...
+\sectionfont{\Large}
+\subsectionfont{\large}
+
+%*************************************************************************************************************
+% FORMATTING
+%*************************************************************************************************************
+% -> This section defines formatting Table of Contents entr
+% example: Chapter 1 Introduction
+
+\usepackage[subfigure]{tocloft}
+\usepackage{tocloft}
+\usepackage{multicol}
+
+\renewcommand{\cftchappresnum}{Chapter }
+\renewcommand{\cftchapaftersnum}{:}
+\renewcommand{\cftchapnumwidth}{7em}
+
+% for formatting Table of Contents entry for Appendix, example: Appendix 1: Stuff
+\newcommand*\updatechaptername{%
+   \addtocontents{toc}{\protect\renewcommand*\protect\cftchappresnum{Appendix }}
+}
+
+%*******************************************************************************
+% FOOTNOTES
+%*******************************************************************************
+% -> This section defines formating for footnotes
+
+\interfootnotelinepenalty=10000 % This line stops footnotes from splitting onto two pages.
+
+%*******************************************************************************
+% VERBATIM
+%*******************************************************************************
+% -> 
+
+\usepackage{moreverb}        % Using this package to get better control of the
+                             % verbatim environment, mostly for the use of the
+                             % listing environment which puts line number
+                             % beside each line.  Note that there has to be a number
+                             % in each set of brackets, i.e., \begin{listing}[1]{1}.
+                             % PDF info file is "The moreverb package" by
+                             % Robin Fairbairns (rf@cl.cam.ac.uk) after
+                             % Angus Duggan, Rainer Schopf and Victor Eijkhout, 2000/06/29.
+%-------------------------------------------------------------------------------
+%\usepackage{verbatim}        % allows the use of \begin{comment} and \end{comment}
+                             % as well as \verbatiminput{file}
+                             % Note:  when using verbatim to input from a text file,
+                             % such as a specification or code, use \begin{singlespacing}
+                             % and \end{singlespacing}.  Also, tabs are not read
+                             % properly, so the input file must only use spaces.
+
+%                             \begin{comment}
+%                             Can also use the verbatim package for
+%                             comments like this...
+%                             \end{comment}
+
+
+%*******************************************************************************
+% GLOSSARY
+%*******************************************************************************
+% -> Creates the glossary
+
+\usepackage[acronym,automake,toc]{glossaries}
+\newglossary[slg]{symbol}{sym}{sdn}{List of Symbols}
+\makeglossaries
+
+% See Glossary/Glossary.tex for the content of your glossary
+
+%*******************************************************************************
+% INDEX
+%*******************************************************************************
+% -> Creates the Index
+
+\usepackage{makeidx}         
+\makeindex
+
+%*******************************************************************************
+% MATH
+%*******************************************************************************
+% -> Import and configure packages for math
+\usepackage{mathrsfs}		 % For Symbols
+\usepackage{amssymb}		 % For More Symbols
+\usepackage{amsfonts}		 % For Other Symbols
+\usepackage{amsmath}         % For Equations
+\usepackage{amsthm}          % For Theorems & Definitions
+
+
+% Using the amsthm package, define a new theorem environment for my
+% definition.  * means don't number it.
+\newtheorem*{definition}{Definition}
+\usepackage{cases}           % to make numbered cases (equations)
+\usepackage{calc}            % Used with the Ventry environment defined below.
+
+%*******************************************************************************
+% FLOATS, PLOTS, AND FIGURES
+%*******************************************************************************
+% -> This section defines and configures packages for various styles of floating objects and figures. 
+ 
+\usepackage{graphicx}       % for graphic images (use \includegraphics[...]{file.eps})
+%\usepackage{subfigure}      % for subfigures (figures within figures)
+\usepackage{subfig}			% for subfigures (figures within figures). Same as subfigures except it works.
+\usepackage{wrapfig}		% for wrapping text around figures
+%\usepackage{boxedminipage}  % to make boxed minipages, i.e., boxes around figures
+\usepackage{rotate}         % for use of \begin{sideways} and \end{sideways}
+\usepackage{listings}       % for use of printing code blocks
+\usepackage{pgfplots}		% for plots
+\usepackage{pdfpages}		% for importing PDFs
+\usepackage[normalem]{ulem}
+
+%*******************************************************************************
+% CUSTOM FORMATTING
+%*******************************************************************************
+
+\usepackage[table]{xcolor}
+\usepackage{geometry}
+\geometry{
+    a4paper,
+    left=25mm,
+    right=25mm,
+    top=25mm,
+    bottom=25mm,
+    headheight=15pt,
+    headsep=7mm,
+    footskip=10mm
+}
+
+
+%*******************************************************************************
+
+
+% Define how the ``listings'' to look.
+%\lstset{basicstyle=\footnotesize,, numbers=left, numberstyle=\small, stepnumber=1, numbersep=5pt, showspaces=false, lineskip=-1pt}
+
+\usepackage{float}           % Using this package to get better control of floats
+                             % including the ability to define new float types for
+                             % specification and code listings.
+                             % DVI info file is "An Improved Environment for Floats"
+                             % by Anselm Lingnau, lingnau@tm.informatik.uni=frankfurt.de
+                             % 1995/03/29.
+
+% Style of float used for code listings
+\floatstyle{ruled}
+\newfloat{Listing}{H}{lis}[chapter]
+\renewcommand{\lstlistlistingname}{List of Code Listings} % Title be changed as necessary
+
+                             % Note:  The listings don't have space between the chapters, unlike
+                             % the standard list of tables etc.  At the end, copy the spacing
+                             % commands from the .toc file and insert into the .lis file.  Then,
+                             % DO NOT LATEX it again, simply go to the DVI viewer!
+
+\usepackage{placeins} % for \FloatBarrier which stops floats from crossing a point
+
+%*******************************************************************************
+% TABLES
+%*******************************************************************************
+% -> This section defines tables
+\usepackage{booktabs}
+
+\usepackage{array}
+\usepackage{tabularx}        % Package used to make variable width-columns, i.e.,
+                             % column widths are changed to fit the maximum width
+                             % and text is wrapped nicely.
+
+\usepackage{threeparttable}
+
+\usepackage{lscape}			% For landscape
+\usepackage{adjustbox}		% To adjust table width
+\usepackage{multirow}		% For merging and splitting table cells
+
+%*******************************************************************************
+% CAPTIONS
+%*******************************************************************************
+% ->  This section defines captions
+
+\usepackage{caption}   % Package used to make my captions 'hang', i.e., wrap around, but not under the name of the caption.
+%\usepackage[justification=centering]{caption} % Captions that are centered
+                             
+
+% Find that the captions are too far from my verbatim figures, but if
+% I change it to 0, then the captions are too close for my other types
+% of figures.  Maybe set each one separately?
+%\setlength{\abovecaptionskip}{1ex}
+
+%\setlength{\textfloatsep}{1ex plus1pt minus1pt}
+
+%\setlength{\intextsep}{1ex plus1pt minus1pt}
+
+%\setlength{\floatsep}{1ex plus1pt minus1pt}
+
+%*******************************************************************************
+% MISCELLANEOUS
+%*******************************************************************************
+% ->  This section defines miscellaneous packages that facilitate miscelaneous things
+
+\usepackage{layout}          % useful for determining the margins of a document
+                             % use with \layout command
+                             
+\usepackage{changebar}       % Way of indicating modifications by putting bars in the
+                             % margin.  Read about it in "The Latex Companion".
+                             
+\usepackage{enumitem}		% For enumerated lists
+
+%*******************************************************************************
+% REFERENCES ETC.
+%*******************************************************************************
+% ->  This section defines the reference section
+
+\usepackage{varioref}        % Better page references, e.g., "on preceding page", etc.
+                             % \vref{key} Create an enhanced reference.
+                             % \vpageref[text]{key} Create an enhanced page reference.
+                             % \vrefrange{key}{key} Create an enhanced range of references.
+                             % \vpagerefrange[text]{key}{key} Create an enhanced range of page references.
+                             % Note: doesn't really work for consecutive pages.
+
+% Renewing the text for before and after
+\renewcommand{\reftextafter}{on the next page}
+\renewcommand{\reftextbefore}{on the previous page}
+\usepackage{url}             % for use of \url - pretty web addresses
+\usepackage{fancyhdr}
+\usepackage{cite}
+\usepackage{notoccite}      % Prevents references from starting in TOC, List of Figures, etc.
+
+%*******************************************************************************
+% Block Diagrams
+%*******************************************************************************
+% ->  This section defines imports for block diagrams and flow charts
+
+\usepackage{tikz}
+\usetikzlibrary{arrows,automata,arrows.meta}
+
+% Block Diagram
+\tikzstyle{block} = [draw,fill=blue!20,minimum size=2em]
+\def\radius{.7mm} 
+\tikzstyle{branch}=[fill,shape=circle,minimum size=3pt,inner sep=0pt]
+
+% Flow Charts
+\usepackage{pgf}
+\usepackage[utf8x]{inputenc}
+\usetikzlibrary{positioning,calc}
+\tikzset{
+	state/.style={
+		rectangle,
+		rounded corners,
+		draw=black, very thick,
+		minimum height=2em,
+		inner sep=2pt,
+		text centered,
+	},
+}
+
+%*******************************************************************************
+% HYPERLINKS (must be last)
+%*******************************************************************************
+% ->  This section defines how hyperlinks function
+
+% Uncomment these next two lines for linkback to citation pages in biblio
+%%#\renewcommand*\backref[1]{\ifx#1\relax \else \linebreak Cited on page(s): #1. \fi}
+
+\hypersetup{
+	colorlinks=true,  % Change links to being coloured text, no boxes
+	linkcolor=blue,
+	urlcolor=blue,
+    citecolor=blue
+}
+% Neat package to turn href, ref, cite, gloss entries
+% into hyperlinks in the dvi file.
+% Make sure this is the last package loaded.
+% Use with dvips option to get hyperlinks to work in ps and pdf
+% files.  Unfortunately, then they don't work in the dvi file!
+% Use without the dvips option to get the links to work in the dvi file.
+
+% Note:  \floatstyle{ruled} don't work properly; so change to plain.
+% Not as pretty, but functional...
+% The bookmarks option sets up proper bookmarks in the pdf file :)
+
+% Need this command to allow hyperref to play nicely with gloss; otherwise
+% almost every \gloss will cause an error...
+%%#\renewcommand{\glosslinkborder}{0 0 0}
+
+\usepackage[colorinlistoftodos]{todonotes}
+\newcommand{\todoall}[1][]{\todo[color=yellow, inline]}
+
+%*******************************************************************************
+% CUSTOM CHAPTER SPACING
+%*******************************************************************************
+
+\makeatletter
+
+\renewcommand{\@makechapterhead}[1]{%
+  \vspace*{0pt}%
+  {\parindent \z@ \raggedright \normalfont
+    \ifnum \c@secnumdepth >\m@ne
+        \huge\bfseries \@chapapp\space \thechapter
+        \par\nobreak
+        \vskip 10pt
+    \fi
+    \interlinepenalty\@M
+    \Huge\bfseries #1\par\nobreak
+    \vskip 20pt
+  }}
+
+\renewcommand{\@makeschapterhead}[1]{%
+  \vspace*{0pt}%
+  {\parindent \z@ \raggedright \normalfont
+    \interlinepenalty\@M
+    \Huge\bfseries #1\par\nobreak
+    \vskip 20pt
+  }}
+
+\makeatother

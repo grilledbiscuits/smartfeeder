@@ -1,0 +1,93 @@
+% Chapter 1 - Introduction
+
+\glsresetall % reset the glossary to expand acronyms again
+\chapter[Introduction]{Introduction}\label{ch:Introduction}
+\index{Introduction}
+
+% Background
+\section{Background}
+
+Birds are integral members of our ecosystems as providers of many roles that prove vital to the health of these ecosystems, be they predators, pollinators, scavengers, seed dispersers, seed predators, or ecosystem engineers \cite{Whelan2008}. Sunbirds in particular have proven to be especially important in the pollination process and are a dominant group of nectar feeders throughout Africa. In the Western Cape specifically, sunbirds have been found to be the primary pollinators of several plant species \cite{deWaal2012}. Furthermore, in Cape Town nectarivorous birds have been established to play an unusually important role in the ecosystem due to the highly asymmetrical mutual pollination between birds and plants in this biodiversity hotspot \cite{Coetzee2018}. Despite their integral ecological role, however, the capturing of data of when, how often and what species of this group interact with particular food sources remains a challenging task. The current means of obtaining these measurements are time-consuming and are heavily dependent on human labour. These factors have led directly to practical limitations on the monitoring of these birds.
+\par\vspace{6pt}
+More recently, camera traps have become a much more efficient means of remotely capturing animal distribution, abundance and behaviour, but this method of ecological monitoring remains limited by sampling errors such as false triggers and data extraction from this footage is still an expensive, time-consuming and manual task \cite{Burton2015, Norouzzadeh2018}. With advancements in the fields of digital imaging, embedded computing and computer vision, automatic and remote ecological monitoring becomes a much more feasible option while simultaneously reducing the amount of false detection instances \cite{Christin2019}. Already, machine learning has been proven able to identify animals from camera trap footage with a highly reliable accuracy \cite{Norouzzadeh2018}. Such developments make possible a compact and cost-effective method of not only collecting data for ecological monitoring, but doing so intelligently with minimal or no requirement of human intervention.
+\par\vspace{6pt}
+The monitoring of nectarivorous birds is made much more viable at known hotspots of nectarivore activity such as feeding sites. Introducing a nectar feeder to a nearby feeding location is a sound method of localizing bird activity to a well-constrained area as well as standardizing an angle of captured footage, since the feeding port requires these birds to perch on a specific platform. Recent studies have proven the viability of embedded machine learning algorithms in detecting and monitoring avian sightings at feeder stations \cite{Youngblood2019}. An adapted system for nectar-feeding birds that similarly incorporates video monitoring, automated feeder visit detection and species identification could prove to contribute significantly to the available monitoring methods of these birds.
+
+\section{Problem Statement}
+
+Sunbirds are difficult creatures to monitor. They are small, highly mobile and easily disturbed. Current aviary monitoring methods have shown that a combination of camera recording, embedded computing and machine learning makes automated monitoring viable. 
+\par\vspace{6pt}
+Analysis of current projects expose an engineering gap that this project will aim to fill. There is a need for a compact and reliable system designed to cater specifically to nectar feeding birds and their physical behaviour while being capable of unsupervised operation, reliable footage capture with associated species predictions and sufficient off-grid capacities.
+
+\par\vspace{6pt}
+Existing Technology includes:
+\begin{itemize}
+    \item Camera-equipped smart feeders
+    \item Raspberry Pi/embedded wildlife-monitoring systems
+    \item Motion/event-triggered image or video capture
+    \item Machine-learning species classification
+    \item Solar-powered monitoring systems
+\end{itemize}
+
+\par\vspace{6pt}
+Limitations of existing technology are:
+\begin{itemize}
+	\item Designed around seed feeders or hummingbird-style products
+    \item Dependent on external/cloud infrastructure in some cases
+    \item Not specifically designed around local South African nectar-feeding birds
+    \item Not optimised for low-power autonomous field operation
+\end{itemize}
+
+Considering this engineering gap in the field of automated bird monitoring as well as the relevant existing technology and its limitations, the following problem statement for this project was defined:
+
+\section{Objectives}
+
+This project aims to design and deploy an autonomous and remote smart nectar feeder, with a primary focus on monitoring sunbirds in the Cape Town area. The system will utilise a machine learning algorithm locally embedded on an edge processing device to classify classes of interest and record visits of such classes. These recordings will be made available to users via a locally-hosted web interface. 
+\par\vspace{6pt}
+For the objectives of this project to be achieved, a functional prototype of the complete system must be developed, assembled and tested in the field. The objectives this project aims to achieve through the realisation of a successful prototype include:
+
+\begin{itemize}
+  \item Designing and constructing a nectar feeder arrangement suitable for sunbirds and camera monitoring
+  \item Developing an automated system for detecting bird visits
+  \item Capturing video footage of detected visits
+  \item Implementing embedded species classification using a locally relevant dataset
+  \item Storing video recordings and their associated observation metadata locally
+  \item Developing an autonomous power system using battery and solar energy
+  \item Integrating the subsystems into an deployable prototype
+  \item Evaluating detection, classification, video, power and overall system performance
+\end{itemize}
+
+\section{Scope and Limitations}
+The scope of this project defines the functional and technical boundaries within which the smart sunbird feeder will be designed, implemented and evaluated. These boundaries are intended to keep the project focused on the development of a reliable and practical monitoring system, while acknowledging constraints associated with time, resources, deployment conditions and system capability. The scope of this project is set as follows:
+\begin{itemize}
+\item \textbf{Hardware scope:} Data collection will use a Raspberry Pi, a single camera module and a single Time-of-Flight (ToF) sensor.
+\item \textbf{Time scope:} Monitoring will be limited to daytime bird activity.
+\item \textbf{Subject scope:} The system will focus on sunbirds and other relevant nectar-feeding bird species.
+\item \textbf{Monitoring scope:} Bird visits will be recorded using motion-triggered capture rather than continuous monitoring.
+\item \textbf{Location scope:} System deployment and evaluation will be limited to Cape Town.
+\item \textbf{Data scope:} Captured data will consist of a short video recording, the predicted species and corresponding confidence score, and the date and time of the observation.
+\item \textbf{Storage scope:} All captured data will be stored locally on the system.
+\item \textbf{Ethics scope:} Species classification and monitoring will be conducted using entirely non-invasive methods.
+\end{itemize}
+
+Similarly, the limitations of this project are defined as follows:
+
+\begin{itemize}
+\item \textbf{Hardware limitation:} The project is limited to adapting a commercially available nectar feeder and integrating existing electronic components. Custom PCB design and development of new circuitry will not be undertaken.
+\item \textbf{Species limitation:} Only bird species relevant to South Africa will be considered as classes of interest. Foreign species will not be included.
+\item \textbf{Classification limitation:} Classification will be limited to species level. Sex, age and individual identification will not be considered.
+\item \textbf{Data collection limitation:} Bird behaviour will not be analysed. Collected data will be limited to species identification, the date and time of each visit, and an accompanying video recording.
+\item \textbf{Time limitation:} The project must be completed by 26 October 2026.
+\item \textbf{Budget limitation:} The project is constrained to a budget of R2000.
+\item \textbf{Energy limitation:} Solar-energy generation is dependent on environmental conditions, particularly solar irradiance and cloud cover.
+\item \textbf{User interface limitation:} User interaction with collected data will be limited to a simple, locally hosted web interface. Development of a dedicated desktop or mobile application will not be considered.
+\end{itemize}
+
+% Thesis Outline
+\section[Outline]{Thesis Outline}
+The remainder of this thesis is organized as follows:\\
+\textbf{Chapter 2, Background:} Background and literature review\\
+\textbf{Chapter 3, Methodology:} Project methodology\\
+\textbf{Chapter 4, Design:} Design and development\\
+\textbf{Chapter 5, Results:} Experimental results\\
+\textbf{Chapter 6, Conclusions:} Conclusions and future work

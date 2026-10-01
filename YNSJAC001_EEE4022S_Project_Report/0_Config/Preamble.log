@@ -1,0 +1,90 @@
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.4.28)  23 SEP 2026 12:01
+entering extended mode
+ restricted \write18 enabled.
+ file:line:error style messages enabled.
+ %&-line parsing enabled.
+**/home/grilledbiscuits/Desktop/smartfeeder/YNSJAC001_EEE4022S_Project_Report/0_Config/Preamble.tex
+(/home/grilledbiscuits/Desktop/smartfeeder/YNSJAC001_EEE4022S_Project_Report/0_Config/Preamble.tex
+LaTeX2e <2023-11-01> patch level 1
+L3 programming layer <2024-01-22>
+
+/home/grilledbiscuits/Desktop/smartfeeder/YNSJAC001_EEE4022S_Project_Report/0_Config/Preamble.tex:1: LaTeX Error: Missing \begin{document}.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.1 !
+     TeX root = ../Thesis.tex
+You're in trouble here.  Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+Missing character: There is no ! in font nullfont!
+Missing character: There is no T in font nullfont!
+Missing character: There is no e in font nullfont!
+Missing character: There is no X in font nullfont!
+Missing character: There is no r in font nullfont!
+Missing character: There is no o in font nullfont!
+Missing character: There is no o in font nullfont!
+Missing character: There is no t in font nullfont!
+Missing character: There is no = in font nullfont!
+Missing character: There is no . in font nullfont!
+Missing character: There is no . in font nullfont!
+Missing character: There is no / in font nullfont!
+Missing character: There is no T in font nullfont!
+Missing character: There is no h in font nullfont!
+Missing character: There is no e in font nullfont!
+Missing character: There is no s in font nullfont!
+Missing character: There is no i in font nullfont!
+Missing character: There is no s in font nullfont!
+Missing character: There is no . in font nullfont!
+Missing character: There is no t in font nullfont!
+Missing character: There is no e in font nullfont!
+Missing character: There is no x in font nullfont!
+
+Overfull \hbox (20.0pt too wide) in paragraph at lines 1--8
+[]
+ []
+
+(/usr/share/texlive/texmf-dist/tex/latex/base/report.cls
+Document Class: report 2023/05/17 v1.4n Standard LaTeX document class
+(/usr/share/texlive/texmf-dist/tex/latex/base/size12.clo
+File: size12.clo 2023/05/17 v1.4n Standard LaTeX file (size option)
+)
+\c@part=\count187
+\c@chapter=\count188
+\c@section=\count189
+\c@subsection=\count190
+\c@subsubsection=\count191
+\c@paragraph=\count192
+\c@subparagraph=\count193
+\c@figure=\count194
+\c@table=\count195
+\abovecaptionskip=\skip48
+\belowcaptionskip=\skip49
+\bibindent=\dimen140
+ [1{/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}])
+
+! LaTeX Error: File `0_Config/1_Styles/UCT_EE_Thesis_Style.sty' not found.
+
+Type X to quit or <RETURN> to proceed,
+or enter new name. (Default extension: sty)
+
+Enter file name: 
+/home/grilledbiscuits/Desktop/smartfeeder/YNSJAC001_EEE4022S_Project_Report/0_Config/Preamble.tex:22: Emergency stop.
+<read *> 
+         
+l.22 ^^M
+        
+*** (cannot \read from terminal in nonstop modes)
+
+ 
+Here is how much of TeX's memory you used:
+ 251 strings out of 476182
+ 3389 string characters out of 5795595
+ 1922975 words of memory out of 5000000
+ 22340 multiletter control sequences out of 15000+600000
+ 558367 words of font info for 37 fonts, out of 8000000 for 9000
+ 14 hyphenation exceptions out of 8191
+ 39i,5n,38p,226b,119s stack positions out of 10000i,1000n,20000p,200000b,200000s
+/home/grilledbiscuits/Desktop/smartfeeder/YNSJAC001_EEE4022S_Project_Report/0_Config/Preamble.tex:22:  ==> Fatal error occurred, no output PDF file produced!

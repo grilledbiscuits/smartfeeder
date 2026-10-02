@@ -11,7 +11,7 @@ Two prediction heads over a shared backbone:
 Both outputs carry calibrated confidence, because a downstream capture application
 uses them to decide whether to record video.
 
-Deployment target: Raspberry Pi 5 + Hailo-8L (AI HAT+), running fully on-device.
+Deployment target: Raspberry Pi 4B, running fully on-device with CPU inference.
 
 ## Status
 
@@ -57,13 +57,16 @@ uv run pytest -q
 
 ## Repository layout
 
-Two independent projects share this repo:
+Three project areas share this repo:
 
 - **`ml/`** — the classifier: `src/birdcam/`, `config/`, `tests/`, `reports/`,
   the gitignored `data/` corpus, and the design docs (`DECISIONS.md`,
   `ASSUMPTIONS.md`, `RUNNING.md`). Paths below are relative to `ml/`.
 - **`web/`** — the dashboard, with its runtime state in `var/`. It imports
   nothing from `birdcam`; see the interface contract at the end of this file.
+- **`cad/`** — parametric feeder cradle, Raspberry Pi housing, and power box
+  designs. See [CAD designs](cad/README.md) for source files and printable
+  exports. The Pi housing fits the deployment board, a Pi 4B.
 
 ## Configuration
 
@@ -92,11 +95,12 @@ and `ASSUMPTIONS.md` for what still needs verifying.
 - **Development is CPU-only.** The fast iteration loop (Phase 5) runs on cached
   embeddings so head experiments finish in seconds. Full fine-tunes run on
   Kaggle; `train_full.py` must stay runnable there unmodified.
-- **Do not benchmark inference latency on the development laptop.** Latency
-  measured off-target is meaningless for a Pi 5 + Hailo-8L. Accuracy and
-  quantisation delta are the only performance metrics that belong in this repo.
-- **The student backbone must remain a CNN.** The Hailo Dataflow Compiler has
-  limited and awkward support for ViT and ConvNeXt blocks.
+- **Benchmark inference latency on the Pi 4B.** Development-laptop latency
+  does not predict performance on its CPU. Accuracy and quantisation delta can
+  be measured off-target; runtime must be checked on the board.
+- **The current student backbone is a CNN.** Recheck its CPU latency on the
+  Pi 4B before committing to the model; the earlier Hailo compiler constraint
+  no longer applies.
 - **`male_breeding` vs `male_eclipse` cannot be sourced automatically.** No
   public API annotates plumage state. Annotated males are trained with a masked
   partial-label loss rather than being assigned a fabricated label.

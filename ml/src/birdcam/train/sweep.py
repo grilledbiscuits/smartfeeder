@@ -12,18 +12,15 @@ deployment input resolution. Both are properties of the architecture and are
 identical on any machine.
 
 Wall-clock latency is deliberately NOT reported. This development machine is an
-x86 laptop with no accelerator; the deployment target is a Raspberry Pi 5 with a
-Hailo-8L. A latency number measured here would not transfer, and quoting one
-would invite exactly the wrong decision. MACs are the honest proxy until the
-model is compiled and measured on the real hardware.
+x86 laptop; the deployment target is a Raspberry Pi 4B running on its CPU.
+A latency number measured here would not transfer. MACs are an architectural
+comparison only; measure latency on the Pi 4B before choosing a backbone.
 
 ## On architecture eligibility
 
-`hailo_ok` marks whether a backbone is a plain CNN. The Hailo Dataflow Compiler
-handles standard convolutional operations well but has limited and awkward
-support for transformer and ConvNeXt blocks (LayerNorm, GELU, attention). Models
-marked False may still be useful as an accuracy *ceiling* -- what a bigger model
-could reach -- but must not be selected as the student.
+`hailo_ok` is a legacy comparison field from the earlier Pi 5 plan. It marks
+plain CNNs compatible with the Hailo compiler, but it is not a Pi 4B deployment
+requirement. Select the student using accuracy and latency measured on the Pi 4B.
 """
 
 from __future__ import annotations
@@ -221,7 +218,7 @@ def run_sweep(cfg: Config, specs: list[BackboneSpec] | None = None, epochs: int 
 def print_table(rows: list[SweepRow]) -> None:
     print(
         "\nCOST IS ARCHITECTURAL (params / MACs). Latency is NOT measured: this is an\n"
-        "x86 laptop, the target is a Pi 5 + Hailo-8L, and an off-target latency number\n"
+        "x86 laptop, the target is a Pi 4B CPU, and an off-target latency number\n"
         "would be misleading.\n"
     )
     hdr = (

@@ -5,7 +5,7 @@ Two prediction heads over a shared backbone:
   Head 2 (sex/plumage)  -- male_breeding / male_eclipse / female / juvenile /
                            indeterminate / not_applicable
 
-Deployment target is a Raspberry Pi 5 + Hailo-8L running fully on-device.
+Deployment target is a Raspberry Pi 4B running fully on-device.
 """
 
 __version__ = "0.1.0"

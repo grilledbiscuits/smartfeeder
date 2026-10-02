@@ -33,9 +33,7 @@ valuable ones for the data flywheel: they are birds worth a human look.
 informative -- it usually means something has changed at the feeder.
 
 All of this runs OUTSIDE the exported ONNX graph. Thresholds, the prior and the
-temperature are therefore retunable without touching the model artefact -- which
-matters on either candidate board, and matters a great deal on a Pi 5 + Hailo
-where changing the graph means a recompile on a separate x86 toolchain.
+temperature are therefore retunable on the Pi 4B without re-exporting the model.
 """
 
 from __future__ import annotations

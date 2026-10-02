@@ -1,18 +1,15 @@
 """PyTorch -> ONNX export for the two-head deployment model.
 
-Kept working from early on, because ONNX is the pivot point for every runtime
-under consideration: ONNX Runtime on a Pi 4B CPU, and the Hailo Dataflow
-Compiler on a Pi 5 + AI HAT+. The board is not yet decided and this file does
-not care -- which is the point. A break here blocks deployment either way.
+Kept working from early on because ONNX is the deployment format for ONNX
+Runtime on the Raspberry Pi 4B CPU. The graph remains portable across runtimes.
 
 What is deliberately NOT in the graph:
 
 * **Softmax.** Kept outside so calibration and thresholding operate on logits,
   and so the graph is unchanged if the probability treatment changes.
 * **Rollup and thresholds.** These are tuned per class from precision-recall
-  curves and change without retraining. Baking them in would force a Hailo
-  recompile -- slow, and run on a separate x86 toolchain -- every time a
-  threshold moves.
+  curves and change without retraining. Baking them in would require a model
+  re-export every time a threshold moves.
 * **Normalisation.** Mean/std subtraction stays in the capture application,
   where it can be fused into the camera pipeline.
 
@@ -300,36 +297,18 @@ def verify_export(path: Path, size: int, n_taxon: int, n_sex: int) -> None:
 
 
 DEPLOY_NOTE = """\
-# Deployment notes -- Raspberry Pi 4B and Pi 5
+# Deployment notes -- Raspberry Pi 4B
 
-The board is not yet decided. The exported ONNX runs on both; what differs is
-where it runs and how fast. Nothing in the model or this repo needs to change to
-switch between them -- this note exists so the decision can be made on facts.
+Target: Raspberry Pi 4B, with on-device CPU inference and hardware H.264 video
+encoding. The deployed classifier uses ONNX Runtime. See `deploy/README.md` for
+installation and service setup.
 
-## Pi 5 + AI HAT+ (Hailo-8L)
+## Inference
 
-* The AI HAT+ connects over the Pi 5's **PCIe port and requires a Pi 5**. It is
-  not compatible with a Pi 4.
-* Inference moves off the CPU entirely. 0.72 GMACs is a rounding error against
-  13 TOPS, so the classifier stops being the bottleneck.
-* Requires the Hailo Dataflow Compiler: an x86-64 Linux toolchain, separate
-  account, run on a workstation. Outline (NOT run or verified here):
-
-      hailo parser onnx birdcam_student.onnx --hw-arch hailo8l
-      hailo optimize birdcam_student.har --calib-set-path calib/ --hw-arch hailo8l
-      hailo compiler birdcam_student_optimized.har --hw-arch hailo8l
-
-* Keep the student a plain CNN. ViT and ConvNeXt blocks (LayerNorm, GELU,
-  attention) compile poorly or fall back to CPU for large subgraphs.
-* **The Pi 5 has no hardware H.264 encoder** -- it was removed from the BCM2712.
-  Video encoding falls to software (libav), consuming CPU that the accelerator
-  was supposed to free up.
-
-## Pi 4B 8GB (CPU only)
-
-* No accelerator option. Inference runs on 4x Cortex-A72 @ 1.5GHz with NEON.
-* INT8 quantisation becomes mandatory rather than an optimisation. Prefer ONNX
-  Runtime with the XNNPACK execution provider, which has NEON INT8 kernels:
+* Benchmark the model on the Pi 4B. Laptop latency and MAC count do not predict
+  ARM CPU latency reliably.
+* Evaluate INT8 quantisation against FP32 accuracy and measured Pi 4B latency.
+  Prefer ONNX Runtime with the XNNPACK execution provider when available:
 
       onnxruntime.InferenceSession(
           "birdcam_student.onnx",
@@ -338,26 +317,9 @@ switch between them -- this note exists so the decision can be made on facts.
 
 * Classify SAMPLED frames only, never every frame. A visit lasting seconds
   yields plenty; the track vote does the rest.
-* **The Pi 4 retains the hardware H.264 encoder.** `CircularOutput` pre-roll
-  costs almost no CPU, and the encoder's motion vectors are essentially free --
-  they can drive the motion gate instead of frame differencing, saving more CPU.
-
-## The trade, stated plainly
-
-The Pi 5 + HAT is the better inference machine and the worse video machine. The
-Pi 4B is the reverse. Which matters more depends on whether the bottleneck turns
-out to be classification or continuous encoding -- and with sampled-frame
-classification plus track voting, continuous encoding is the larger constant
-load. Measure both on real hardware before committing.
-
-## MACs are a weak proxy on a CPU, a good one on an NPU
-
-If the Pi 4B is chosen, revisit the backbone. MAC count predicts NPU cost well
-and ARM CPU cost poorly: squeeze-and-excite blocks stall the pipeline with a
-full-tensor reduction, and swish is transcendental where ReLU6 is a clamp.
-`efficientnet_lite0` exists for exactly this case -- EfficientNet-B0 with the SE
-blocks removed and swish replaced, for mobile CPU INT8. Similar MACs, different
-CPU behaviour.
+* Use the Pi 4B hardware H.264 encoder for the circular pre-roll buffer.
+* Revisit the backbone if CPU latency is too high; `efficientnet_lite0` is a
+  candidate for mobile CPU INT8, subject to accuracy measurement.
 
 ## Quantisation
 

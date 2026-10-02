@@ -584,3 +584,10 @@ Three reporting faults, found by asking where the results actually were:
 `--history` reads the **checkpoint** rather than the JSON, because the checkpoint
 is written at the end of every epoch and therefore works on a run still in
 flight.
+
+### D39. Deployment board fixed to Raspberry Pi 4B (2026-10-02)
+
+The feeder uses a Raspberry Pi 4B with CPU inference. This supersedes the
+undecided hardware plan in D24 and the earlier Pi 5 + Hailo target in D15.
+The AI HAT+ cannot be used on this board. Benchmark the ONNX model on the Pi 4B
+and choose quantisation and backbone from measured latency and accuracy.

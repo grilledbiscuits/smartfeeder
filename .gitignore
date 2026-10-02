@@ -7,9 +7,10 @@
 # version control.
 /ml/data/
 
-# --- reports: generated, except the directory marker
+# --- reports: generated, except the directory marker and deployment plan
 /ml/reports/*
 !/ml/reports/.gitkeep
+!/ml/reports/deployment.md
 
 # --- field footage: raw feeder recordings, tens of GB, individual files far
 # past GitHub's 100MB limit. Like data/, the pixels are not the artefact --

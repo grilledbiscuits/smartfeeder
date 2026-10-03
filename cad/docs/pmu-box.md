@@ -26,12 +26,14 @@ after a test print. The SOLAR-IN opening is Ø8 mm, with its center 1 mm left
 and 2 mm up from the first test print. The round opening and LEDs have upper
 half-ring awnings; the rectangular ports have straight staple awnings. The
 main awnings project 4 mm and the LED awnings project 2.5 mm.
+The three rectangular openings are shifted 1 mm toward the dovetail rail and
+extend another 1 mm toward it, so each is 1 mm taller.
 
 The photo establishes port order, but it has no scale or measured hole centers.
 Port positions and opening sizes are estimates from the photo. Compare a print
 or dimensioned drawing with the actual PMU before using this as a final fit.
 The awning-free port test wall is cropped to a 4 mm border around the seven
-remaining openings: 59.6 × 22.0 × 2.5 mm, flat on the print bed.
+remaining openings: 59.6 × 21.0 × 2.5 mm, flat on the print bed.
 
 ## Rail and printing
 

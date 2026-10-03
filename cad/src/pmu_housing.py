@@ -1,10 +1,10 @@
 """
-Waveshare Power Management HAT (B) housing for the v6 feeder cradle.
+PMU housing for the v6 feeder cradle.
 
 Sits on the dovetail rail immediately AFT of the Pi housing. Same model frame
 as concept.py / rpi_housing.py, so it assembles with no transform.
 
-The unit is treated as ONE block, 115 x 75mm in plan with the 18650 included,
+The unit is treated as ONE block, 110 x 70 x 25mm with the 18650 included,
 because that is how it is built and how it comes out. It is carried on corner
 pads on the LID, so undoing four screws drops board, battery and all out of
 the box in one piece.
@@ -29,18 +29,13 @@ DRIP_W, DRIP_H, VENT_W = R.DRIP_W, R.DRIP_H, R.VENT_W
 X_KEEL_BOT = X_GROOVE_FLOOR - R.GROOVE_FLOOR_T             # -70.0
 X_ROOF_UNDER = X_TOP - ROOF_T                              # -61.25
 
-# --------------------------------------------- the Waveshare unit, as one --
-# 115 x 75 in plan, battery included. Height is the one number I am guessing:
-# the 18650 sets it at about 26mm above the board plane, with the unused
-# 40-pin socket hanging ~9mm below.
-UNIT_L, UNIT_W = 115.0, 75.0        # along y, along z
-UNIT_H = 40.0                       # overall, measured by Jack
-UNIT_UNDER = 0.0                    # 40 is the whole unit, nothing below it
+# ------------------------------------------------- the PMU as one unit --
+# Measured overall dimensions supplied by the user; battery included.
+UNIT_L, UNIT_W = 110.0, 70.0        # along y, along z
+UNIT_H = 25.0
+UNIT_UNDER = 0.0                    # whole unit included in UNIT_H
 UNIT_CLR = 1.0
-# Corner pads still lift it 4mm off the lid: clearance for anything small
-# protruding from the underside, for cable dressing, and so condensation on
-# the lid cannot wick into the board. Raise PAD_H if the 40-pin socket or
-# anything else sticks out more than 4mm below the unit's bottom face.
+# Corner pads lift it 4mm off the lid for small protrusions and cable dressing.
 PAD_H = 4.0
 PAD_XY, LIP_H, LIP_T = 10.0, 10.0, 2.5
 UNIT_UNDER_INSET = 12.0             # unused while UNIT_UNDER is 0
@@ -66,15 +61,20 @@ X_UNIT_TOP = X_UNIT_BOT + UNIT_H
 UNIT_Z0 = Z_INT_FRONT + UNIT_CLR + LIP_T + 1.0
 UNIT_Z1 = UNIT_Z0 + UNIT_W
 
-# ------------------------------------------------------------ cable entries -
-# USB-A out to the Pi goes through the FRONT wall: the Pi housing is directly
-# in front of it, so the run is short and doubly sheltered.
-USBA_Y, USBA_X = -25.0, X_UNIT_BOT + UNIT_H / 2   # centred on the unit
-USBA_W, USBA_H, USBA_R = 18.0, 9.0, 3.5          # passes a USB-A overmould
-# PV input through the LID, which faces straight down when hung - the most
-# sheltered face on the box, and it gives the drip loop for free.
-PV_Y, PV_D = 40.0, 12.0
-PV_Z = Z_INT_AFT - 9.0
+# --------------------------------------------------------------- IO ports --
+# The photo establishes order, but not measured port centers or diameters.
+# These openings are proportional placements to check against the real PMU.
+# (name, shape, position along 70mm side viewed from inside, distance below top,
+#  width, height). The outside view has the opposite left-to-right order.
+PORTS = (
+    ("switch", "rect", 0.24, 16, 9, 6),
+    ("usb_a", "rect", 0.45, 16, 16, 9),
+    ("usb_c", "rect", 0.68, 18, 12, 7),
+    ("solar_in", "round", 0.87 - 1.0 / UNIT_W, 14, 8, 8),
+    ("led_warning", "round", 0.60, 9, 3, 3),
+    ("led_charge", "round", 0.67, 9, 3, 3),
+    ("led_done", "round", 0.74, 9, 3, 3),
+)
 
 # -------------------------------------------------------------- lid fixings -
 BOSS_D, BOSS_H, BOSS_PILOT = 7.0, 7.0, 2.5
@@ -86,12 +86,13 @@ SPIGOT_CLR, SPIGOT_T, SPIGOT_H = 0.3, 2.0, 3.0
 # ------------------------------------------------------------ rail locking --
 GRUB_D, GRUB_X = 2.5, (X_TOP + X_GROOVE_FLOOR) / 2
 GRUB_Z = Z_BOX_AFT + OVH_AFT / 2
+GROOVE_RELIEF = 0.30              # extra PMU flank/floor clearance beyond Pi
 
 _box = R._box
 
 
 def unit_keepout():
-    """The whole Waveshare assembly, plus the socket hanging below it."""
+    """The complete PMU envelope, including any underside projection."""
     body = _box(X_UNIT_BOT, X_UNIT_TOP, -UNIT_L / 2, UNIT_L / 2, UNIT_Z0, UNIT_Z1)
     if UNIT_UNDER <= 0:
         return body
@@ -106,11 +107,11 @@ def groove_cutter():
     the aft end, the one it goes on over."""
     z0, z1 = Z_ROOF_FRONT - 1.0, Z_ROOF_AFT + 1.0
     main = (cq.Workplane("XY").workplane(offset=z0)
-            .polyline(R.groove_profile()).close().extrude(z1 - z0))
+            .polyline(R.groove_profile(GROOVE_RELIEF)).close().extrude(z1 - z0))
     w0 = (cq.Workplane("XY").workplane(offset=Z_ROOF_AFT - 4.0)
-          .polyline(R.groove_profile()).close().wires().val())
+          .polyline(R.groove_profile(GROOVE_RELIEF)).close().wires().val())
     w1 = (cq.Workplane("XY").workplane(offset=Z_ROOF_AFT + 0.01)
-          .polyline(R.groove_profile(0.8)).close().wires().val())
+          .polyline(R.groove_profile(GROOVE_RELIEF + 0.8)).close().wires().val())
     return main.union(cq.Workplane(obj=cq.Solid.makeLoft([w0, w1], True)))
 
 
@@ -143,7 +144,8 @@ def housing():
         for z in BOSS_ZS:
             h = h.cut(c._cyl(BOSS_PILOT / 2, (X_LID_IN - 0.1, sy * BOSS_Y, z),
                              (1, 0, 0), BOSS_H - 1.0))
-    h = h.cut(usba_cutter())
+    for cutter in port_cutters().values():
+        h = h.cut(cutter)
     for sy in (1, -1):
         for xv in (X_ROOF_UNDER - 2.4, X_ROOF_UNDER - 5.9):
             h = h.cut(_box(xv - VENT_W / 2, xv + VENT_W / 2,
@@ -152,17 +154,52 @@ def housing():
                            Z_INT_AFT - 26.0, Z_INT_AFT - 8.0))
     h = h.cut(c._cyl(GRUB_D / 2, (GRUB_X, KEEL_HW + 1.0, GRUB_Z), (0, -1, 0),
                      KEEL_HW + 1.0 - R.groove_hw(GRUB_X) + 1.0))
-    return h
+    return h.union(port_awnings())
 
 
-def usba_cutter():
-    return (cq.Workplane("XY").workplane(offset=Z_BOX_FRONT - 1.0)
-            .center(USBA_X, USBA_Y).sketch().rect(USBA_H, USBA_W)
-            .vertices().fillet(USBA_R).finalize().extrude(WALL + 2.0))
+def port_cutters():
+    """Open the +Y wall and any gusset behind a port."""
+    cuts = {}
+    for name, shape, fraction, down, width, height in PORTS:
+        z, x = UNIT_Z0 + fraction * UNIT_W, X_UNIT_TOP - down
+        if shape == "rect":
+            cuts[name] = _box(x - height / 2, x + height / 2,
+                              Y_INT - 1, Y_BOX + 8, z - width / 2, z + width / 2)
+        else:
+            cuts[name] = c._cyl(width / 2, (x, Y_INT - 1, z),
+                                (0, 1, 0), Y_BOX + 8 - (Y_INT - 1))
+    return cuts
 
 
-def pv_cutter():
-    return c._cyl(PV_D / 2, (X_LID_OUT - 1, PV_Y, PV_Z), (1, 0, 0), LID_T + 2)
+def port_awnings():
+    """Straight staple hoods; round openings use an upper half-ring."""
+    y0 = Y_BOX - 0.5
+    parts = []
+    for name, shape, fraction, down, width, height in PORTS:
+        z, x = UNIT_Z0 + fraction * UNIT_W, X_UNIT_TOP - down
+        projection = 2.5 if name.startswith("led_") else 4.0
+        thickness = 0.8 if name.startswith("led_") else 1.0
+        y1 = Y_BOX + projection
+        if shape == "rect":
+            outer = _box(x - height / 2, x + height / 2 + thickness,
+                         y0, y1, z - width / 2 - thickness, z + width / 2 + thickness)
+            inner = _box(x - height / 2, x + height / 2,
+                         y0 - 1, y1 + 1, z - width / 2, z + width / 2)
+            part = outer.cut(inner)
+        else:
+            outer = c._cyl(width / 2 + thickness, (x, y0, z),
+                           (0, 1, 0), projection + 0.5)
+            inner = c._cyl(width / 2, (x, y0 - 1, z),
+                           (0, 1, 0), projection + 2.5)
+            lower = _box(X_LID_OUT - 10, x, y0 - 1, y1 + 1, z - 10, z + 10)
+            part = outer.cut(inner).cut(lower)
+        parts.append(part)
+    awnings = parts[0]
+    for part in parts[1:]:
+        awnings = awnings.union(part)
+    for cutter in port_cutters().values():
+        awnings = awnings.cut(cutter)
+    return awnings
 
 
 def lid():
@@ -175,7 +212,7 @@ def lid():
                       z0o + SPIGOT_T, z1o - SPIGOT_T)))
     L = plate.union(spig)
 
-    # four corner pads carry the unit clear of its underside socket; each has
+    # four corner pads carry the unit clear of the lid; each has
     # an L of lip above it to trap the unit in plan. No screw standoffs: the
     # mounting-hole pattern of the assembled unit is not known.
     for sy in (1, -1):
@@ -202,7 +239,6 @@ def lid():
         for z in BOSS_ZS:
             L = L.cut(c._cyl(1.7, (X_LID_OUT - 1, sy * BOSS_Y, z), (1, 0, 0),
                              LID_T + 2))
-    L = L.cut(pv_cutter())
     for z in (Z_INT_FRONT + 4.0, Z_INT_FRONT + 8.0, Z_INT_FRONT + 12.0):
         L = L.cut(_box(X_LID_OUT - 1, X_LID_IN + 1, -18.0, 18.0,
                        z - VENT_W / 2, z + VENT_W / 2))
@@ -222,12 +258,12 @@ def build(export=True):
         ok = ok and good
         print("  %-61s %s" % (m, "OK" if good else "*** CHECK ***"))
 
-    print("Waveshare PMU housing  (unit taken as %.0f x %.0f x %.0f mm)"
+    print("PMU housing  (unit taken as %.0f x %.0f x %.0f mm)"
           % (UNIT_L, UNIT_W, UNIT_H))
     for nm, part in (("housing", H), ("lid", L)):
         x0, x1, y0, y1, z0, z1 = c.tight_bb(part)
-        print("  %-8s %5.1f x %5.1f x %5.1f mm   %4.0f g PETG   solids %d"
-              % (nm, x1 - x0, y1 - y0, z1 - z0, part.val().Volume() * 1.27e-3,
+        print("  %-8s %5.1f x %5.1f x %5.1f mm   %4.0f g PLA   solids %d"
+              % (nm, x1 - x0, y1 - y0, z1 - z0, part.val().Volume() * 1.24e-3,
                  len(part.val().Solids())))
         rep("%s one solid, fits 180" % nm, len(part.val().Solids()) == 1
             and max(x1 - x0, y1 - y0, z1 - z0) <= 180)
@@ -240,6 +276,9 @@ def build(export=True):
     rep("sliding on from behind, 7 stations, worst %5.1f mm^3" % worst, worst < 0.5)
     eng = min(Z_ROOF_AFT, c.RAIL_Z1) - Z_ROOF_FRONT
     rep("groove engages the rail over %.0f mm, open both ends" % eng, eng > 60)
+    floor_left = X_GROOVE_FLOOR - GROOVE_RELIEF - X_KEEL_BOT
+    rep("PMU-only groove relief %.2f mm; floor left %.2f mm"
+        % (GROOVE_RELIEF, floor_left), floor_left >= 2.0)
     rep("housing ^ Pi housing %5.1f mm^3 (butts it, %.1f mm gap)"
         % (v(H.intersect(PI_H)), GAP_TO_PI), v(H.intersect(PI_H)) < 0.5)
     rep("housing ^ Pi lid     %5.1f mm^3" % v(H.intersect(PI_L)),
@@ -258,15 +297,10 @@ def build(export=True):
         LIP_H >= 8)
 
     print("\n cable entries")
-    wall = _box(X_LID_IN, X_ROOF_UNDER, -Y_BOX, Y_BOX, Z_BOX_FRONT, Z_INT_FRONT)
-    u = usba_cutter()
-    rep("USB-A out, front wall: %.0f mm^2 open, %.1f mm^3 left in it"
-        % (v(u.intersect(wall)) / WALL, v(H.intersect(u.intersect(wall)))),
-        v(H.intersect(u.intersect(wall))) < 0.5)
-    rep("PV in, through the lid: %.1f mm^3 left in it" % v(L.intersect(pv_cutter())),
-        v(L.intersect(pv_cutter())) < 0.5)
-    rep("USB-A slot is level with the unit (x %.1f, unit %.1f..%.1f)"
-        % (USBA_X, X_UNIT_BOT, X_UNIT_TOP), X_UNIT_BOT < USBA_X < X_UNIT_TOP)
+    for name, cutter in port_cutters().items():
+        overlap = v(H.intersect(cutter))
+        rep("%s passage unobstructed: %.1f mm^3 overlap" % (name, overlap),
+            overlap < 0.5)
 
     if export:
         for nm, part in (("pmu_housing", H), ("pmu_housing_lid", L)):

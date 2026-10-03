@@ -371,8 +371,8 @@ def build(export=True):
     print("RPi 4B housing")
     for nm, part in (("housing", H), ("lid", L)):
         x0, x1, y0, y1, z0, z1 = c.tight_bb(part)
-        print("  %-8s %5.1f x %5.1f x %5.1f mm   %4.0f g PETG   solids %d"
-              % (nm, x1 - x0, y1 - y0, z1 - z0, part.val().Volume() * 1.27e-3,
+        print("  %-8s %5.1f x %5.1f x %5.1f mm   %4.0f g PLA   solids %d"
+              % (nm, x1 - x0, y1 - y0, z1 - z0, part.val().Volume() * 1.24e-3,
                  len(part.val().Solids())))
         rep("%s is one solid, fits 180" % nm,
             len(part.val().Solids()) == 1 and max(x1 - x0, y1 - y0, z1 - z0) <= 180)

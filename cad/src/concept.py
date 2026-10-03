@@ -641,8 +641,8 @@ def build():
           % (x1 - x0, y1 - y0, z1b - z0b))
     print("  X %.0f .. %.0f   Y %.0f .. %.0f   Z %.0f .. %.0f"
           % (x0, x1, y0, y1, z0b, z1b))
-    print("  volume %.0f cm^3 -> ~%.0f g solid PETG"
-          % (whole.val().Volume() / 1000, whole.val().Volume() * 1.27e-3))
+    print("  volume %.0f cm^3 -> ~%.0f g solid PLA"
+          % (whole.val().Volume() / 1000, whole.val().Volume() * 1.24e-3))
     print("  solids: %d   (design tilt %.0f deg from horizontal,"
           " lip low)" % (len(whole.val().Solids()), TILT_DEG))
     # A union can only ADD material. If the assembly comes out smaller than the
@@ -694,9 +694,9 @@ def build():
                         (230.0, 28.0, 44.0, 58.0)], 180.0)
     dv = old.val().Volume() - sp.val().Volume()
     print("    spine volume %.1f cm^3, was %.1f with the straight nose"
-          "  ->  %.1f cm^3 / %.0f g of PETG saved"
+          "  ->  %.1f cm^3 / %.0f g of PLA saved"
           % (sp.val().Volume() / 1000, old.val().Volume() / 1000,
-             dv / 1000, dv * 1.27e-3))
+             dv / 1000, dv * 1.24e-3))
     print("    platform underside at x %.1f, spine outer face at the nose"
           " x %.1f -> %.1f mm of cover"
           % (CAM_X, -SPINE_SECTIONS[0][3], SPINE_SECTIONS[0][3] + CAM_X))

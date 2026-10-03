@@ -133,7 +133,7 @@ def main():
         print("%-13s %6.0f x %6.0f x %6.0f mm   z %5.1f..%5.1f   %5.0f g   "
               "solids %d   %s"
               % (name, bb.xlen, bb.ylen, bb.zlen, bb.zmin, bb.zmax,
-                 v.Volume() * 1.27e-3, solids,
+                 v.Volume() * 1.24e-3, solids,
                  "FITS %g" % BED if fits else "*** TOO BIG ***"))
 
     # --- joint checks ------------------------------------------------------

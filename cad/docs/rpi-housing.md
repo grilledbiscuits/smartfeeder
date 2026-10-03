@@ -5,8 +5,8 @@ cradle's dovetail rail on the **front half**, forward of the split.
 
 | Part | Size (mm) | Solid mass |
 |---|---|---|
-| `rpi_housing` | 113 × 82 × 40 | 85 g |
-| `rpi_housing_lid` | 110 × 68 × 6 | 29 g |
+| `rpi_housing` | 113 × 82 × 40 | 83 g |
+| `rpi_housing_lid` | 110 × 68 × 6 | 28 g |
 
 STL for slicing, STEP for editing. `rpi_housing.py` builds both and re-runs
 every check below; it imports `concept.py`, so the dovetail groove is derived
@@ -90,7 +90,7 @@ overhang. 2mm keeps most insects out. **Print it in a light colour.**
 
 ## Printing
 
-- **PETG or ASA.**
+- **White PLA.**
 - **Housing: roof down on the bed.** The roof top is flat by design. The
   standoffs point up, the lid bosses
   have 45° gussets, and the dovetail's flanks overhang at only 27° from

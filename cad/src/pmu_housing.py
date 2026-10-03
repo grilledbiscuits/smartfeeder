@@ -67,9 +67,9 @@ UNIT_Z1 = UNIT_Z0 + UNIT_W
 # (name, shape, position along 70mm side viewed from inside, distance below top,
 #  width, height). The outside view has the opposite left-to-right order.
 PORTS = (
-    ("switch", "rect", 0.24, 16, 9, 6),
-    ("usb_a", "rect", 0.45, 16, 16, 9),
-    ("usb_c", "rect", 0.68, 18, 12, 7),
+    ("switch", "rect", 0.24, 14.5, 9, 7),
+    ("usb_a", "rect", 0.45, 14.5, 16, 10),
+    ("usb_c", "rect", 0.68, 16.5, 12, 8),
     ("solar_in", "round", 0.87 - 1.0 / UNIT_W, 14, 8, 8),
     ("led_warning", "round", 0.60, 9, 3, 3),
     ("led_charge", "round", 0.67, 9, 3, 3),

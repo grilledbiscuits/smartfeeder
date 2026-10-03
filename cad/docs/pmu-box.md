@@ -1,106 +1,57 @@
-# Waveshare Power Management HAT (B) box — for the v6 cradle
+# PMU box for the v6 cradle
 
-Two printed parts. Sits on the dovetail rail immediately behind the Pi
-housing, so the rail now carries a train of three: cradle → Pi → power.
+Two printed parts sit on the dovetail rail immediately behind the Pi housing.
+The modeled PMU envelope is **110 × 70 × 25 mm**, battery included.
 
-| Part | Size (mm) | Solid mass |
+| Part | Size (mm) | Estimated PLA mass |
 |---|---|---|
-| `pmu_housing` | 145 × 97 × 58 | 140 g |
-| `pmu_housing_lid` | 142 × 89 × 17 | 55 g |
+| `pmu_housing` | 43 × 140 × 92 | 109 g |
+| `pmu_housing_lid` | 17 × 137 × 84 | 50 g |
 
-Built around the unit as **one 115 × 75 × 40mm block, battery included** —
-that's how it's assembled and how it comes out. Same lid design as the Pi housing,
-since that worked.
+## Access and fit
 
-## Getting at it
+Four M3 lid screws release the lid and its four 4 mm corner pads. The pads
+hold the unit 4 mm above the lid; 10 mm lips locate its corners. The unit has
+2 mm clearance above it. The mounting-hole pattern is unknown, so the PMU is
+not screwed to the lid. Check the physical assembly for protrusions below its
+measured 25 mm envelope before printing.
 
-Undo four M3 screws from below and the lid comes away with **the board and the
-18650 still on it**. Nothing to unplug except the two cables, and the PV lead
-comes out with the lid anyway.
+## IO end wall
 
-The unit sits on four corner pads 4mm tall, with an L of lip at each corner
-trapping it in plan — 10mm up its 40mm side. The 4mm gap underneath takes any
-small protrusions, lets you dress cables under it, and keeps the board off a
-lid that may carry condensation. No screw standoffs — I don't know the
-mounting-hole pattern of the assembled unit. Tell me where the holes are and
-I'll add them.
+All openings are on the +Y wall, along the PMU's 70 mm short end. Viewed from
+inside the housing, the left-to-right order is power switch, USB-A, USB-C,
+and SOLAR-IN; the outside view reverses that order. Three LED apertures sit above
+the USB-C and solar ports. The BOOT and rightmost LED openings were removed
+after a test print. The SOLAR-IN opening is Ø8 mm, with its center 1 mm left
+and 2 mm up from the first test print. The round opening and LEDs have upper
+half-ring awnings; the rectangular ports have straight staple awnings. The
+main awnings project 4 mm and the LED awnings project 2.5 mm.
 
-Put a strip of closed-cell foam between the top of the unit and the box
-ceiling before closing it; there's 2mm of gap and that stops it rattling.
+The photo establishes port order, but it has no scale or measured hole centers.
+Port positions and opening sizes are estimates from the photo. Compare a print
+or dimensioned drawing with the actual PMU before using this as a final fit.
+The awning-free port test wall is cropped to a 4 mm border around the seven
+remaining openings: 59.6 × 22.0 × 2.5 mm, flat on the print bed.
 
-## Cables
+## Rail and printing
 
-- **USB-A out to the Pi** — 18 × 9mm slot in the front wall. The Pi housing is
-  directly in front of it, so the run is short and the wall is doubly
-  sheltered: it faces 30° down and is undercut, and the Pi box shields it.
-- **PV panel in** — Ø12mm hole through the lid. The lid faces straight down
-  when hung, which is the most sheltered face on the box, and it gives the
-  cable a drip loop for free. Grommet it.
+The groove is open at both ends. The PMU box slides on from behind and rests
+against the Pi housing with a 0.5 mm modeled gap; the user's external stop
+retains the Pi housing. The PMU groove engages 78 mm of rail. Tighten the M3
+grub screw in the keel to stop the PMU box sliding backward. The cradle's
+cross-pin at z=167 mm must finish flush or recessed so the PMU can slide over
+it.
+The PMU groove has 0.30 mm extra clearance at each flank and the floor beyond
+the Pi housing's groove. The remaining floor thickness is 2.45 mm.
 
-No battery hole (cell is internal) and no PWR button hole, as you asked.
+Print the housing roof down and the lid flat with pads up, in white PLA.
+The lid has intake slots; the shell has high side vents under the roof brim.
+The bed-oriented exports are `stl/pmu_housing_roof_down.stl` and
+`stl/pmu_housing_lid_flat.stl`; [preview](pmu_full_print_preview.png).
 
-## On the rail — this one seats differently
+## Model checks
 
-Both housings have grooves open at both ends. The PMU box seats, under
-gravity, against the **Pi housing's aft face**. The Pi housing needs the
-user's external axial stop to hold both boxes on the rail. The PMU has 78mm
-of rail engagement.
-
-Fitting it:
-
-1. Easiest before joining the two cradle halves: slide it onto the rear half's
-   rail from the rear half's front face and push it aft out of the way.
-2. Join the cradle halves, then fit the Pi housing.
-3. Let the power box slide forward until it butts the Pi housing.
-4. Tighten the M3 grub screw in the keel (aft end, +Y side, outside the box).
-
-You can also fit it with the cradle fully assembled by sliding it on from
-behind the feeder — it just has to travel over the split seam at z=158.
-
-**One thing this makes non-optional:** the spine cross-pin of the cradle's
-split joint comes through the rail at z=167, and this box slides right over
-that spot. That pin **must** finish flush or slightly recessed in the rail's
-face, or the box will jam on it. It was a "should" before; it's a "must" now.
-
-## Cooling
-
-Same scheme as the Pi housing — 2mm intake slots in the lid at the front (the
-low end when hung) and 2mm exhaust slots high on the side walls at the aft
-(the high corner), under the roof overhang. A lithium cell in a sealed box in
-Johannesburg sun is worth venting. **Print it in a light colour.**
-
-## Printing
-
-Roof down on the bed, no supports, same as the Pi housing. Lid flat, pads and
-lips up. PETG or ASA.
-
-## Verified in the model
-
-- Both parts single solids, meshes watertight (0 open edges).
-- **0.0 mm³** against the cradle, seated; **0.0 mm³** at seven stations along
-  the slide-on path from behind.
-- **0.0 mm³** against the Pi housing and its lid — they butt with a 0.5mm gap
-  that closes under gravity.
-- **0.0 mm³** between the unit keep-out and either part; 2mm over the unit to
-  the keel.
-- Both cable entries clear through their walls.
-- Both parts inside 180mm.
-
-## Assumptions to check
-
-1. **Nothing protrudes more than 4mm** below the unit's bottom face. That's
-   the gap the corner pads leave. If the 40-pin socket hangs lower, raise
-   `PAD_H` — the box gets deeper by the same amount and nothing else moves.
-2. **USB-A overmould** up to about 16 × 7mm passes the front slot. It's
-   centred on the unit's height; if the socket sits high or low on the real
-   unit, move `USBA_X`.
-3. **Where the connectors sit** on the unit. Both holes are placed for cable
-   routing, not aligned to specific sockets, so the leads need a little slack
-   inside. That's deliberate given I don't have the board layout.
-4. **Balance.** This adds roughly 250g further aft again. Check the hang and
-   use the rearmost ceiling-wire station if it looks nose-up.
-
-Board dimensions (56.5 × 65mm, Ø3.0 holes, USB input, PH2.0 battery
-connector, 40-pin header) from the Waveshare wiki.
-
-Sources: [Power Management HAT (B) — Waveshare Wiki](https://www.waveshare.com/wiki/Power_Management_HAT_(B))
+`pmu_housing.py` reports `ALL OK`: each part is one solid and fits within a
+180 mm build volume; the unit, lid, Pi housing, and cradle have zero modeled
+interference; the seven checked slide-on stations are clear; and all seven
+port passages have zero obstruction.

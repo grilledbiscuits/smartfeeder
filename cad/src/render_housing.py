@@ -81,17 +81,16 @@ if __name__ == "__main__":
 
 PMU = ("pmu_housing", "#7a9e5c", "PMU housing", 1.0, (0, 0, 0))
 PMUL = ("pmu_housing_lid", "#c9a227", "PMU lid", 1.0, (0, 0, 0))
-PMUK = ("pmu_keepout", "#9b5fa8", "Waveshare unit + 18650", 1.0, (0, 0, 0))
+PMUK = ("pmu_keepout", "#9b5fa8", "PMU", 1.0, (0, 0, 0))
 
 
 def pmu_views():
     scene("pmu_exploded.png", "PMU housing - EXPLODED (lid + unit dropped 45mm)",
           [PMU, ("pmu_housing_lid", "#c9a227", "PMU lid", 1.0, (-45, 0, 0)),
-           ("pmu_keepout", "#9b5fa8", "Waveshare unit + 18650", 1.0, (-45, 0, 0))],
+           ("pmu_keepout", "#9b5fa8", "PMU", 1.0, (-45, 0, 0))],
           elev=-26, azim=-42)
-    scene("pmu_front.png", "PMU housing - FRONT WALL (USB-A out to the Pi)",
-          [PMU, PMUL], elev=0, azim=180, section_z=150.4,
-          focus=(150.0, 0.0, -85.0), zoom=1.2)
+    scene("pmu_front.png", "PMU housing - IO END WALL",
+          [PMU, PMUL], elev=0, azim=90, zoom=1.2)
     scene("pmu_roof.png", "PMU housing - ROOF and groove (from above, aft)",
           [PMU, PMUL], elev=38, azim=140)
     scene("train_hung.png",

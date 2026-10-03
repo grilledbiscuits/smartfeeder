@@ -5,8 +5,8 @@ No fasteners, no glue required.
 
 | Part | Size (mm) | Solid mass | Qty |
 |---|---|---|---|
-| `cradle_front` | 118 × 168 × 161 | 316 g | 1 |
-| `cradle_rear` | 118 × 120 × 72 | 151 g | 1 |
+| `cradle_front` | 118 × 168 × 161 | 309 g | 1 |
+| `cradle_rear` | 118 × 120 × 72 | 147 g | 1 |
 | `cross_pin_beam` | Ø3.7 × 12.6 | — | 2 |
 | `cross_pin_spine` | Ø3.7 × 22.6 | — | 1 |
 
@@ -55,8 +55,7 @@ rod. For outdoors, a drop of glue in each hole is worth it.
 
 ## Printing
 
-- **PETG or ASA, not PLA.** Johannesburg sun with a kilo of seed in it — PLA
-  will creep.
+- **White PLA.** White keeps solar heat gain down.
 - Print both halves **axis-vertical, split face down on the bed**. That puts
   the dovetail flanks on as vertical walls rather than layer-line steps, and
   the flanks are what carry the joint.

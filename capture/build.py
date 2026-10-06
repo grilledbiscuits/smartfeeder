@@ -115,6 +115,7 @@ def build_motion_source(cfg: CaptureConfig, *, mock: bool = False, schedule=None
             detection_range_mm=int(motion["detection_range_mm"]),
             warmup_seconds=float(motion["warmup_seconds"]),
             read_rate_hz=float(motion["read_rate_hz"]),
+            release_seconds=float(motion["release_seconds"]),
             interrupt_pin=motion.get("interrupt_pin"),
         )
     else:

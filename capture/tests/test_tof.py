@@ -36,11 +36,16 @@ class FakeVL53L1X:
         self._pending = False
 
 
-def run(readings_cm, detection_range_mm=500):
+def run(readings_cm, detection_range_mm=500, release_seconds=0.3, read_rate_hz=10.0):
+    """Poll a fixed list of readings. Default release is 3 polls (0.3s at 10 Hz)."""
     sensor = FakeVL53L1X(readings_cm)
     events = []
     src = ToFMotionSource(
-        detection_range_mm=detection_range_mm, warmup_seconds=0, sensor_factory=lambda: sensor
+        detection_range_mm=detection_range_mm,
+        warmup_seconds=0,
+        read_rate_hz=read_rate_hz,
+        release_seconds=release_seconds,
+        sensor_factory=lambda: sensor,
     )
     src._sensor = src._sensor_factory()  # bypass the polling thread
     src._callback = events.append
@@ -56,15 +61,34 @@ def test_distance_is_compared_in_millimetres():
 
 
 def test_fires_once_on_entering_range_then_rearms():
-    events, _ = run([80.0, 30.0, 25.0, 20.0, 90.0, 30.0])
+    """Three clear reads release the trigger, so the second arrival fires again."""
+    events, _ = run([80.0, 30.0, 25.0, 20.0, 90.0, 90.0, 90.0, 30.0])
     assert len(events) == 2
     assert all(e.trigger is Trigger.TOF for e in events)
 
 
-def test_invalid_reading_counts_as_clear():
-    """None (no valid target) re-arms, so the next bird is not missed."""
-    events, _ = run([30.0, None, 30.0])
+def test_a_dropout_mid_visit_does_not_refire():
+    """The bug this hysteresis exists for: one presence, one event.
+
+    MEASURED 2026-10-06 -- about half the sensor's reads come back invalid, so
+    without damping this pattern fired an event per surviving read.
+    """
+    events, _ = run([30.0, None, 30.0, None, None, 28.0, None, 25.0])
+    assert len(events) == 1
+
+
+def test_sustained_invalid_readings_do_release():
+    """An empty port is reported as None, so None must still re-arm eventually."""
+    events, _ = run([30.0, None, None, None, 30.0])
     assert len(events) == 2
+
+
+def test_release_is_counted_in_polls_not_readings():
+    """release_seconds converts via read_rate_hz; 0.5s at 20 Hz is 10 polls."""
+    src = ToFMotionSource(release_seconds=0.5, read_rate_hz=20.0)
+    assert src._release_polls == 10
+    # Never rounds to zero, which would restore the old fire-on-every-read bug.
+    assert ToFMotionSource(release_seconds=0.0, read_rate_hz=10.0)._release_polls == 1
 
 
 def test_start_and_stop_drive_ranging():

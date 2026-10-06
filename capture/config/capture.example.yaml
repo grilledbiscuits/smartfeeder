@@ -33,6 +33,18 @@ motion:
   warmup_seconds: 1.0
   # Polling rate (Hz). Higher = faster response, higher CPU. 10 Hz is typical.
   read_rate_hz: 10.0
+  # How long the port must read EMPTY before the trigger re-arms. Detection is
+  # instant; only the release is damped.
+  #
+  # Not optional padding. MEASURED at the feeder 2026-10-06: only ~50% of polls
+  # return a distance, and the sensor reports "nothing in range" as an invalid
+  # reading too, so a dropout mid-visit looks exactly like the bird leaving.
+  # At 0 this fired 44 times in 60 seconds for one continuous presence.
+  #
+  # Tuning: raise it if one visit still becomes several events; lower it if two
+  # birds arriving in quick succession are merged into one. Must stay well under
+  # capture.cooldown_seconds, which is the coarse guard on top of this.
+  release_seconds: 1.0
   # Unused: the sensor is always polled (an interrupt saves no power on a Pi 4B,
   # which never sleeps). Kept so older configs still load; a value only logs a
   # warning.

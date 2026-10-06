@@ -187,6 +187,7 @@ class ToFMotionSource:
         read_rate_hz: float = 10.0,
         interrupt_pin: int | None = None,
         release_seconds: float = 1.0,
+        max_hold_seconds: float | None = 60.0,
         *,
         sensor_factory: Callable[[], object] | None = None,
     ) -> None:
@@ -201,6 +202,19 @@ class ToFMotionSource:
         # indistinguishable from an empty port, so re-arming on one of them turns
         # a single visit into an event per surviving read.
         self._release_polls = max(1, round(self.release_seconds * self.read_rate_hz))
+        # Safety valve. A target that never clears holds the trigger down forever
+        # and the feeder stops recording with nothing in the log to say so -- the
+        # failure mode is a silent one, which is why it was misdiagnosed twice on
+        # 2026-10-06. Anything in range for this long is treated as a stuck gate:
+        # say so once, release, and let the next poll re-fire. A bird that really
+        # does sit this long simply gets a second event, which the TriggerGate
+        # cooldown already rate-limits. None disables the valve.
+        self.max_hold_seconds = None if max_hold_seconds is None else float(max_hold_seconds)
+        self._max_hold_polls = (
+            None
+            if not self.max_hold_seconds
+            else max(1, round(self.max_hold_seconds * self.read_rate_hz))
+        )
         if interrupt_pin is not None:
             logger.warning("motion.interrupt_pin is set but ignored: the ToF sensor is polled")
         # Injected in tests; the default opens the real sensor.
@@ -211,6 +225,7 @@ class ToFMotionSource:
         self._callback: Callback | None = None
         self._in_range = False
         self._clear_run = 0
+        self._hold_run = 0
 
     def _open_sensor(self):  # pragma: no cover - hardware path
         try:
@@ -286,11 +301,25 @@ class ToFMotionSource:
             self._clear_run = 0
             if not self._in_range:
                 self._in_range = True
+                self._hold_run = 0
                 if self._callback:
                     self._callback(MotionEvent.now(Trigger.TOF))
+                return
+            self._hold_run += 1
+            if self._max_hold_polls is not None and self._hold_run >= self._max_hold_polls:
+                logger.warning(
+                    "ToF has read in range for %.0fs without clearing (last %.1f cm). "
+                    "Treating the gate as stuck and re-arming: check whether something "
+                    "is parked in the beam, e.g. the perch itself.",
+                    self.max_hold_seconds,
+                    distance_cm if distance_cm is not None else float("nan"),
+                )
+                self._in_range = False
+                self._hold_run = 0
             return
 
         # Not detected: ride out a dropout, but let a departure through.
+        self._hold_run = 0
         self._clear_run += 1
         if self._clear_run >= self._release_polls:
             self._in_range = False

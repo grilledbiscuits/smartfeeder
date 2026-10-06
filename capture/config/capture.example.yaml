@@ -21,7 +21,7 @@ motion:
   sensor_type: tof
 
   # --- ToF-specific settings (VL53L1X on I2C) ---
-  # I2C bus number (0 or 1). Bus 1 uses GPIO 2/3 (standard camera pins).
+  # I2C bus. Only bus 1 (GPIO 2/3, physical pins 3/5) is supported.
   i2c_bus: 1
   # I2C address in hex. Default 0x29 can be changed by soldering ADDR pin.
   i2c_address: 0x29
@@ -33,9 +33,9 @@ motion:
   warmup_seconds: 1.0
   # Polling rate (Hz). Higher = faster response, higher CPU. 10 Hz is typical.
   read_rate_hz: 10.0
-  # Optional interrupt pin (BCM numbering). null disables interrupt mode.
-  # If set, sensor fires GPIO interrupt; if null, polling only. Currently
-  # polling-only, so leave this null.
+  # Unused: the sensor is always polled (an interrupt saves no power on a Pi 4B,
+  # which never sleeps). Kept so older configs still load; a value only logs a
+  # warning.
   interrupt_pin: null
 
 # =============================================================================

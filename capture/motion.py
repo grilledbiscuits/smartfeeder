@@ -1,9 +1,10 @@
-"""Motion sources: the HC-SR501 on GPIO, and a mock for off-Pi testing.
+"""Motion sources: the HC-SR501 on GPIO, the VL53L1X ToF sensor on I2C, and a
+mock for off-Pi testing.
 
-Event-driven, never polled. `gpiozero.MotionSensor` runs its own edge-detection
+The PIR is event-driven, never polled. `gpiozero.MotionSensor` runs its own edge-detection
 thread and calls `when_motion` on a rising edge, so this service spends its idle
 time blocked rather than spinning -- which matters on a board that is also
-expected to encode video.
+expected to encode video. The ToF sensor is polled; see `ToFMotionSource`.
 
 The HC-SR501 has hardware retrigger behaviour of its own (the on-board Tx
 potentiometer holds the output high for a tunable period after motion), so
@@ -151,23 +152,31 @@ class MockMotionSource:
 
 
 class ToFMotionSource:
-    """VL53L1X Time-of-Flight sensor on I2C.
+    """VL53L1X Time-of-Flight sensor on I2C, polled.
 
-    The sensor measures distance continuously. When an object enters the
-    configured detection range, motion is triggered. This avoids the false
-    triggers and settling delays of passive infrared.
+    The sensor ranges continuously; a motion event fires on the first reading
+    that comes inside `detection_range_mm`, and the source re-arms once a
+    reading is out of range again. Unlike passive infrared, a bird sitting
+    still at the port stays "in range" without re-triggering.
 
     Wiring (Raspberry Pi 4B):
-    - I2C1 SDA (data): GPIO 2 (physical pin 3)
-    - I2C1 SCL (clock): GPIO 3 (physical pin 5)
-    - INT (optional interrupt): GPIO 17 (physical pin 11)
-    - GND: any ground pin
-    - VCC: any 3.3V pin
+    - SDA: GPIO 2 (physical pin 3)
+    - SCL: GPIO 3 (physical pin 5)
+    - VIN: 3.3 V, GND: any ground
 
-    If no interrupt pin is configured, the service polls the sensor at
-    read_rate_hz. Polling is simpler and sufficient; interrupt-driven
-    requires precise threshold tuning per installation.
+    Polled, not interrupt-driven: the Pi 4B has no sleep state, so an interrupt
+    line saves no measurable power, and polling needs no threshold registers
+    programmed into the sensor. `interrupt_pin` is accepted for config
+    compatibility and ignored.
+
+    Driver notes (adafruit_vl53l1x 1.2.x): `distance` is in CENTIMETRES and is
+    None when the reading is invalid (nothing in range, or ambient-light
+    saturation); a new reading is only produced after `clear_interrupt()`.
     """
+
+    # Short mode ranges to ~1.3 m and copes better with sunlight than long
+    # mode, which only matters beyond 1.3 m -- far past the feeder port.
+    SHORT_DISTANCE_MODE = 1
 
     def __init__(
         self,
@@ -177,59 +186,58 @@ class ToFMotionSource:
         warmup_seconds: float = 1.0,
         read_rate_hz: float = 10.0,
         interrupt_pin: int | None = None,
+        *,
+        sensor_factory: Callable[[], object] | None = None,
     ) -> None:
         self.i2c_bus = int(i2c_bus)
         self.i2c_address = int(i2c_address)
         self.detection_range_mm = int(detection_range_mm)
         self.warmup_seconds = float(warmup_seconds)
         self.read_rate_hz = float(read_rate_hz)
-        self.interrupt_pin = int(interrupt_pin) if interrupt_pin else None
+        if interrupt_pin is not None:
+            logger.warning("motion.interrupt_pin is set but ignored: the ToF sensor is polled")
+        # Injected in tests; the default opens the real sensor.
+        self._sensor_factory = sensor_factory or self._open_sensor
         self._sensor = None
         self._thread = None
         self._stop = threading.Event()
         self._callback: Callback | None = None
-        self._last_motion_state = False
+        self._in_range = False
 
-    def start(self, callback: Callback) -> None:
+    def _open_sensor(self):  # pragma: no cover - hardware path
         try:
-            from adafruit_circuitpython_vl53l1x import VL53L1X
+            import adafruit_vl53l1x
             import board
-            import busio
         except ImportError as exc:
             raise HardwareUnavailable(
-                "adafruit-circuitpython-vl53l1x is not installed. Install with:\n"
+                "the VL53L1X driver is not installed. In the service venv:\n"
                 "  pip install adafruit-circuitpython-vl53l1x\n"
-                "Also requires: sudo apt install python3-smbus2 python3-rpi-gpio"
+                "and enable I2C: sudo raspi-config nonint do_i2c 0"
             ) from exc
-
+        if self.i2c_bus != 1:
+            raise HardwareUnavailable(
+                f"I2C bus {self.i2c_bus} is not supported; the sensor must be on I2C1 (GPIO 2/3)"
+            )
         try:
-            # Initialize I2C on the specified bus
-            if self.i2c_bus == 1:
-                i2c = busio.I2C(board.SCL_1, board.SDA_1)
-            elif self.i2c_bus == 0:
-                i2c = busio.I2C(board.SCL, board.SDA)
-            else:
-                raise HardwareUnavailable(f"I2C bus {self.i2c_bus} not supported")
-
-            self._sensor = VL53L1X(i2c, address=self.i2c_address)
+            return adafruit_vl53l1x.VL53L1X(board.I2C(), address=self.i2c_address)
         except Exception as exc:
             raise HardwareUnavailable(
-                f"could not initialize VL53L1X on I2C{self.i2c_bus} at 0x{self.i2c_address:02x}: "
-                f"{type(exc).__name__}: {exc}. Check wiring and I2C is enabled "
-                "(raspi-config nonint do_i2c 0)."
+                f"could not initialise the VL53L1X on I2C{self.i2c_bus} "
+                f"at 0x{self.i2c_address:02x}: "
+                f"{type(exc).__name__}: {exc}. Check the wiring, that I2C is enabled "
+                "(sudo raspi-config nonint do_i2c 0) and that `i2cdetect -y 1` lists the address."
             ) from exc
 
+    def start(self, callback: Callback) -> None:
+        self._sensor = self._sensor_factory()
+        self._sensor.distance_mode = self.SHORT_DISTANCE_MODE
+        self._sensor.start_ranging()
         self._callback = callback
 
-        # Warmup period: sensor needs time to stabilize after power-on
+        # Let the first readings settle before any of them can fire an event.
         if self.warmup_seconds > 0:
-            logger.info(
-                "ToF on I2C%d (0x%02x): waiting %.0fs for sensor to stabilize",
-                self.i2c_bus,
-                self.i2c_address,
-                self.warmup_seconds,
-            )
-            threading.Event().wait(self.warmup_seconds)
+            logger.info("ToF: waiting %.1fs for the sensor to settle", self.warmup_seconds)
+            self._stop.wait(self.warmup_seconds)
 
         logger.info(
             "ToF armed on I2C%d (0x%02x): %d mm detection range, polling at %.1f Hz",
@@ -238,31 +246,29 @@ class ToFMotionSource:
             self.detection_range_mm,
             self.read_rate_hz,
         )
-
-        # Start polling thread
         self._stop.clear()
         self._thread = threading.Thread(target=self._poll_loop, name="tof-poller", daemon=True)
         self._thread.start()
 
-    def _poll_loop(self) -> None:
-        """Poll sensor at configured rate and fire motion events on range changes."""
-        import time
+    def poll_once(self) -> None:
+        """Read one sample, if ready, and fire on the out-of-range -> in-range edge."""
+        if not self._sensor.data_ready:
+            return
+        distance_cm = self._sensor.distance
+        self._sensor.clear_interrupt()
+        # None means no valid target: treat it as "nothing at the port".
+        in_range = distance_cm is not None and distance_cm * 10 < self.detection_range_mm
+        if in_range and not self._in_range and self._callback:
+            self._callback(MotionEvent.now(Trigger.TOF))
+        self._in_range = in_range
 
+    def _poll_loop(self) -> None:
         interval = 1.0 / self.read_rate_hz
         while not self._stop.wait(interval):
             try:
-                distance = self._sensor.distance
-                motion_detected = distance < self.detection_range_mm
-
-                if motion_detected and not self._last_motion_state:
-                    self._last_motion_state = True
-                    if self._callback:
-                        self._callback(MotionEvent.now(Trigger.TOF))
-                elif not motion_detected and self._last_motion_state:
-                    self._last_motion_state = False
-
-            except Exception as exc:
-                logger.error("ToF polling error: %s", exc)
+                self.poll_once()
+            except Exception as exc:  # noqa: BLE001 - one bad I2C read must not kill the poller
+                logger.error("ToF read failed: %s: %s", type(exc).__name__, exc)
 
     def stop(self) -> None:
         self._stop.set()
@@ -270,5 +276,9 @@ class ToFMotionSource:
             self._thread.join(timeout=2.0)
             self._thread = None
         if self._sensor is not None:
+            try:
+                self._sensor.stop_ranging()
+            except Exception:  # noqa: BLE001 - best effort on shutdown
+                logger.exception("stopping the ToF sensor failed")
             self._sensor = None
             logger.info("ToF released on I2C%d", self.i2c_bus)

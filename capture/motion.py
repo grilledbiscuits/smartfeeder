@@ -188,6 +188,8 @@ class ToFMotionSource:
         interrupt_pin: int | None = None,
         release_seconds: float = 1.0,
         max_hold_seconds: float | None = 60.0,
+        roi_size: int | None = None,
+        roi_center: int | None = None,
         *,
         sensor_factory: Callable[[], object] | None = None,
     ) -> None:
@@ -197,6 +199,28 @@ class ToFMotionSource:
         self.warmup_seconds = float(warmup_seconds)
         self.read_rate_hz = float(read_rate_hz)
         self.release_seconds = float(release_seconds)
+        # Region of interest on the sensor's 16x16 SPAD array: `roi_size` is the
+        # window's side in SPADs (4-16, default 16 = the full ~27 degree cone) and
+        # `roi_center` is the centre SPAD, 0-255.
+        #
+        # This is how the feeder bottle is kept out of the beam. MEASURED
+        # 2026-10-06 with the sensor mounted to the side of the neck: the bottle
+        # reads a rock-steady 13 cm, which is NEARER than the perch at ~20 cm, and
+        # the sensor reports one dominant return per reading -- so with the full
+        # array a bird at the perch is masked behind the bottle and nothing can
+        # recover it downstream. Narrowing to 4x4 drops the bottle into the
+        # 239/247 corner of the array and leaves the centre clear.
+        #
+        # Narrower means less signal: a 4x4 window is about 7 degrees and returns
+        # fewer valid reads off a small target, which is what release_seconds is
+        # there to absorb. Measure before changing it; ROI readings taken without
+        # restarting ranging are not reproducible (see _apply_roi).
+        self.roi_size = None if roi_size is None else int(roi_size)
+        self.roi_center = None if roi_center is None else int(roi_center)
+        if self.roi_size is not None and not 4 <= self.roi_size <= 16:
+            raise ValueError(f"motion.roi_size must be between 4 and 16, got {self.roi_size}")
+        if self.roi_center is not None and not 0 <= self.roi_center <= 255:
+            raise ValueError(f"motion.roi_center must be between 0 and 255, got {self.roi_center}")
         # Consecutive non-detections needed to re-arm. See poll_once: the sensor
         # drops roughly half its reads at the feeder, and an invalid read is
         # indistinguishable from an empty port, so re-arming on one of them turns
@@ -254,6 +278,7 @@ class ToFMotionSource:
     def start(self, callback: Callback) -> None:
         self._sensor = self._sensor_factory()
         self._sensor.distance_mode = self.SHORT_DISTANCE_MODE
+        self._apply_roi()
         self._sensor.start_ranging()
         self._callback = callback
 
@@ -272,6 +297,34 @@ class ToFMotionSource:
         self._stop.clear()
         self._thread = threading.Thread(target=self._poll_loop, name="tof-poller", daemon=True)
         self._thread.start()
+
+    def _apply_roi(self) -> None:
+        """Set the SPAD window, BEFORE ranging starts.
+
+        Order matters. Changing the ROI while ranging is already running gives
+        readings that do not reproduce -- measured 2026-10-06, the same centre on
+        the same static scene returned "clear" and "13 cm" in alternating runs,
+        which sent this investigation down a blind alley. Set it once, then start.
+
+        A sensor stub without these attributes is fine: the tests use one.
+        """
+        if self.roi_size is None and self.roi_center is None:
+            return
+        try:
+            if self.roi_size is not None:
+                self._sensor.roi_xy = (self.roi_size, self.roi_size)
+            if self.roi_center is not None:
+                self._sensor.roi_center = self.roi_center
+            logger.info(
+                "ToF region of interest: %s SPADs centred on %s",
+                "default" if self.roi_size is None else f"{self.roi_size}x{self.roi_size}",
+                "default" if self.roi_center is None else self.roi_center,
+            )
+        except AttributeError:
+            logger.warning(
+                "this VL53L1X driver exposes no ROI control; motion.roi_size/roi_center "
+                "are being ignored and the full 16x16 array is in use"
+            )
 
     def poll_once(self) -> None:
         """Read one sample, if ready, and fire on the clear -> detected edge.

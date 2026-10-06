@@ -132,3 +132,82 @@ def test_the_valve_does_not_disturb_a_normal_visit():
     """A visit well under max_hold_seconds stays exactly one event."""
     events, _ = run([None] + [20.0] * 15 + [None] * 5, release_seconds=0.3, max_hold_seconds=60.0)
     assert len(events) == 1
+
+
+class RoiSensor(FakeVL53L1X):
+    """Records ROI writes and when they happened relative to start_ranging()."""
+
+    def __init__(self, readings_cm=()):
+        super().__init__(readings_cm)
+        self.roi_xy = (16, 16)
+        self.roi_center = 199
+        self.writes_after_start = 0
+
+    def start_ranging(self):
+        super().start_ranging()
+        self._started = True
+
+    def __setattr__(self, name, value):
+        if name in ("roi_xy", "roi_center") and getattr(self, "_started", False):
+            object.__setattr__(self, "writes_after_start", self.writes_after_start + 1)
+        object.__setattr__(self, name, value)
+
+
+def test_roi_is_applied_before_ranging_starts():
+    """Order matters: an ROI set mid-ranging gives readings that do not reproduce."""
+    sensor = RoiSensor()
+    src = ToFMotionSource(
+        warmup_seconds=0,
+        read_rate_hz=100,
+        roi_size=4,
+        roi_center=199,
+        sensor_factory=lambda: sensor,
+    )
+    src.start(lambda e: None)
+    src.stop()
+    assert sensor.roi_xy == (4, 4)
+    assert sensor.roi_center == 199
+    assert sensor.writes_after_start == 0, "ROI must be set before start_ranging()"
+
+
+def test_roi_defaults_leave_the_sensor_untouched():
+    sensor = RoiSensor()
+    src = ToFMotionSource(warmup_seconds=0, read_rate_hz=100, sensor_factory=lambda: sensor)
+    src.start(lambda e: None)
+    src.stop()
+    assert sensor.roi_xy == (16, 16), "no roi_size configured -> full array"
+
+
+def test_a_driver_without_roi_support_only_warns(caplog):
+    """Older drivers expose no ROI; that must not stop the service starting."""
+    import logging
+
+    class NoRoi(FakeVL53L1X):
+        __slots__ = ()
+
+        def __setattr__(self, name, value):
+            if name in ("roi_xy", "roi_center"):
+                raise AttributeError(name)
+            object.__setattr__(self, name, value)
+
+    sensor = NoRoi([])
+    src = ToFMotionSource(
+        warmup_seconds=0,
+        read_rate_hz=100,
+        roi_size=4,
+        roi_center=199,
+        sensor_factory=lambda: sensor,
+    )
+    with caplog.at_level(logging.WARNING, logger="capture.motion"):
+        src.start(lambda e: None)
+    src.stop()
+    assert any("no ROI control" in r.message for r in caplog.records)
+
+
+def test_out_of_range_roi_values_are_rejected():
+    import pytest
+
+    with pytest.raises(ValueError, match="roi_size"):
+        ToFMotionSource(roi_size=2)
+    with pytest.raises(ValueError, match="roi_center"):
+        ToFMotionSource(roi_center=999)

@@ -45,6 +45,19 @@ motion:
   # birds arriving in quick succession are merged into one. Must stay well under
   # capture.cooldown_seconds, which is the coarse guard on top of this.
   release_seconds: 1.0
+  # Safety valve: if something reads in range this long without ever clearing,
+  # the gate is assumed stuck. The service logs a WARNING naming the distance and
+  # re-arms, so the next poll fires again.
+  #
+  # Why this exists: a target parked in the beam -- the perch itself, a leaf, a
+  # spider web -- holds the trigger down permanently and the feeder silently
+  # stops recording. There is otherwise NOTHING in the log to distinguish that
+  # from a quiet afternoon, and it was misdiagnosed twice on 2026-10-06.
+  #
+  # Keep it well above a realistic visit. A bird that does sit longer just gets a
+  # second event, which capture.cooldown_seconds already rate-limits. null
+  # disables the valve.
+  max_hold_seconds: 60.0
   # Unused: the sensor is always polled (an interrupt saves no power on a Pi 4B,
   # which never sleeps). Kept so older configs still load; a value only logs a
   # warning.

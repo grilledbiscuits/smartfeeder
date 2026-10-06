@@ -36,7 +36,13 @@ class FakeVL53L1X:
         self._pending = False
 
 
-def run(readings_cm, detection_range_mm=500, release_seconds=0.3, read_rate_hz=10.0):
+def run(
+    readings_cm,
+    detection_range_mm=500,
+    release_seconds=0.3,
+    read_rate_hz=10.0,
+    max_hold_seconds=None,
+):
     """Poll a fixed list of readings. Default release is 3 polls (0.3s at 10 Hz)."""
     sensor = FakeVL53L1X(readings_cm)
     events = []
@@ -45,6 +51,7 @@ def run(readings_cm, detection_range_mm=500, release_seconds=0.3, read_rate_hz=1
         warmup_seconds=0,
         read_rate_hz=read_rate_hz,
         release_seconds=release_seconds,
+        max_hold_seconds=max_hold_seconds,
         sensor_factory=lambda: sensor,
     )
     src._sensor = src._sensor_factory()  # bypass the polling thread
@@ -98,3 +105,30 @@ def test_start_and_stop_drive_ranging():
     assert sensor.ranging and sensor.distance_mode == ToFMotionSource.SHORT_DISTANCE_MODE
     src.stop()
     assert not sensor.ranging
+
+
+def test_a_stuck_gate_releases_and_warns(caplog):
+    """Something parked in the beam must not silently blind the feeder.
+
+    The perch sits ~20 cm from the sensor, inside any sensible detection range,
+    so a sensor aimed slightly differently could read it forever. Without the
+    valve the trigger latches and the log says nothing at all.
+    """
+    import logging
+
+    with caplog.at_level(logging.WARNING, logger="capture.motion"):
+        # 10 Hz, 1s hold -> 10 polls; the 11th in-range read trips the valve.
+        events, _ = run([20.0] * 25, release_seconds=0.3, max_hold_seconds=1.0)
+    assert len(events) > 1, "a permanently held gate must re-fire, not go quiet"
+    assert any("stuck" in r.message for r in caplog.records)
+
+
+def test_the_valve_can_be_disabled():
+    events, _ = run([20.0] * 40, release_seconds=0.3, max_hold_seconds=None)
+    assert len(events) == 1
+
+
+def test_the_valve_does_not_disturb_a_normal_visit():
+    """A visit well under max_hold_seconds stays exactly one event."""
+    events, _ = run([None] + [20.0] * 15 + [None] * 5, release_seconds=0.3, max_hold_seconds=60.0)
+    assert len(events) == 1

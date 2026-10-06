@@ -186,6 +186,7 @@ class ToFMotionSource:
         warmup_seconds: float = 1.0,
         read_rate_hz: float = 10.0,
         interrupt_pin: int | None = None,
+        release_seconds: float = 1.0,
         *,
         sensor_factory: Callable[[], object] | None = None,
     ) -> None:
@@ -194,6 +195,12 @@ class ToFMotionSource:
         self.detection_range_mm = int(detection_range_mm)
         self.warmup_seconds = float(warmup_seconds)
         self.read_rate_hz = float(read_rate_hz)
+        self.release_seconds = float(release_seconds)
+        # Consecutive non-detections needed to re-arm. See poll_once: the sensor
+        # drops roughly half its reads at the feeder, and an invalid read is
+        # indistinguishable from an empty port, so re-arming on one of them turns
+        # a single visit into an event per surviving read.
+        self._release_polls = max(1, round(self.release_seconds * self.read_rate_hz))
         if interrupt_pin is not None:
             logger.warning("motion.interrupt_pin is set but ignored: the ToF sensor is polled")
         # Injected in tests; the default opens the real sensor.
@@ -203,6 +210,7 @@ class ToFMotionSource:
         self._stop = threading.Event()
         self._callback: Callback | None = None
         self._in_range = False
+        self._clear_run = 0
 
     def _open_sensor(self):  # pragma: no cover - hardware path
         try:
@@ -251,16 +259,41 @@ class ToFMotionSource:
         self._thread.start()
 
     def poll_once(self) -> None:
-        """Read one sample, if ready, and fire on the out-of-range -> in-range edge."""
+        """Read one sample, if ready, and fire on the clear -> detected edge.
+
+        Detection arms immediately; releasing needs `release_seconds` of unbroken
+        non-detection. That asymmetry is the point. MEASURED at the feeder
+        2026-10-06: over 610 polls with a hand moving at the port, only 50% of
+        reads returned a distance at all -- the rest came back None. Because the
+        VL53L1X reports "nothing in range" as None too, an invalid read cannot be
+        told apart from an empty port, so releasing on the first one turned one
+        visit into 44 separate triggers in 60 seconds. Ignoring None instead is
+        not an option: the trigger would latch on and never re-arm.
+
+        `capture.service.TriggerGate`'s cooldown does not cover this. It
+        suppresses re-triggers for 30 s AFTER an admitted event, which is why the
+        thrashing showed up as one admitted clip plus a long tail of
+        `dropped_cooldown`; the sub-second flicker underneath it is this method's
+        problem to absorb.
+        """
         if not self._sensor.data_ready:
             return
         distance_cm = self._sensor.distance
         self._sensor.clear_interrupt()
-        # None means no valid target: treat it as "nothing at the port".
-        in_range = distance_cm is not None and distance_cm * 10 < self.detection_range_mm
-        if in_range and not self._in_range and self._callback:
-            self._callback(MotionEvent.now(Trigger.TOF))
-        self._in_range = in_range
+        detected = distance_cm is not None and distance_cm * 10 < self.detection_range_mm
+
+        if detected:
+            self._clear_run = 0
+            if not self._in_range:
+                self._in_range = True
+                if self._callback:
+                    self._callback(MotionEvent.now(Trigger.TOF))
+            return
+
+        # Not detected: ride out a dropout, but let a departure through.
+        self._clear_run += 1
+        if self._clear_run >= self._release_polls:
+            self._in_range = False
 
     def _poll_loop(self) -> None:
         interval = 1.0 / self.read_rate_hz

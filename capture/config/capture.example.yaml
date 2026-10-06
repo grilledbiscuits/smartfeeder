@@ -28,7 +28,33 @@ motion:
   # Detection range in millimeters. Object closer than this fires motion.
   # Tuning: start at 500 mm, decrease if false-negatives (misses birds),
   # increase if false-positives (records empty feeder).
+  #
+  # Only meaningful once roi_size below excludes anything permanently in the
+  # beam. With the full array the bottle read 13 cm continuously, so EVERY range
+  # from 300 to 1300 mm behaved identically -- always in range, perch masked.
   detection_range_mm: 500
+
+  # --- region of interest -----------------------------------------------------
+  # The sensor's 16x16 SPAD array. roi_size is the window side in SPADs (4-16;
+  # null = the full ~27 degree cone), roi_center the centre SPAD (0-255).
+  #
+  # This is what keeps the feeder bottle out of the beam, and it is not optional
+  # at this mounting. MEASURED 2026-10-06, sensor mounted beside the bottle neck:
+  #
+  #   config        empty scene          something at the perch
+  #   16x16 c=199   2-17% valid, noisy   100% @ 13 cm
+  #   4x4   c=199   0% valid, 3/3 runs   100% @ 10-12 cm, 3/3 runs
+  #
+  # The bottle is NEARER (13 cm) than the perch (~20 cm) and the sensor reports
+  # one dominant return, so the full array masks the bird behind the bottle and
+  # no threshold downstream can undo it. Narrowing drops the bottle into the
+  # 239/247 corner of the array and leaves the centre clear.
+  #
+  # Re-measure after ANY change to the mount, and always with ranging restarted
+  # between configurations -- ROI readings taken without a restart do not
+  # reproduce. Smaller windows see less: 4x4 is about 7 degrees.
+  roi_size: 4
+  roi_center: 199
   # Time to wait after power-on for sensor to stabilize (seconds).
   warmup_seconds: 1.0
   # Polling rate (Hz). Higher = faster response, higher CPU. 10 Hz is typical.

@@ -119,6 +119,8 @@ def build_motion_source(cfg: CaptureConfig, *, mock: bool = False, schedule=None
             max_hold_seconds=(
                 None if motion["max_hold_seconds"] is None else float(motion["max_hold_seconds"])
             ),
+            roi_size=motion["roi_size"],
+            roi_center=motion["roi_center"],
             interrupt_pin=motion.get("interrupt_pin"),
         )
     else:

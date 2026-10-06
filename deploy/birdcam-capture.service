@@ -15,17 +15,42 @@ Documentation=file:/opt/smartfeeder/capture/README.md
 # start. This only orders the unit after the local filesystems are up.
 After=local-fs.target
 RequiresMountsFor=/opt/smartfeeder
+# Do not let repeated crashes hammer the card. After 5 failures in 10 minutes
+# systemd gives up; `systemctl reset-failed` clears it. These belong in [Unit]:
+# systemd ignores StartLimitIntervalSec in [Service] and logs "Unknown key" on
+# every reload, which left the rate limit silently inactive.
+StartLimitBurst=5
+StartLimitIntervalSec=600
 
 [Service]
 Type=simple
 User=birdcam
 Group=birdcam
-# video  -> /dev/video* and the camera; gpio -> /dev/gpiochip* for the PIR.
-# Without both, the service starts and then cannot claim its hardware.
-SupplementaryGroups=video gpio
+# video -> /dev/video* and the camera; gpio -> /dev/gpiochip* for the PIR, and
+# for the ToF too: Blinka's `board` imports RPi.GPIO for its pin table before it
+# will hand over an I2C bus. i2c -> /dev/i2c-1, which the VL53L1X speaks on.
+# Without all three the service starts and then cannot claim its hardware.
+SupplementaryGroups=video gpio i2c
 
-WorkingDirectory=/opt/smartfeeder
+# NOT the repo root, and NOT anywhere under it. lgpio (reached via RPi.GPIO,
+# reached via Blinka) creates a `.lgd-nfy*` notify file in the CURRENT DIRECTORY
+# on import, and /opt/smartfeeder is root-owned so the service cannot write
+# there. That failure is silent in the PIR path -- gpiozero catches it and falls
+# back to its experimental polling pin factory -- but fatal in the ToF path,
+# where `import board` raises outright.
+#
+# systemd creates and tears down this directory, owned by User=, so nothing in
+# the repo tree has to be writable.
+#
+# Do NOT point this at /opt/smartfeeder/var: `python -m capture` finds the
+# package on sys.path[0], which is the CWD, and var/ contains the spool
+# directory var/capture/. Python picks that up as a namespace package and dies
+# with "No module named capture.__main__". Hence the explicit PYTHONPATH below,
+# which is now the only thing making the package importable.
+RuntimeDirectory=birdcam-capture
+WorkingDirectory=/run/birdcam-capture
 Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONPATH=/opt/smartfeeder
 # Optional: secrets referenced as ${VAR} from capture.yaml. The leading '-'
 # means a missing file is not an error.
 EnvironmentFile=-/etc/default/birdcam-capture
@@ -41,11 +66,6 @@ RestartSec=10
 # service handles SIGTERM and drains before exiting.
 KillSignal=SIGTERM
 TimeoutStopSec=45
-
-# Do not let repeated crashes hammer the card. After 5 failures in 10 minutes
-# systemd gives up; `systemctl reset-failed` clears it.
-StartLimitBurst=5
-StartLimitIntervalSec=600
 
 # --- hardening ---------------------------------------------------------------
 # Deliberately NOT PrivateDevices=yes: that hides /dev/video* and

@@ -247,18 +247,23 @@ rollup:
   # Tier A species get their own thresholds, tuned per-class from the
   # precision-recall curves in Phase 7. Populated by the report, not by hand.
   per_class_thresholds:
-    # Fitted 2026-08-05 from: fine-tuned checkpoint student_best.pt @ a71e95cca471
-    # Chosen as the lowest threshold reaching 80% precision on VAL;
-    # the precision and recall below are the resulting TEST figures, which
-    # are what actually hold. A class can miss the target on test.
-    # INTERIM -- refit required once the Tier A capture allowlist and the
-    # novelty feature source are settled. See ASSUMPTIONS.md A25.
-    anthobaphes_violacea: 0.28   # test precision 0.847, recall 0.921
-    chalcomitra_amethystina: 0.25   # test precision 0.800, recall 0.853
-    cinnyris_afer: 0.42   # test precision 0.781, recall 0.641  MISSED TARGET
-    cinnyris_chalybeus: 0.74   # test precision 0.833, recall 0.386
-    nectarinia_famosa: 0.43   # test precision 0.830, recall 0.770
-    promerops_cafer: 0.18   # test precision 0.729, recall 0.917  MISSED TARGET
+    # Refitted 2026-09-21 from: INT8 graph of student_best.pt @ 0311dc3cf26a,
+    # through the capture preprocessing path, with pillarboxed field frames
+    # excluded from the fit (birdcam.data.letterbox -- portrait phone video the
+    # feeder camera cannot produce). Lowest threshold reaching 80% precision on
+    # VALIDATION; the figure quoted per line is that validation precision.
+    #
+    # These MUST be refitted together with classifier.operating_points: this
+    # file is what inference.py reads at runtime, and the previous values were
+    # fitted on a different checkpoint (a71e95cca471) than the graph now
+    # deployed. A stale pair here is silent -- the labels are simply wrong.
+    # Provenance: ml/reports/clean-20260921/operating_points.json.
+    anthobaphes_violacea: 0.46   # val precision 0.801, n=221
+    chalcomitra_amethystina: 0.43   # val precision 0.801, n=357
+    cinnyris_afer: 0.05   # val precision 0.813, n=48  -- thin, treat with care
+    cinnyris_chalybeus: 0.66   # val precision 0.809, n=740
+    nectarinia_famosa: 0.61   # val precision 0.800, n=195
+    promerops_cafer: 0.43   # val precision 0.801, n=181
   # Below the guild threshold the model emits this and the capture app declines
   # to record.
   abstain_label: uncertain

@@ -20,5 +20,9 @@ pillow>=10.3
 # (reports/deployment.md).
 onnxruntime>=1.18
 
+# VL53L1X ToF motion sensor (motion.sensor_type: tof). Pulls in Adafruit Blinka
+# for the `board` I2C bus; I2C must be enabled: sudo raspi-config nonint do_i2c 0
+adafruit-circuitpython-vl53l1x>=1.2
+
 # The dashboard this service publishes into.
 flask>=3.0

@@ -75,3 +75,32 @@ def test_capture_target_flag_alone_decides_not_the_level(make_decision):
         "pycnonotus_capensis", level="species", confidence=0.98, is_capture_target=False
     )
     assert decide_outcome(confident_bystander, retain_uncertain=True) is Outcome.DISCARD
+
+
+def test_unknown_is_retained_when_retain_unknown_is_on(make_decision):
+    """Commissioning: the failsafe's own rejects are the data needed to tune it.
+
+    2026-10-06 produced 14 unknown clips in 3.5 hours and deleted every one, so
+    a bird the gate misjudged was indistinguishable from a gust of wind.
+    """
+    d = make_decision("unknown", is_unknown=True, is_capture_target=False)
+    assert decide_outcome(d, retain_uncertain=True, retain_unknown=True) is Outcome.RETAIN
+    assert decide_outcome(d, retain_uncertain=False, retain_unknown=True) is Outcome.RETAIN
+
+
+def test_unknown_retention_defaults_off(make_decision):
+    """The flag defaults off, so the documented steady-state rule is unchanged."""
+    d = make_decision("unknown", is_unknown=True, is_capture_target=False)
+    assert decide_outcome(d, retain_uncertain=True) is Outcome.DISCARD
+    assert decide_outcome(d, retain_uncertain=True, retain_unknown=False) is Outcome.DISCARD
+
+
+def test_a_retained_unknown_is_never_published(make_decision):
+    """Evidence, not a visit record."""
+    d = make_decision("unknown", is_unknown=True, is_capture_target=False)
+    assert decide_outcome(d, retain_uncertain=True, retain_unknown=True) is not Outcome.PUBLISH
+
+
+def test_retain_unknown_does_not_affect_an_allowlisted_bird(make_decision):
+    d = make_decision("cinnyris_chalybeus", is_capture_target=True)
+    assert decide_outcome(d, retain_uncertain=True, retain_unknown=True) is Outcome.PUBLISH

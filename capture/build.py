@@ -251,6 +251,7 @@ def build_pipeline(cfg: CaptureConfig, *, spool, recorder, classifier, publisher
         publisher=publisher,
         clip_seconds=float(cfg.get("capture.clip_seconds")),
         retain_uncertain=bool(pub["retain_uncertain"]),
+        retain_unknown=bool(pub["retain_unknown"]),
         delete_after_publish=bool(cfg.get("storage.delete_after_publish")),
         escalate_after_attempts=int(pub["escalate_after_attempts"]),
         backoff_initial_seconds=float(pub["backoff_initial_seconds"]),

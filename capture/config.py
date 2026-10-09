@@ -154,6 +154,7 @@ class CaptureConfig:
         ),
         "publish": (
             "retain_uncertain",
+            "retain_unknown",
             "escalate_after_attempts",
             "backoff_initial_seconds",
             "backoff_max_seconds",

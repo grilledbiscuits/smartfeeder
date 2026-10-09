@@ -33,7 +33,9 @@ UNCERTAIN = "uncertain"
 UNKNOWN = "unknown"
 
 
-def decide_outcome(decision: Any, *, retain_uncertain: bool) -> Outcome:
+def decide_outcome(
+    decision: Any, *, retain_uncertain: bool, retain_unknown: bool = False
+) -> Outcome:
     """Map one voted Decision to what happens to the clip on disk.
 
     Parameters
@@ -45,6 +47,19 @@ def decide_outcome(decision: Any, *, retain_uncertain: bool) -> Outcome:
         Config flag `publish.retain_uncertain`. When False the service behaves
         exactly as the plain rule states: anything not on the allowlist is
         deleted immediately.
+    retain_unknown:
+        Config flag `publish.retain_unknown`, default False. Keeps clips the
+        open-set failsafe rejected, which are normally deleted on sight.
+
+        For COMMISSIONING, not for steady state. The argument against retaining
+        them (below) assumes a PIR on continuous footage where unknowns are most
+        of the timeline. Under the ToF trigger they are not: 2026-10-06 produced
+        14 clips in 3.5 hours, every one rejected as unknown with novelty -3.81
+        to -4.80 against a -4.9434 threshold -- and because they were deleted on
+        sight there was no way to tell a real bird the gate had misjudged from a
+        gust of wind. Retaining them is what makes the threshold tunable against
+        the deployed view rather than against the old phone footage it was fitted
+        on. Turn it off once the gate is trusted.
     """
     if decision is None:
         # No classification happened -- a classifier failure, not a verdict of
@@ -59,9 +74,11 @@ def decide_outcome(decision: Any, *, retain_uncertain: bool) -> Outcome:
     # about. Never retained even when retain_uncertain is on -- these are the
     # squirrels, the rain and the empty feeder, and they are the bulk of the
     # timeline (A27: 60.8% of uncut frames).
-    if retain_uncertain and not getattr(decision, "is_unknown", False):
-        if getattr(decision, "label", None) == UNCERTAIN:
-            return Outcome.RETAIN
+    if getattr(decision, "is_unknown", False):
+        return Outcome.RETAIN if retain_unknown else Outcome.DISCARD
+
+    if retain_uncertain and getattr(decision, "label", None) == UNCERTAIN:
+        return Outcome.RETAIN
 
     return Outcome.DISCARD
 

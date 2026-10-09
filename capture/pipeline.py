@@ -49,6 +49,7 @@ class CapturePipeline:
         *,
         clip_seconds: float,
         retain_uncertain: bool,
+        retain_unknown: bool = False,
         delete_after_publish: bool,
         escalate_after_attempts: int,
         backoff_initial_seconds: float,
@@ -63,6 +64,7 @@ class CapturePipeline:
         self.publisher = publisher
         self.clip_seconds = float(clip_seconds)
         self.retain_uncertain = bool(retain_uncertain)
+        self.retain_unknown = bool(retain_unknown)
         self.delete_after_publish = bool(delete_after_publish)
         self.escalate_after_attempts = int(escalate_after_attempts)
         self.backoff_initial = float(backoff_initial_seconds)
@@ -105,7 +107,11 @@ class CapturePipeline:
             # and exactly wrong here.
             record.outcome = Outcome.DISCARD
         else:
-            record.outcome = decide_outcome(record.decision, retain_uncertain=self.retain_uncertain)
+            record.outcome = decide_outcome(
+                record.decision,
+                retain_uncertain=self.retain_uncertain,
+                retain_unknown=self.retain_unknown,
+            )
         logger.info("%s: %s", event.event_id, describe(record.decision, record.outcome))
 
         try:

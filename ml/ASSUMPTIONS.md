@@ -659,3 +659,91 @@ scorer on field data before deployment.
 
 Only 39.8% of that folder predicts *C. chalybeus*; 17.3% unknown, 11.7%
 abstain, 8.5% `cinnyris_indet`. Worst class on web data, worst class here.
+
+## 🔴 A28. Every frame this project has recorded was out of focus
+
+Camera Module 3 (`imx708`) is an autofocus module, and picamera2 leaves it in
+`AfMode.Manual` at `LensPosition 1.0` — **one metre** — unless something sets
+it. Nothing in `capture/`, `ml/config/` or `deploy/` referenced focus at all
+until 2026-10-09. The perch is at **0.114 m**, measured by running continuous
+AF against a target there and reading the lens back (stable median 8.80
+dioptres over a 40 s window, corroborated by the ToF ranging the same target at
+10–12 cm).
+
+So every clip recorded through this camera — including the field footage the
+model was fine-tuned and calibrated on — was focused about **nine times past
+the subject**.
+
+The damage is not only sharpness. Blur reads as *unfamiliar* to the energy
+novelty gate, so it was rejecting real birds. Measured on one camera, same
+scene:
+
+| condition | per-frame energy | clip novelty | frames clearing −4.9434 |
+|---|---|---|---|
+| blurred Cape White-eye (confirmed visit) | −2.75 … −5.74 | −4.0903 | 2 of 12 |
+| sharp hand | −4.29 … −5.65 | −4.961 | 6 of 12 |
+| sharp Southern Double-collared | — | −6.883 | cleared by ≈1.9 |
+
+**This supersedes the reading of A25/A27 that the open-set threshold itself was
+wrong.** It was reporting blur honestly. Fixed by `camera.lens_position: 8.8`.
+
+Consequence for the model, not yet addressed: the per-class thresholds, the
+energy threshold and the INT8 quantisation calibration were all fitted on
+blurred field frames or on phone video of a different scene. None of them has
+been fitted against what this camera now produces.
+
+## 🔴 A29. The ToF trigger was calibrated against a hand, and missed real birds
+
+The VL53L1X region of interest was narrowed to `4x4` to exclude the feeder
+bottle, which sits **nearer the sensor (9–13 cm) than the perch (~20 cm)** — and
+because the sensor returns one dominant distance per reading, a nearer permanent
+object masks the perch outright.
+
+`4x4` spans about **1.4 cm** at 0.114 m. It was validated against a human fist,
+which fills that window; a sunbird does not. Observed outcomes, 2026-10-09:
+
+| `roi_size` | empty-port triggers | observed wild visits |
+|---|---|---|
+| 4 × 4 | 0 in 3 min | **1 missed** |
+| 8 × 8 | 0 in 11 min | 1 caught, **1 missed** |
+| 16 × 16 | 3 admitted + 1 dropped in 2 min | — |
+
+Settled on the full array, because the errors are not comparable in cost: every
+16×16 empty-port trigger was scored `unknown` and **retained, never published**,
+whereas a missed visit is unrecoverable *and silent* — no log line is emitted at
+all. Narrowing puts precision in the sensor, which is the wrong layer; the
+classifier and allowlist are the precision filter.
+
+Two generalisations worth keeping: **never calibrate the trigger against a proxy
+target**, and the system **cannot detect its own misses** — all three false
+negatives were found by a human watching the feeder, never by the logs.
+
+## 🟡 A30. The open-set gate does not reject a human hand
+
+A hand at the perch, in focus, published as `nectariniidae_indet` at **0.844**
+family confidence with novelty **−4.961**. That clears both the fitted
+(−4.9434) and the temporarily loosened (−3.5) threshold, so it is not an
+artefact of the test setting.
+
+Measured once, deliberately, under controlled conditions. It bounds what the
+energy failsafe can be claimed to do: it catches the empty feeder and a wrongly
+aimed camera (14 clips of a misaimed scene on 2026-10-06, all correctly
+rejected), but it does not separate a warm close object from a bird.
+
+Clip retained at `var/evidence-20261009/20261009_141436_fd186dd4.mp4`; the
+false visit row was deleted from `feeder.db`.
+
+## 🟢 A31. Power consumption is not measurable on this hardware
+
+A Pi 4B has no onboard power sensor, so watts are unobtainable in software at
+any sample rate. `vcgencmd measure_volts core` reports the SoC core rail, not
+input power, and `get_throttled` only indicates whether the 5 V input sagged
+past the undervoltage threshold.
+
+Any power figure in the report must come from an **inline USB-C power meter**.
+`deploy/telemetry.py` logs thermal, throttle, clock, CPU and memory from
+2026-10-09 onward and says this in its docstring; nothing in that CSV is a power
+measurement.
+
+Measured for reference, one record-classify-publish cycle: **+2.9 °C
+(48.7 → 51.6), +37.8 MiB RSS, +6.0 pp CPU**, no throttling.

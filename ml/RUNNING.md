@@ -1,9 +1,33 @@
-# In flight — Pi deployment (updated 2026-09-17)
+# In flight — Pi deployment (updated 2026-10-09)
 
-**Not deployed.** The Pi (`sunfeed`, 192.168.0.224, key auth; `.local` does not
-resolve) still runs the **August 62-class FP32** build from `/opt/smartfeeder`.
-It is on a desk, not at the feeder. The full history of the 2026-09-16 soak is
-in commit d701154's version of this file.
+> **2026-10-09: deployed and running on the ToF build.** The field
+> commissioning record is `deploy/field-log-20261009.md`, with the
+> ground-truth observation log beside it as
+> `deploy/field-log-20261009-observations.csv`. Findings are A28-A31 in
+> `ml/ASSUMPTIONS.md`.
+>
+> A28 supersedes part of this file: the camera was focused at 1 m against a
+> 0.114 m perch for the project's whole life, so every field frame -- and
+> therefore every calibration fitted on them, including the clean-20260921
+> thresholds and the INT8 quantisation -- used blurred input. Refit against
+> the corrected camera before quoting any number below as a deployment
+> result.
+
+**Deployed 2026-10-09.** The Pi (`sunfeed`, currently 192.168.1.120, key auth;
+`.local` does not resolve) runs the **37-class INT8** build from
+`/opt/smartfeeder`, at the feeder, with the VL53L1X ToF trigger. T = 1.441,
+energy threshold −4.9434, 11 capture targets. The full history of the
+2026-09-16 soak is in commit d701154's version of this file.
+
+Two changes are **Pi-local and uncommitted**, and any `swap_in.sh` reverts
+them — that already happened once:
+
+- `ml/config/species.yaml`: *Zosterops virens* promoted Tier C → A, so Cape
+  White-eye publishes (14 targets instead of 11). Tiers also drive training, so
+  committing it would alter the next retrain. Backup:
+  `~/species.yaml.bak-before-whiteeye2`.
+- `capture/config/capture.yaml` is local by design; the staged copy that
+  `swap_in.sh` installs lives beside the repo, not in it.
 
 ## Candidate
 

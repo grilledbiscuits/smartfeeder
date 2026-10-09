@@ -1,0 +1,34 @@
+# Pi health telemetry for the deployment chapter.
+#
+#   sudo cp deploy/birdcam-telemetry.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now birdcam-telemetry
+#
+# Runs as root ONLY because vcgencmd needs /dev/vcio. It writes one file and
+# reads /proc; nothing else.
+#
+# NOT a power measurement: a Pi 4B has no onboard power sensor. See the module
+# docstring in telemetry.py before quoting anything from the CSV.
+
+[Unit]
+Description=Bird feeder Pi health telemetry (thermal, throttle, CPU, memory)
+After=local-fs.target
+RequiresMountsFor=/opt/smartfeeder
+
+[Service]
+Type=simple
+# vcgencmd requires membership of the video group or root; the GPU mailbox at
+# /dev/vcio is not readable by the birdcam service user.
+User=root
+Environment=TELEMETRY_INTERVAL=30
+ExecStart=/usr/bin/python3 /opt/smartfeeder/deploy/telemetry.py /opt/smartfeeder/var/telemetry/health.csv
+Restart=always
+RestartSec=10
+Nice=10
+# Deliberately NOT ProtectSystem=strict: vcgencmd needs /dev/vcio.
+NoNewPrivileges=yes
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/opt/smartfeeder/var
+
+[Install]
+WantedBy=multi-user.target

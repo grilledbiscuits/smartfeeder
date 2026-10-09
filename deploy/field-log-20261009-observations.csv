@@ -1,0 +1,35 @@
+# Ground-truth observation log, feeder commissioning 2026-10-06 and 2026-10-09.
+#
+# One row per event that has an INDEPENDENT ground truth: either a human watched
+# the feeder and said what was there, or the trigger was deliberately actuated.
+# System-detected events with no human observer are NOT ground truth and are
+# excluded -- their label is the system's claim, not a fact.
+#
+# truth           what was actually at the feeder, from human observation
+# truth_source    observer = a person watching; actuated = deliberate hand test
+# triggered       did the ToF fire at all (the recall question)
+# label/conf      what the service decided; empty when nothing triggered
+# novelty         clip-level energy. REJECTED when > novelty_threshold
+# outcome         publish | retain | discard | none (no trigger)
+# verdict         TP | FP | FN | TN_correct_reject, judged against truth
+#
+# CAVEATS, read before using any of this:
+#  * n is tiny (3 observed wild visits). Nothing here supports a rate.
+#  * The mount shifted at least 3 times during 2026-10-09, so roi_size,
+#    lens_position and the bottle's position in the beam are not constant
+#    across rows even where the config string is identical.
+#  * 2026-10-06 timestamps are unreliable: the Pi has no RTC and logged in
+#    restored-clock time before NTP corrected it.
+#  * 2026-10-06 clips were all deleted (publish.retain_unknown was not yet
+#    implemented), so those rows cannot be re-examined.
+#  * "missed" rows have no timestamp precision better than a few minutes;
+#    nothing fired, so there is no machine record to anchor them to.
+#
+timestamp,truth,truth_source,triggered,label,conf,novelty,novelty_threshold,outcome,verdict,roi_size,lens_position,notes
+2026-10-06T16:26/20:00,unknown_camera_misaimed,observer,yes,unknown,0.0,-3.81..-4.80,-4.9434,discard,TN_correct_reject,16,1.0,"14 clips over 3.5h; camera was not pointed at the perch, so the gate rejected the wrong scene correctly; all clips deleted"
+2026-10-09T13:53:23,Zosterops virens,observer,yes,unknown,0.0,-4.0903,-4.9434,retain,FN,4,1.0,"CORRECTLY identified per-frame (zosterops_virens top class 9/12, peak 0.894) but gate rejected 10/12 blurred frames; clip voted unknown"
+2026-10-09T13:53:23,Zosterops virens,observer,yes,zosterops_virens,0.7386,-4.0903,-3.5,publish,TP,4,1.0,"same clip replayed after loosening threshold to -3.5; published as visit id 7; demonstrates the rejection was threshold-vs-blur, not misclassification"
+2026-10-09T14:14:36,human_hand,actuated,yes,nectariniidae_indet,0.8436,-4.961,-3.5,publish,FP,4,8.8,"first sharp-focus clip; open-set gate did NOT reject a hand; publishes at -4.9434 too, so not an artefact of the loosened threshold; visit row deleted from feeder.db, clip kept as evidence"
+2026-10-09T~14:20,Cinnyris chalybeus,observer,no,,,,-4.9434,none,FN,4,8.8,"bird at far end of feeder, possibly occluded by the bottle; 4x4 window is ~1.4cm at 0.114m; no machine record of any kind"
+2026-10-09T14:35:51,Cinnyris chalybeus,system_only,yes,cinnyris_chalybeus,0.8506,-6.883,-4.9434,publish,TP,8,8.8,"NOT human-confirmed -- system detection only, listed for the energy figure; clears threshold by ~1.9 units"
+2026-10-09T~14:40,Cinnyris chalybeus,observer,no,,,,-4.9434,none,FN,8,8.8,"second missed visit; prompted widening back to 16"

@@ -90,6 +90,7 @@ def build_recorder(cfg: CaptureConfig, replay: Path | None = None):
         framerate=int(cam["framerate"]),
         bitrate_kbps=int(cam["bitrate_kbps"]),
         warmup_seconds=float(cam["warmup_seconds"]),
+        lens_position=cam["lens_position"],
     )
 
 

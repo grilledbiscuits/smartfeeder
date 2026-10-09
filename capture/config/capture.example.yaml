@@ -124,6 +124,23 @@ camera:
   # H.264 encoder the Pi 5 dropped (reports/deployment.md), so this costs
   # almost no CPU on this board.
   bitrate_kbps: 4000
+  # Fixed focus in DIOPTRES (1 / distance in metres). null leaves the driver
+  # default alone. 8.8 is about 0.114 m, the measured camera-to-perch distance.
+  #
+  # This is not optional on Camera Module 3, and its absence was invisible for
+  # six weeks. picamera2 leaves imx708 in AfMode.Manual at LensPosition 1.0 --
+  # ONE METRE -- unless something sets it, and nothing did, so every clip was
+  # focused about nine times too far away: sharp background, blurred bird.
+  #
+  # MEASURED 2026-10-09 by running continuous AF with a target at the perch and
+  # reading the lens back: it swept from 1.00 m and settled at 8.2-9.4 dioptres
+  # over 40 s, median 8.8. That agrees with the ToF, which ranges the same
+  # target at 10-12 cm.
+  #
+  # Manual, not continuous AF: the perch does not move, and continuous AF would
+  # hunt against an empty port and leave the first frames of a visit -- exactly
+  # the ones the classifier samples -- mid-sweep. Re-measure if the camera moves.
+  lens_position: 8.8
   # AGC/AWB convergence. Recording immediately gives a clip whose first frames
   # are mis-exposed -- and those are the frames the classifier samples first.
   warmup_seconds: 1.0

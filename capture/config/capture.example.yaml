@@ -52,12 +52,23 @@ motion:
   # bird behind it and no threshold downstream can undo that. 4x4 at centre 199
   # excluded it.
   #
-  # But 4x4 is only ~1.4 cm across at 0.114 m. On 2026-10-09 a confirmed
-  # Southern Double-collared Sunbird visit went COMPLETELY UNTRIGGERED at that
-  # width: a fist fills 1.4 cm and a sunbird at the far end of the feeder does
-  # not. The 4x4 setting had been validated against a hand, which was always the
-  # weak point in that evidence. Re-measure against the real subject, not a
-  # proxy, and prefer the widest width whose empty-port reading is clean.
+  # But a narrow window costs real visits. 2026-10-09, three settings in one
+  # afternoon against observed sunbird visits:
+  #   4x4  (~1.4 cm at 0.114 m)  missed a visit outright
+  #   8x8  (~2.8 cm)             caught one, missed another
+  #   16x16 (full ~27 deg cone)  ~1.5 triggers/min on an EMPTY port
+  #
+  # 16 is the right default anyway, because those false triggers were all scored
+  # `unknown` by the novelty gate and RETAINED, never published. A false trigger
+  # costs a discarded clip and some card wear; a missed visit is unrecoverable
+  # and silent -- the log just shows nothing. Narrowing moves the precision
+  # burden onto the sensor, which is the wrong layer: the trigger should be
+  # generous and the classifier plus allowlist are the precision filter.
+  #
+  # Both narrow settings were validated against a HAND, which fills a 1.4 cm
+  # window and a sunbird does not. Never calibrate this against a proxy target.
+  # Narrow only if an empty port reads OCCUPIED (something parked in the beam),
+  # and then re-check against real visits, not a hand.
   #
   # Re-measure after ANY change to the mount, and always with ranging restarted
   # between configurations -- ROI readings taken without a restart do not
@@ -192,7 +203,10 @@ storage:
   # Hard ceiling on unconfirmed clips. Reaching it stops recording, because the
   # alternative is deleting evidence. Raise it only alongside min_free_mb.
   max_pending_clips: 200
-  max_review_clips: 100
+  # With publish.retain_unknown on, these clips are the labelled set the novelty
+  # refit needs, so eviction discards evidence -- it hit 84/100 within an hour
+  # on 2026-10-09. ~600 clips is about 1.2 GB; min_free_mb still backstops it.
+  max_review_clips: 600
   # Delete the local copy once publication is confirmed. false keeps it under
   # review_dir, which is useful while you are still checking the model's work.
   delete_after_publish: true

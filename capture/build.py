@@ -122,6 +122,10 @@ def build_motion_source(cfg: CaptureConfig, *, mock: bool = False, schedule=None
             ),
             roi_size=motion["roi_size"],
             roi_center=motion["roi_center"],
+            baseline_margin_mm=(
+                None if motion["baseline_margin_mm"] is None else int(motion["baseline_margin_mm"])
+            ),
+            baseline_samples=int(motion["baseline_samples"]),
             interrupt_pin=motion.get("interrupt_pin"),
         )
     else:

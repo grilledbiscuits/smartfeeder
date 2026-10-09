@@ -747,3 +747,24 @@ measurement.
 
 Measured for reference, one record-classify-publish cycle: **+2.9 °C
 (48.7 → 51.6), +37.8 MiB RSS, +6.0 pp CPU**, no throttling.
+
+## A32 — the ToF trigger used an absolute range against a perch bolted in the beam
+
+`motion.detection_range_mm: 500` asks "is anything within 50 cm?" and the perch
+answers yes permanently, so the gate latched on the first poll and birds landing
+on it produced no rising edge. **This supersedes A29** (read then as a
+calibration error against a fist proxy) and the ROI findings that followed from
+it: narrowing the ROI "fixed" the empty-port triggers by aiming away from the
+place birds land, and the `max_hold_seconds` valve became the only thing
+admitting detections, on a 60 s timer unrelated to the birds.
+
+Replaced 2026-10-09 by `motion.baseline_margin_mm`: learn the resting distance
+of the empty scene, fire on a departure of >= margin in either direction. Same
+model as the camera's `IdleBackgroundGate`.
+
+**The margin is unfitted.** 20 mm is a starting value against a resting read
+recorded as a rock-steady 13 cm. `deploy/tof_baseline.py` fits the lower bound
+(largest margin with no empty-port trigger) and has not been run: the Pi was
+unreachable. The upper bound -- the largest margin that still catches a perched
+sunbird -- needs a bird on the perch and is not measurable from a trace.
+Quote no detection rate until both are measured.

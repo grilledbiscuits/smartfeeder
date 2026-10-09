@@ -130,6 +130,8 @@ class CaptureConfig:
             "max_hold_seconds",
             "roi_size",
             "roi_center",
+            "baseline_margin_mm",
+            "baseline_samples",
         ),
         "gpio": ("pin", "sample_rate_hz", "queue_len", "warmup_seconds"),
         "camera": (

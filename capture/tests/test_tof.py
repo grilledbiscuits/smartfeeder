@@ -211,3 +211,91 @@ def test_out_of_range_roi_values_are_rejected():
         ToFMotionSource(roi_size=2)
     with pytest.raises(ValueError, match="roi_center"):
         ToFMotionSource(roi_center=999)
+
+
+# --- baseline-relative detection ---------------------------------------------
+#
+# The model that replaces the absolute range. The perch is permanently in the
+# beam, so "within 500 mm" is always true and the gate never produces a rising
+# edge; these tests pin the behaviour that fixes that.
+
+
+def run_baseline(readings_cm, margin_mm=20, samples=5, release_seconds=0.3):
+    sensor = FakeVL53L1X(readings_cm)
+    events = []
+    src = ToFMotionSource(
+        warmup_seconds=0,
+        read_rate_hz=10.0,
+        release_seconds=release_seconds,
+        baseline_margin_mm=margin_mm,
+        baseline_samples=samples,
+        sensor_factory=lambda: sensor,
+    )
+    src._sensor = src._sensor_factory()
+    src._callback = events.append
+    while sensor.readings:
+        src.poll_once()
+    return events, src
+
+
+def test_perch_in_the_beam_fires_nothing():
+    """The whole fault: a static object at 13 cm must not look like a visit."""
+    events, src = run_baseline([13.0] * 40)
+    assert events == []
+    assert src._baseline == 130.0
+
+
+def test_absolute_range_fires_on_the_static_perch():
+    """Contrast case, documenting why the absolute model had to go."""
+    events, _ = run([13.0] * 40, detection_range_mm=500)
+    assert len(events) == 1  # ...and then never again, however many birds land
+
+
+def test_bird_nearer_than_the_perch_fires_once():
+    events, _ = run_baseline([13.0] * 10 + [10.5] * 20)
+    assert len(events) == 1
+
+
+def test_departure_smaller_than_the_margin_does_not_fire():
+    events, _ = run_baseline([13.0] * 10 + [12.2] * 20, margin_mm=20)
+    assert events == []
+
+
+def test_static_object_leaving_also_fires():
+    """Symmetric margin: farther is a change too, and we would rather record it."""
+    events, _ = run_baseline([13.0] * 10 + [25.0] * 20)
+    assert len(events) == 1
+
+
+def test_bird_cannot_teach_the_baseline_that_it_is_furniture():
+    """A long dwell must stay detected, not get absorbed into the resting median."""
+    events, src = run_baseline([13.0] * 10 + [10.0] * 60, samples=5)
+    assert len(events) == 1
+    assert src._baseline == 130.0
+    assert src._in_range
+
+
+def test_relearns_after_the_mount_settles_to_a_new_distance():
+    events, src = run_baseline([13.0] * 10 + [10.0] * 10 + [10.0] * 10, samples=5)
+    # Still one event; the new distance never clears, so the valve (not the
+    # baseline) is what recovers this. Recorded so the ceiling is explicit.
+    assert len(events) == 1
+
+
+def test_returns_beyond_the_scene_neither_fire_nor_move_the_baseline():
+    events, src = run_baseline([13.0] * 10 + [120.0] * 10 + [13.0] * 10)
+    assert events == []
+    assert src._baseline == 130.0
+
+
+def test_dropouts_during_a_visit_do_not_retrigger():
+    events, _ = run_baseline([13.0] * 10 + [10.0, None, 10.0, None, None, 10.0] * 5)
+    assert len(events) == 1
+
+
+def test_no_detection_until_the_baseline_is_learned():
+    """Before `baseline_samples` clear reads, nothing fires -- including the
+    very first reading, which otherwise has nothing to be compared against."""
+    events, src = run_baseline([10.0] * 4, samples=5)
+    assert events == []
+    assert src._baseline is None

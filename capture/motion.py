@@ -16,7 +16,9 @@ turns that into one event; nothing here tries to second-guess the sensor.
 from __future__ import annotations
 
 import logging
+import statistics
 import threading
+from collections import deque
 from collections.abc import Callable
 from typing import Protocol
 
@@ -154,10 +156,33 @@ class MockMotionSource:
 class ToFMotionSource:
     """VL53L1X Time-of-Flight sensor on I2C, polled.
 
-    The sensor ranges continuously; a motion event fires on the first reading
-    that comes inside `detection_range_mm`, and the source re-arms once a
-    reading is out of range again. Unlike passive infrared, a bird sitting
-    still at the port stays "in range" without re-triggering.
+    The sensor ranges continuously and the source fires on a *change* in what
+    it sees, not on an absolute distance. Unlike passive infrared, a bird
+    sitting still at the port stays detected without re-triggering.
+
+    Two detection models, chosen by `baseline_margin_mm`:
+
+    - **baseline-relative (set it; this is the deployed default).** The source
+      learns the resting distance of the empty scene and fires when a reading
+      departs from it by at least the margin. This is the only model that works
+      at this feeder, because the perch is permanently in the beam -- it is
+      bolted there, by design. See below.
+    - **absolute (leave it null).** Fires on anything inside
+      `detection_range_mm`. Kept for a mounting where the beam really is empty
+      at rest, and for the replay tests.
+
+    Why absolute cannot work here. The question `detection_range_mm` asks is
+    "is anything within 50 cm?", and the perch answers yes forever. So the gate
+    latched on the first poll after start and never produced another rising
+    edge: birds landed on an already-triggered sensor and generated no event.
+    That is what made 2026-10-09 look like a threshold problem for an
+    afternoon. Narrowing `roi_size` appeared to fix it only by aiming the beam
+    away from the place birds land, and the `max_hold_seconds` valve -- added
+    to log the stuck gate -- became the only thing admitting any detection at
+    all, on a 60 s timer unrelated to the birds.
+
+    This is the same model the camera's `IdleBackgroundGate` already uses:
+    learn what the empty scene looks like, trigger on departure from it.
 
     Wiring (Raspberry Pi 4B):
     - SDA: GPIO 2 (physical pin 3)
@@ -190,12 +215,37 @@ class ToFMotionSource:
         max_hold_seconds: float | None = 60.0,
         roi_size: int | None = None,
         roi_center: int | None = None,
+        baseline_margin_mm: int | None = None,
+        baseline_samples: int = 30,
         *,
         sensor_factory: Callable[[], object] | None = None,
     ) -> None:
         self.i2c_bus = int(i2c_bus)
         self.i2c_address = int(i2c_address)
         self.detection_range_mm = int(detection_range_mm)
+        # Departure from the resting distance that counts as a detection, in mm.
+        # None selects the absolute model instead (see the class docstring).
+        #
+        # Symmetric on purpose: |reading - baseline| >= margin. A bird perching
+        # reads NEARER than the bare rod, and whatever static object dominates
+        # the return going away reads FARTHER; both are "the scene changed", and
+        # testing a direction would need geometry this mounting has not had
+        # measured. Direction can be added if the empty-port trigger rate
+        # justifies it -- a false trigger costs a discarded clip, a missed visit
+        # is unrecoverable and leaves no log line.
+        #
+        # NOT YET MEASURED AT THE FEEDER. 20 mm is a starting value against a
+        # resting read the field log records as "rock-steady 13 cm"; the sensor's
+        # own ranging noise at 10 cm is a few mm. Fit it from
+        # deploy/tof_baseline.py before quoting any detection figure.
+        self.baseline_margin_mm = None if baseline_margin_mm is None else int(baseline_margin_mm)
+        # Clear-state readings held for the running median. At 10 Hz, 30 samples
+        # is a 3 s window: long enough to outvote single bad reads, short enough
+        # to re-learn within seconds of the mount being nudged.
+        self.baseline_samples = max(1, int(baseline_samples))
+        self._baseline_window: deque[float] = deque(maxlen=self.baseline_samples)
+        self._baseline: float | None = None
+        self._baseline_logged = False
         self.warmup_seconds = float(warmup_seconds)
         self.read_rate_hz = float(read_rate_hz)
         self.release_seconds = float(release_seconds)
@@ -288,10 +338,15 @@ class ToFMotionSource:
             self._stop.wait(self.warmup_seconds)
 
         logger.info(
-            "ToF armed on I2C%d (0x%02x): %d mm detection range, polling at %.1f Hz",
+            "ToF armed on I2C%d (0x%02x): %s, polling at %.1f Hz",
             self.i2c_bus,
             self.i2c_address,
-            self.detection_range_mm,
+            (
+                f"{self.detection_range_mm} mm absolute detection range"
+                if self.baseline_margin_mm is None
+                else f"baseline-relative, +/-{self.baseline_margin_mm} mm from the "
+                f"resting distance (learning from {self.baseline_samples} reads)"
+            ),
             self.read_rate_hz,
         )
         self._stop.clear()
@@ -326,6 +381,52 @@ class ToFMotionSource:
                 "are being ignored and the full 16x16 array is in use"
             )
 
+    def _detect(self, distance_mm: float | None) -> bool:
+        """Is this reading a detection? Also maintains the baseline.
+
+        An invalid read is never a detection: the VL53L1X returns None both for
+        "nothing in range" and for a dropout, and about half the reads at this
+        feeder are dropouts. `release_seconds` is what distinguishes the two.
+
+        Baseline learning only consumes readings taken while the gate is clear,
+        so a bird that sits at the port cannot teach the sensor that it is part
+        of the furniture.
+        """
+        if distance_mm is None:
+            return False
+        if self.baseline_margin_mm is None:
+            return distance_mm < self.detection_range_mm
+        # The absolute range still applies as an outer bound: a return from the
+        # garden beyond it is not the feeder scene and must not move the
+        # baseline, however far it departs from it.
+        if distance_mm >= self.detection_range_mm:
+            return False
+        if self._baseline is None:
+            self._observe_baseline(distance_mm)
+            return False
+        if abs(distance_mm - self._baseline) >= self.baseline_margin_mm:
+            return True
+        if not self._in_range:
+            self._observe_baseline(distance_mm)
+        return False
+
+    def _observe_baseline(self, distance_mm: float) -> None:
+        """Fold one clear-state reading into the running median."""
+        self._baseline_window.append(distance_mm)
+        if len(self._baseline_window) < self.baseline_samples:
+            return
+        self._baseline = statistics.median(self._baseline_window)
+        if not self._baseline_logged:
+            self._baseline_logged = True
+            logger.info(
+                "ToF resting baseline learned: %.0f mm (%.1f cm) from %d reads; "
+                "firing on a departure of %d mm or more",
+                self._baseline,
+                self._baseline / 10.0,
+                len(self._baseline_window),
+                self.baseline_margin_mm,
+            )
+
     def poll_once(self) -> None:
         """Read one sample, if ready, and fire on the clear -> detected edge.
 
@@ -348,7 +449,7 @@ class ToFMotionSource:
             return
         distance_cm = self._sensor.distance
         self._sensor.clear_interrupt()
-        detected = distance_cm is not None and distance_cm * 10 < self.detection_range_mm
+        detected = self._detect(None if distance_cm is None else distance_cm * 10.0)
 
         if detected:
             self._clear_run = 0
@@ -361,11 +462,14 @@ class ToFMotionSource:
             self._hold_run += 1
             if self._max_hold_polls is not None and self._hold_run >= self._max_hold_polls:
                 logger.warning(
-                    "ToF has read in range for %.0fs without clearing (last %.1f cm). "
-                    "Treating the gate as stuck and re-arming: check whether something "
-                    "is parked in the beam, e.g. the perch itself.",
+                    "ToF has read detected for %.0fs without clearing (last %.1f cm, "
+                    "baseline %s). Treating the gate as stuck and re-arming. In "
+                    "baseline mode this means the learned resting distance no longer "
+                    "matches the scene -- the mount has moved, or it was learned with "
+                    "something at the port.",
                     self.max_hold_seconds,
                     distance_cm if distance_cm is not None else float("nan"),
+                    "unlearned" if self._baseline is None else f"{self._baseline:.0f} mm",
                 )
                 self._in_range = False
                 self._hold_run = 0

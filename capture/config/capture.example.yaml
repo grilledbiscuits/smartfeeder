@@ -25,13 +25,39 @@ motion:
   i2c_bus: 1
   # I2C address in hex. Default 0x29 can be changed by soldering ADDR pin.
   i2c_address: 0x29
-  # Detection range in millimeters. Object closer than this fires motion.
-  # Tuning: start at 500 mm, decrease if false-negatives (misses birds),
-  # increase if false-positives (records empty feeder).
+  # --- what counts as a detection ---------------------------------------------
+  # baseline_margin_mm selects the detection model. SET (the default here) means
+  # baseline-relative: learn the resting distance of the empty scene, fire when a
+  # reading departs from it by at least this many mm, either nearer or farther.
+  # null means absolute: fire on anything inside detection_range_mm.
   #
-  # Only meaningful once roi_size below excludes anything permanently in the
-  # beam. With the full array the bottle read 13 cm continuously, so EVERY range
-  # from 300 to 1300 mm behaved identically -- always in range, perch masked.
+  # Absolute DOES NOT WORK AT THIS FEEDER and the margin must stay set. The perch
+  # is bolted in the beam, so "is anything within 500 mm?" is permanently true:
+  # the gate latched on the first poll after start and never produced another
+  # rising edge, and birds landing on an already-triggered sensor generated no
+  # event at all. Every absolute range behaved identically, 300 mm and 1300 mm
+  # alike (measured 2026-10-06), which is the signature of this fault and not of
+  # a badly chosen number.
+  #
+  # 20 mm is a STARTING VALUE, not a measurement. The resting read is a
+  # rock-steady 13 cm and the sensor's ranging noise there is a few mm, so 20 mm
+  # should clear the noise floor; the margin that actually separates a perched
+  # sunbird from the bare rod has not been measured. Fit it with
+  # deploy/tof_baseline.py before quoting any detection figure.
+  #   too small -> empty-port triggers (cheap: clip discarded by the novelty gate)
+  #   too large  -> missed visits (unrecoverable, and no log line is produced)
+  baseline_margin_mm: 20
+
+  # Clear-state readings in the running median. 30 at 10 Hz is a 3 s window:
+  # enough to outvote single bad reads, short enough to re-learn within seconds
+  # of the mount being nudged. Readings taken while the gate is DETECTED are
+  # never learned from, so a bird at the port cannot become part of the baseline.
+  baseline_samples: 30
+
+  # Outer bound on the feeder scene, in mm. In baseline mode this is no longer
+  # the trigger: it only rejects returns from the garden beyond the feeder, which
+  # must not fire and must not move the baseline. In absolute mode (margin null)
+  # it is the trigger threshold.
   detection_range_mm: 500
 
   # --- region of interest -----------------------------------------------------

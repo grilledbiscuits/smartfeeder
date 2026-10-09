@@ -29,7 +29,7 @@ import statistics
 import sys
 import time
 
-MARGINS_MM = (5, 10, 15, 20, 30)
+MARGINS_MM = (5, 7, 8, 10, 15, 20, 30)
 
 
 def read_trace(seconds: float, rate_hz: float, roi_size: int | None, roi_center: int | None):
@@ -60,7 +60,7 @@ def read_trace(seconds: float, rate_hz: float, roi_size: int | None, roi_center:
         sensor.stop_ranging()
 
 
-def report(trace: list[float | None], samples: int) -> int:
+def report(trace: list[float | None], samples: int, rate_hz: float = 10.0) -> int:
     valid = [mm for mm in trace if mm is not None]
     pct = 100 * len(valid) / max(1, len(trace))
     print(f"\n{len(trace)} polls, {len(valid)} valid ({pct:.0f}%)")
@@ -104,7 +104,7 @@ def report(trace: list[float | None], samples: int) -> int:
                 src._clear_run += 1
                 if src._clear_run >= src._release_polls:
                     src._in_range = False
-        per_min = events / (len(trace) / 10.0) * 60
+        per_min = events / (len(trace) / rate_hz) * 60
         print(f"  {margin:3d} mm   {events:6d}   {per_min:8.1f}")
         if best is None and events == 0:
             best = margin
@@ -142,7 +142,7 @@ def main() -> int:
     if args.note:
         print(f"note: {args.note}")
     trace = read_trace(args.seconds, args.rate_hz, args.roi_size, args.roi_center)
-    return report(trace, args.samples)
+    return report(trace, args.samples, args.rate_hz)
 
 
 if __name__ == "__main__":

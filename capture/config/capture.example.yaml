@@ -38,22 +38,31 @@ motion:
   # The sensor's 16x16 SPAD array. roi_size is the window side in SPADs (4-16;
   # null = the full ~27 degree cone), roi_center the centre SPAD (0-255).
   #
-  # This is what keeps the feeder bottle out of the beam, and it is not optional
-  # at this mounting. MEASURED 2026-10-06, sensor mounted beside the bottle neck:
+  # Narrowing is a REMEDY for something parked in the beam, not a default. Start
+  # at 16 (the full ~27 degree cone) and only narrow if an empty port reads
+  # occupied -- narrowing costs detections, and at this mounting it cost a real
+  # one. MEASURED 2026-10-06, sensor mounted beside the bottle neck:
   #
   #   config        empty scene          something at the perch
   #   16x16 c=199   2-17% valid, noisy   100% @ 13 cm
   #   4x4   c=199   0% valid, 3/3 runs   100% @ 10-12 cm, 3/3 runs
   #
   # The bottle is NEARER (13 cm) than the perch (~20 cm) and the sensor reports
-  # one dominant return, so the full array masks the bird behind the bottle and
-  # no threshold downstream can undo it. Narrowing drops the bottle into the
-  # 239/247 corner of the array and leaves the centre clear.
+  # one dominant return, so while it IS in the beam the full array masks the
+  # bird behind it and no threshold downstream can undo that. 4x4 at centre 199
+  # excluded it.
+  #
+  # But 4x4 is only ~1.4 cm across at 0.114 m. On 2026-10-09 a confirmed
+  # Southern Double-collared Sunbird visit went COMPLETELY UNTRIGGERED at that
+  # width: a fist fills 1.4 cm and a sunbird at the far end of the feeder does
+  # not. The 4x4 setting had been validated against a hand, which was always the
+  # weak point in that evidence. Re-measure against the real subject, not a
+  # proxy, and prefer the widest width whose empty-port reading is clean.
   #
   # Re-measure after ANY change to the mount, and always with ranging restarted
   # between configurations -- ROI readings taken without a restart do not
   # reproduce. Smaller windows see less: 4x4 is about 7 degrees.
-  roi_size: 4
+  roi_size: 16
   roi_center: 199
   # Time to wait after power-on for sensor to stabilize (seconds).
   warmup_seconds: 1.0

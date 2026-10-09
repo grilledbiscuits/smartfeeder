@@ -234,10 +234,9 @@ class ToFMotionSource:
         # justifies it -- a false trigger costs a discarded clip, a missed visit
         # is unrecoverable and leaves no log line.
         #
-        # NOT YET MEASURED AT THE FEEDER. 20 mm is a starting value against a
-        # resting read the field log records as "rock-steady 13 cm"; the sensor's
-        # own ranging noise at 10 cm is a few mm. Fit it from
-        # deploy/tof_baseline.py before quoting any detection figure.
+        # 7 mm cleared 30 s of empty-scene noise on the Pi while an object at
+        # the landing spot shifted the range about 11 mm (2026-10-09).
+        # Recheck after moving the mount; real bird detection is unmeasured.
         self.baseline_margin_mm = None if baseline_margin_mm is None else int(baseline_margin_mm)
         # Clear-state readings held for the running median. At 10 Hz, 30 samples
         # is a 3 s window: long enough to outvote single bad reads, short enough

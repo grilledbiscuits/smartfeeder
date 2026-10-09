@@ -256,6 +256,15 @@ def test_bird_nearer_than_the_perch_fires_once():
     assert len(events) == 1
 
 
+def test_measured_landing_spot_change_needs_less_than_20_mm():
+    """Pi trace: empty ~12.0 cm, occupied ~13.0 cm, then empty again."""
+    trace = [12.0] * 40 + [13.0] * 50 + [12.0] * 40
+    events, _ = run_baseline(trace, margin_mm=7, samples=30)
+    old_events, _ = run_baseline(trace, margin_mm=20, samples=30)
+    assert len(events) == 1
+    assert old_events == []
+
+
 def test_departure_smaller_than_the_margin_does_not_fire():
     events, _ = run_baseline([13.0] * 10 + [12.2] * 20, margin_mm=20)
     assert events == []

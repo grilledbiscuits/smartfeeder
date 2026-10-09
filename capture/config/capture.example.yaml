@@ -39,14 +39,13 @@ motion:
   # alike (measured 2026-10-06), which is the signature of this fault and not of
   # a badly chosen number.
   #
-  # 20 mm is a STARTING VALUE, not a measurement. The resting read is a
-  # rock-steady 13 cm and the sensor's ranging noise there is a few mm, so 20 mm
-  # should clear the noise floor; the margin that actually separates a perched
-  # sunbird from the bare rod has not been measured. Fit it with
-  # deploy/tof_baseline.py before quoting any detection figure.
+  # 7 mm passed the 2026-10-09 Pi check: the empty scene stayed within 6 mm of
+  # its baseline over 30 s, while a hand at the landing spot shifted the range
+  # about 11 mm. A 20 mm margin missed that hand. Bird detection is not yet
+  # measured; recheck with deploy/tof_baseline.py after moving the mount.
   #   too small -> empty-port triggers (cheap: clip discarded by the novelty gate)
   #   too large  -> missed visits (unrecoverable, and no log line is produced)
-  baseline_margin_mm: 20
+  baseline_margin_mm: 7
 
   # Clear-state readings in the running median. 30 at 10 Hz is a 3 s window:
   # enough to outvote single bad reads, short enough to re-learn within seconds

@@ -12,6 +12,11 @@
 > thresholds and the INT8 quantisation -- used blurred input. Refit against
 > the corrected camera before quoting any number below as a deployment
 > result.
+>
+> Later on 2026-10-09, the baseline-relative ToF trigger was installed on the
+> Pi with a 7 mm margin. A timed landing-spot object test shifted the sensor
+> return about 11 mm and the empty scene stayed within 6 mm of baseline over
+> 30 s. See `deploy/field-log-20261009.md`; real bird trigger recall is untested.
 
 **Deployed 2026-10-09.** The Pi (`sunfeed`, currently 192.168.1.120, key auth;
 `.local` does not resolve) runs the **37-class INT8** build from

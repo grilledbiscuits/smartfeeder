@@ -279,6 +279,22 @@ def test_vote_over_every_tier_a_species_records(cfg, clf) -> None:
         assert voted.should_record, f"voted Tier A {s.slug} would not be recorded"
 
 
+@pytest.mark.parametrize(
+    "confidence, expected",
+    [(0.819, "uncertain"), (0.844, "uncertain"), (0.94, "nectariniidae_indet")],
+)
+def test_sunbird_family_vote_requires_higher_confidence(clf, confidence, expected) -> None:
+    from birdcam.inference import Decision
+
+    frames = [
+        Decision("nectariniidae_indet", "family", confidence, is_capture_target=True)
+        for _ in range(3)
+    ]
+    voted = clf.vote(frames)
+    assert voted.label == expected
+    assert voted.should_record == (expected == "nectariniidae_indet")
+
+
 def test_majority_unknown_still_suppresses_a_target(cfg, clf) -> None:
     """The unknown branch has no members to carry a flag; it must stay off."""
     from birdcam.inference import Decision

@@ -385,6 +385,13 @@ class Config:
                     f"rollup threshold for {a} ({th[a]}) exceeds {b} ({th[b]}). "
                     "Thresholds must increase with generality."
                 )
+        for label, value in self.taxonomy_cfg["rollup"].get("family_vote_thresholds", {}).items():
+            if (
+                label not in head["family_fallback"]
+                or not isinstance(value, (int, float))
+                or not 0 <= value <= 1
+            ):
+                problems.append(f"invalid family vote threshold for {label}: {value!r}")
 
         # Split fractions must sum to 1.
         split = self.train_cfg["preprocess"]["split"]

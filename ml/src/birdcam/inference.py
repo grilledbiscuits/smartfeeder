@@ -363,10 +363,20 @@ class Classifier:
             levels[d.label] = d.level
         label = max(scores, key=lambda k: scores[k])
         members = [d for d in named if d.label == label]
+        confidence = float(np.mean([d.confidence for d in members]))
+        minimum = self.rollup.get("family_vote_thresholds", {}).get(label)
+        if minimum is not None and confidence < minimum:
+            return Decision(
+                UNCERTAIN,
+                "uncertain",
+                confidence,
+                novelty_score=float(np.mean([d.novelty_score for d in decisions])),
+                top_k=members[0].top_k,
+            )
         return Decision(
             label=label,
             level=levels[label],
-            confidence=float(np.mean([d.confidence for d in members])),
+            confidence=confidence,
             sex_label=_majority([d.sex_label for d in members if d.sex_label]),
             sex_confidence=float(np.mean([d.sex_confidence for d in members])),
             novelty_score=float(np.mean([d.novelty_score for d in decisions])),

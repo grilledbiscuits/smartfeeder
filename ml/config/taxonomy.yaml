@@ -244,6 +244,11 @@ rollup:
     genus: 0.65
     family: 0.75
     guild: 0.80
+  # Visit-level confidence. Two hand tests published as "sunbird (unsure which)"
+  # at 0.819 and 0.844; previously observed real Amethyst family votes were
+  # 0.94-0.96. Keep lower-confidence clips for review instead of publishing.
+  family_vote_thresholds:
+    nectariniidae_indet: 0.90
   # Tier A species get their own thresholds, tuned per-class from the
   # precision-recall curves in Phase 7. Populated by the report, not by hand.
   per_class_thresholds:

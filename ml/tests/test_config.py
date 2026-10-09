@@ -245,6 +245,13 @@ def test_validate_rejects_backwards_thresholds(cfg: Config) -> None:
         _mutated(cfg, taxonomy_cfg=tax).validate()
 
 
+def test_validate_rejects_invalid_family_vote_threshold(cfg: Config) -> None:
+    tax = copy.deepcopy(cfg.taxonomy_cfg)
+    tax["rollup"]["family_vote_thresholds"]["nectariniidae_indet"] = 1.1
+    with pytest.raises(ConfigError, match="invalid family vote threshold"):
+        _mutated(cfg, taxonomy_cfg=tax).validate()
+
+
 def test_validate_rejects_bad_split_fractions(cfg: Config) -> None:
     tr = copy.deepcopy(cfg.train_cfg)
     tr["preprocess"]["split"]["train"] = 0.9

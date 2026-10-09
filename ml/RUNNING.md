@@ -17,6 +17,11 @@
 > Pi with a 7 mm margin. A timed landing-spot object test shifted the sensor
 > return about 11 mm and the empty scene stayed within 6 mm of baseline over
 > 30 s. See `deploy/field-log-20261009.md`; real bird trigger recall is untested.
+>
+> Pending the next Pi power session: raise the visit-level publish cutoff for
+> `nectariniidae_indet` ("sunbird, unsure which") to 0.90. Two known hand false
+> positives scored 0.819 and 0.844; clips below 0.90 will be retained for
+> review. The Pi was shut down before this change could be deployed there.
 
 **Deployed 2026-10-09.** The Pi (`sunfeed`, currently 192.168.1.120, key auth;
 `.local` does not resolve) runs the **37-class INT8** build from

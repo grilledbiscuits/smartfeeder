@@ -35,3 +35,4 @@ timestamp,truth,truth_source,triggered,label,conf,novelty,novelty_threshold,outc
 2026-10-09T~14:40,Cinnyris chalybeus,observer,no,,,,-4.9434,none,FN,8,8.8,"second missed visit; prompted widening back to 16"
 2026-10-09T18:00:42,Cinnyris chalybeus,observer,yes,cinnyris_chalybeus,0.911,-6.8019,-4.9434,publish,TP,16,8.8,"observer confirmed species; first confirmed wild visit after the 7 mm baseline-relative ToF trigger was deployed; visit id 21; sex prediction male_eclipse not observer-confirmed"
 2026-10-09T18:01:24,Zosterops virens,observer,yes,zosterops_virens,0.8575,-6.7814,-4.9434,publish,TP,16,8.8,"observer confirmed species; visit id 22; observer reported no missed visits between this and the 18:00:42 sunbird"
+2026-10-09T18:02:13,empty_feeder,observer,yes,unknown,0.0,-4.479,-4.9434,retain,TN_correct_reject,16,8.8,"observer confirmed no bird; ToF false trigger; classifier rejected the clip as unknown and retained it for review; no dashboard visit published"

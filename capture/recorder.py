@@ -109,15 +109,70 @@ class Picamera2Recorder:
         bitrate_kbps: int,
         *,
         warmup_seconds: float = 1.0,
+        lens_position: float | None = None,
     ) -> None:
         self.width = int(width)
         self.height = int(height)
         self.framerate = int(framerate)
         self.bitrate = int(bitrate_kbps) * 1000
         self.warmup_seconds = float(warmup_seconds)
+        # Fixed focus, in dioptres (1 / metres). None leaves the sensor alone.
+        #
+        # Camera Module 3 is an AUTOFOCUS module, and picamera2 leaves imx708 in
+        # AfMode.Manual at LensPosition 1.0 -- one metre -- unless told
+        # otherwise. Nothing told it otherwise until 2026-10-09, so every clip
+        # ever recorded was focused roughly nine times too far away: the
+        # background was sharp and the bird at the port was a blur. A confirmed
+        # Cape White-eye visit was still identified correctly from blurred
+        # frames (zosterops_virens top class on 9 of 12, peak 0.894), but the
+        # novelty gate rejected 10 of those 12 as unfamiliar, which is what a
+        # blurred subject looks like to a model trained on sharp ones.
+        #
+        # Manual rather than continuous AF on purpose: the perch does not move,
+        # while continuous AF would hunt against an empty port and leave the
+        # first frames of a visit -- the ones the classifier samples -- mid-sweep.
+        self.lens_position = None if lens_position is None else float(lens_position)
         self._picam = None
         self._encoder_cls = None
         self._output_cls = None
+
+    def _apply_focus(self, picam) -> None:
+        """Pin the lens, after start() -- controls are rejected before it.
+
+        A sensor with no focus motor (Camera Module 2, the HQ cam) raises rather
+        than silently ignoring this, so it is a warning and not a failure: a
+        fixed-focus camera that records is better than a service that will not
+        start. Anything else is re-raised by the caller as CameraUnavailable.
+        """
+        if self.lens_position is None:
+            return
+        try:
+            # AfModeEnum.Manual is 0 in libcamera's control enum. Taken from the
+            # package when it is importable, but NOT depended on: a missing
+            # libcamera import must not be the reason focus goes unset, and that
+            # is exactly what happens off-Pi, where the tests run.
+            manual = 0
+            try:
+                from libcamera import controls
+
+                manual = int(controls.AfModeEnum.Manual)
+            except Exception:  # noqa: BLE001 - the literal above is the contract
+                pass
+
+            picam.set_controls({"AfMode": manual, "LensPosition": self.lens_position})
+            logger.info(
+                "camera focus pinned at LensPosition %.2f (about %.3f m)",
+                self.lens_position,
+                1.0 / self.lens_position if self.lens_position else float("inf"),
+            )
+        except Exception as exc:  # noqa: BLE001 - a lens-less sensor must still record
+            logger.warning(
+                "could not set camera.lens_position=%s (%s: %s); leaving focus as the "
+                "driver default, which on Camera Module 3 is 1.0 dioptres = 1 m",
+                self.lens_position,
+                type(exc).__name__,
+                exc,
+            )
 
     def _open(self):
         if self._picam is not None:
@@ -149,6 +204,7 @@ class Picamera2Recorder:
             )
             picam.configure(config)
             picam.start()
+            self._apply_focus(picam)
         except Exception as exc:
             raise CameraUnavailable(
                 f"could not open the camera: {type(exc).__name__}: {exc}. It may "

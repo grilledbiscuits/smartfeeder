@@ -70,11 +70,27 @@ motion:
   #   too large  -> missed visits (unrecoverable, and no log line is produced)
   baseline_margin_mm: 10
 
-  # Clear-state readings in the running median. 30 at 10 Hz is a 3 s window:
-  # enough to outvote single bad reads, short enough to re-learn within seconds
-  # of the mount being nudged. Readings taken while the gate is DETECTED are
-  # never learned from, so a bird at the port cannot become part of the baseline.
-  baseline_samples: 30
+  # Readings in the running median -- ALL valid in-scene readings, not only the
+  # ones taken while the gate is clear. 1200 at 10 Hz is a 120 s window.
+  #
+  # Both of those were wrong on 2026-10-10 and both cost a confirmed visit:
+  #
+  #  * 30 samples is a 3 s window, which a bird fills completely. The service
+  #    restarted while an observer-confirmed Southern Double-collared was at the
+  #    feeder, learned 126 mm from 30 readings OF THE BIRD, and then fired on its
+  #    departure. During the first learn there is no baseline yet, so nothing can
+  #    be excluded as "detected" -- window length is the only protection, and a
+  #    visit is 7-25% of a 120 s median.
+  #  * Updating only from clear readings made a wrong baseline self-reinforcing:
+  #    the gate stayed detected, detected readings were excluded, so the baseline
+  #    ratcheted 118 -> 126 -> 128 -> 130 -> 131 mm over four minutes until it was
+  #    firing on the empty port.
+  #
+  # Cost: the gate does not fire until the window fills, so there is a ~120 s
+  # blind period after each restart. Worth it against learning a bird as
+  # furniture. If restarts become frequent, persist the baseline across them
+  # rather than shortening this.
+  baseline_samples: 1200
 
   # Outer bound on the feeder scene, in mm. In baseline mode this is no longer
   # the trigger: it only rejects returns from the garden beyond the feeder, which

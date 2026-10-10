@@ -216,7 +216,7 @@ class ToFMotionSource:
         roi_size: int | None = None,
         roi_center: int | None = None,
         baseline_margin_mm: int | None = None,
-        baseline_samples: int = 30,
+        baseline_samples: int = 1200,
         *,
         sensor_factory: Callable[[], object] | None = None,
     ) -> None:
@@ -249,9 +249,31 @@ class ToFMotionSource:
         # logs its departure now; fit the upper bound from those against
         # observer-confirmed visits before trusting this number.
         self.baseline_margin_mm = None if baseline_margin_mm is None else int(baseline_margin_mm)
-        # Clear-state readings held for the running median. At 10 Hz, 30 samples
-        # is a 3 s window: long enough to outvote single bad reads, short enough
-        # to re-learn within seconds of the mount being nudged.
+        # Readings held for the running median, ALL of them, not just the ones
+        # taken while the gate is clear. At 10 Hz, 1200 samples is a 120 s
+        # window.
+        #
+        # Both halves of that matter, and the first version got both wrong.
+        #
+        # Clear-state-only updating makes a wrong baseline self-reinforcing: a
+        # baseline that drifts off the true resting distance keeps the gate
+        # detected, detected readings were excluded, so only the rarer outliers
+        # could update it and it ratcheted further away. MEASURED 2026-10-10:
+        # 118 -> 126 -> 128 -> 130 -> 131 mm over four minutes, by which point
+        # the gate was firing on the empty port.
+        #
+        # A 3 s window is far too short to survive a bird. The service restarted
+        # while a confirmed Southern Double-collared was at the feeder, learned
+        # 126 mm from 30 readings of the BIRD, and then fired on its departure --
+        # the initial learn has no baseline yet, so nothing can be excluded as
+        # "detected" and whatever is at the port becomes the definition of empty.
+        # A 120 s median cannot be moved by an 8-30 s visit (7-25% of the window),
+        # which is the only protection that works during the first learn.
+        #
+        # Cost: the gate does not fire until the window is full, so there is a
+        # ~120 s blind period after every restart. That is the trade for not
+        # learning a bird as furniture, and a restart is rare; if restarts become
+        # frequent, persist the baseline across them rather than shortening this.
         self.baseline_samples = max(1, int(baseline_samples))
         self._baseline_window: deque[float] = deque(maxlen=self.baseline_samples)
         self._baseline: float | None = None
@@ -398,9 +420,11 @@ class ToFMotionSource:
         "nothing in range" and for a dropout, and about half the reads at this
         feeder are dropouts. `release_seconds` is what distinguishes the two.
 
-        Baseline learning only consumes readings taken while the gate is clear,
-        so a bird that sits at the port cannot teach the sensor that it is part
-        of the furniture.
+        Baseline learning consumes every valid in-scene reading. What stops a
+        bird teaching the sensor that it is furniture is the LENGTH of the
+        window, not a filter on which readings enter it: a visit is a small
+        minority of a 120 s median. Filtering by gate state instead was worse
+        than useless -- it let a wrong baseline reinforce itself.
         """
         if distance_mm is None:
             return False
@@ -411,17 +435,16 @@ class ToFMotionSource:
         # baseline, however far it departs from it.
         if distance_mm >= self.detection_range_mm:
             return False
+        # Every valid in-scene reading feeds the median, including ones taken
+        # while the gate is detected. See the note on baseline_samples: excluding
+        # them is what let the baseline ratchet away from the resting distance.
+        self._observe_baseline(distance_mm)
         if self._baseline is None:
-            self._observe_baseline(distance_mm)
-            return False
-        if abs(distance_mm - self._baseline) >= self.baseline_margin_mm:
-            return True
-        if not self._in_range:
-            self._observe_baseline(distance_mm)
-        return False
+            return False  # still filling the window; nothing to compare against
+        return abs(distance_mm - self._baseline) >= self.baseline_margin_mm
 
     def _observe_baseline(self, distance_mm: float) -> None:
-        """Fold one clear-state reading into the running median."""
+        """Fold one reading into the running median, and keep it current."""
         self._baseline_window.append(distance_mm)
         if len(self._baseline_window) < self.baseline_samples:
             return
@@ -493,7 +516,9 @@ class ToFMotionSource:
                     "baseline %s). Treating the gate as stuck and re-arming. In "
                     "baseline mode this means the learned resting distance no longer "
                     "matches the scene -- the mount has moved, or it was learned with "
-                    "something at the port.",
+                    "something at the port. The running median will now converge on "
+                    "the new scene; before 2026-10-10 it could not, because detected "
+                    "readings were excluded from it.",
                     self.max_hold_seconds,
                     distance_cm if distance_cm is not None else float("nan"),
                     "unlearned" if self._baseline is None else f"{self._baseline:.0f} mm",

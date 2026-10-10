@@ -346,3 +346,13 @@ def test_baseline_fitting_harness_drives_the_real_state_machine():
     while src._sensor.remaining:
         src.poll_once()
     assert len(events) == 2, "the valve must re-arm a latched gate once per period"
+
+
+def test_trigger_logs_the_departure_that_fired(caplog):
+    """A soak has to be able to tell a bird from a gust afterwards."""
+    import logging
+
+    with caplog.at_level(logging.INFO, logger="capture.motion"):
+        run_baseline([13.0] * 10 + [11.5] * 10, margin_mm=10, samples=5)
+    line = next(r.getMessage() for r in caplog.records if "ToF trigger" in r.getMessage())
+    assert "115 mm" in line and "baseline 130 mm" in line and "-15 mm" in line

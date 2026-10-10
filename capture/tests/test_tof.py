@@ -257,10 +257,15 @@ def test_bird_nearer_than_the_perch_fires_once():
 
 
 def test_measured_landing_spot_change_needs_less_than_20_mm():
-    """Pi trace: empty ~12.0 cm, occupied ~13.0 cm, then empty again."""
-    trace = [12.0] * 40 + [13.0] * 50 + [12.0] * 40
-    events, _ = run_baseline(trace, margin_mm=7, samples=30)
-    old_events, _ = run_baseline(trace, margin_mm=20, samples=30)
+    """Pi trace: empty ~12.0 cm, occupied ~13.0 cm, then empty again.
+
+    The window must be long relative to the visit, or the median follows the
+    bird: 50 occupied samples against a 30-sample window is 38% of it. Sized
+    here as deployed -- a 10 s window against a 5 s visit.
+    """
+    trace = [12.0] * 150 + [13.0] * 50 + [12.0] * 100
+    events, _ = run_baseline(trace, margin_mm=7, samples=100)
+    old_events, _ = run_baseline(trace, margin_mm=20, samples=100)
     assert len(events) == 1
     assert old_events == []
 
@@ -277,22 +282,41 @@ def test_static_object_leaving_also_fires():
 
 
 def test_bird_cannot_teach_the_baseline_that_it_is_furniture():
-    """A long dwell must stay detected, not get absorbed into the resting median."""
-    events, src = run_baseline([13.0] * 10 + [10.0] * 60, samples=5)
+    """A visit must stay detected, not get absorbed into the resting median.
+
+    What protects this is the window LENGTH, not a filter on which readings
+    enter it. 60 occupied samples in a 600-sample window is 10%, so the median
+    does not move.
+    """
+    events, src = run_baseline([13.0] * 600 + [10.0] * 60, samples=600)
     assert len(events) == 1
     assert src._baseline == 130.0
     assert src._in_range
 
 
-def test_relearns_after_the_mount_settles_to_a_new_distance():
-    events, src = run_baseline([13.0] * 10 + [10.0] * 10 + [10.0] * 10, samples=5)
-    # Still one event; the new distance never clears, so the valve (not the
-    # baseline) is what recovers this. Recorded so the ceiling is explicit.
+def test_a_wrong_baseline_does_not_ratchet_further_away():
+    """The regression that cost a confirmed visit on 2026-10-10.
+
+    Updating the median only from CLEAR readings made a wrong baseline
+    self-reinforcing: the gate stayed detected, detected readings were excluded,
+    so the baseline could only drift further. Here the baseline starts 20 mm too
+    far out and must converge back onto the true resting distance.
+    """
+    events, src = run_baseline([13.0] * 30 + [11.0] * 300, margin_mm=10, samples=30)
+    assert src._baseline == 110.0, "the median must follow the scene it is given"
+    # It fired on the step, then settled instead of firing forever.
     assert len(events) == 1
 
 
+def test_relearns_after_the_mount_settles_to_a_new_distance():
+    """A moved mount must become the new normal, not a permanent trigger."""
+    events, src = run_baseline([13.0] * 30 + [10.0] * 200, margin_mm=10, samples=30)
+    assert src._baseline == 100.0
+    assert len(events) == 1  # one edge for the move, then quiet
+
+
 def test_returns_beyond_the_scene_neither_fire_nor_move_the_baseline():
-    events, src = run_baseline([13.0] * 10 + [120.0] * 10 + [13.0] * 10)
+    events, src = run_baseline([13.0] * 30 + [120.0] * 10 + [13.0] * 30, samples=30)
     assert events == []
     assert src._baseline == 130.0
 
@@ -317,8 +341,13 @@ def test_baseline_fitting_harness_drives_the_real_state_machine():
     max_hold_seconds, so a replayed gate latched on its first detection and
     never re-armed -- reporting exactly 1 event for every margin from 5 to
     15 mm. That reads as "quiet" and means "stuck", and two margins were fitted
-    on it before anyone noticed. A parked target must produce an event per valve
-    period, not one event ever.
+    on it before anyone noticed.
+
+    Absolute mode is used here because a latch is unambiguous in it: a target
+    parked inside the range can never clear, so the valve is the only thing that
+    can produce a second event. (In baseline mode the running median converges
+    on a parked target and the gate recovers on its own, which is the better
+    behaviour but makes a weaker test of the valve.)
     """
     import importlib.util
     from pathlib import Path
@@ -328,8 +357,7 @@ def test_baseline_fitting_harness_drives_the_real_state_machine():
     tb = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(tb)
 
-    # 30 clear reads to learn 120 mm, then a target parked at 200 mm for 120 s.
-    trace = [120.0] * 30 + [200.0] * 1200
+    trace = [20.0] * 1200  # 120 s parked at 20 cm, inside the 500 mm range
     sensor = tb._TraceSensor(trace)
     events = []
     src = ToFMotionSource(
@@ -337,8 +365,7 @@ def test_baseline_fitting_harness_drives_the_real_state_machine():
         read_rate_hz=10.0,
         release_seconds=1.0,
         max_hold_seconds=60.0,
-        baseline_margin_mm=7,
-        baseline_samples=30,
+        baseline_margin_mm=None,  # absolute mode
         sensor_factory=lambda: sensor,
     )
     src._sensor = src._sensor_factory()
@@ -353,6 +380,6 @@ def test_trigger_logs_the_departure_that_fired(caplog):
     import logging
 
     with caplog.at_level(logging.INFO, logger="capture.motion"):
-        run_baseline([13.0] * 10 + [11.5] * 10, margin_mm=10, samples=5)
+        run_baseline([13.0] * 30 + [11.5] * 30, margin_mm=10, samples=30)
     line = next(r.getMessage() for r in caplog.records if "ToF trigger" in r.getMessage())
     assert "115 mm" in line and "baseline 130 mm" in line and "-15 mm" in line

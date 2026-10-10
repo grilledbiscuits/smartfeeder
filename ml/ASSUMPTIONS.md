@@ -844,3 +844,27 @@ reported 1 event for every margin from 5 to 15 mm. The 7 mm deployed on
 2026-10-09 and the 20 mm recommended on 2026-10-10 are both artifacts. The
 replay now drives the real `poll_once` and a test pins it. When a replay and a
 live service disagree by 6x, the replay is the thing to doubt first.
+
+## A35 — the Pi is not a git checkout, so config and code drift apart silently
+
+`/opt/smartfeeder` is populated by file-by-file `rsync`, not by checking out a
+commit. Nothing verifies that the deployed code matches the commit the deployed
+config came from.
+
+**Measured consequence, 2026-10-10.** The 2026-10-09 commit adding
+`rollup.family_vote_thresholds: {nectariniidae_indet: 0.90}` changed both
+`ml/config/taxonomy.yaml` and `ml/src/birdcam/inference.py`. Only the config
+reached the Pi. The threshold sat in the deployed YAML all day as a **silent
+no-op**, and at 11:51:17 the service published `nectariniidae_indet` at 0.8528 —
+below the guard, and with a profile close to the confirmed human-hand false
+positive of 2026-10-09 (0.844 family confidence, novelty −4.961). That visit
+fell outside the observer window and cannot be adjudicated.
+
+A missing config key raises `CaptureConfigError`; a config key whose code is
+missing fails silently and looks like a tuning result. That asymmetry is the
+hazard here.
+
+Every deploy on 2026-10-10 carried the same risk — `capture/motion.py` and
+`ml/config/taxonomy.yaml` were copied individually by hand. Before quoting any
+figure from a field run, check that the deployed tree matches the commit, not
+just that the config value is present.

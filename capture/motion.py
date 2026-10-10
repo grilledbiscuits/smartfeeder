@@ -234,9 +234,16 @@ class ToFMotionSource:
         # justifies it -- a false trigger costs a discarded clip, a missed visit
         # is unrecoverable and leaves no log line.
         #
-        # 7 mm cleared 30 s of empty-scene noise on the Pi while an object at
-        # the landing spot shifted the range about 11 mm (2026-10-09).
-        # Recheck after moving the mount; real bird detection is unmeasured.
+        # FITTED 10 mm, 2026-10-10: 180 s at the feeder in SE wind, replayed
+        # through poll_once. 0.3 false triggers/min against 5.2 at 7 mm, and
+        # nothing above 10 mm improves on it. The earlier 7 mm and 20 mm fits
+        # came from a replay harness that omitted the max_hold valve.
+        #
+        # The UPPER bound is unmeasured and is the live risk: the one measured
+        # object-at-the-perch signal is ~11 mm and the wind tail reaches +11 mm,
+        # so a sunbird may depart by less than the margin. Every rising edge
+        # logs its departure now; fit the upper bound from those against
+        # observer-confirmed visits before trusting this number.
         self.baseline_margin_mm = None if baseline_margin_mm is None else int(baseline_margin_mm)
         # Clear-state readings held for the running median. At 10 Hz, 30 samples
         # is a 3 s window: long enough to outvote single bad reads, short enough
@@ -448,13 +455,30 @@ class ToFMotionSource:
             return
         distance_cm = self._sensor.distance
         self._sensor.clear_interrupt()
-        detected = self._detect(None if distance_cm is None else distance_cm * 10.0)
+        distance_mm = None if distance_cm is None else distance_cm * 10.0
+        detected = self._detect(distance_mm)
 
         if detected:
             self._clear_run = 0
             if not self._in_range:
                 self._in_range = True
                 self._hold_run = 0
+                # Log the departure that fired, not just that something did.
+                # Without this a soak cannot tell a bird from a gust after the
+                # fact, so the next margin decision would be another guess: the
+                # empty-scene tail and the one measured object-at-the-perch
+                # signal are both about 11 mm, and which side of that a real
+                # sunbird falls on is the open question. One line per rising
+                # edge, which the margin itself rate-limits.
+                if self.baseline_margin_mm is not None and self._baseline is not None:
+                    logger.info(
+                        "ToF trigger: %.0f mm vs baseline %.0f mm (departure %+.0f mm, "
+                        "margin %d mm)",
+                        distance_mm,
+                        self._baseline,
+                        distance_mm - self._baseline,
+                        self.baseline_margin_mm,
+                    )
                 if self._callback:
                     self._callback(MotionEvent.now(Trigger.TOF))
                 return

@@ -39,13 +39,33 @@ motion:
   # alike (measured 2026-10-06), which is the signature of this fault and not of
   # a badly chosen number.
   #
-  # 7 mm passed the 2026-10-09 Pi check: the empty scene stayed within 6 mm of
-  # its baseline over 30 s, while a hand at the landing spot shifted the range
-  # about 11 mm. A 20 mm margin missed that hand. Bird detection is not yet
-  # measured; recheck with deploy/tof_baseline.py after moving the mount.
+  # FITTED 2026-10-10, 180 s empty-scene trace at the feeder in SE wind, replayed
+  # through the real poll_once (the earlier 7 mm and 20 mm fits came from a replay
+  # harness that omitted the max_hold valve and so under-counted events ~6x):
+  #
+  #   resting distance  median 118 mm, stdev 3.0 mm, p1 113, p99 129
+  #   margin   5 mm -> 15.7 false triggers/min
+  #            7 mm ->  5.2   (agrees with the 6.7/min the live service produced)
+  #            8 mm ->  2.1
+  #           10 mm ->  0.3   <-- the knee
+  #       15/20/30 mm ->  0.3   (one near-side outlier at 73 mm fires at any margin)
+  #
+  # Nothing above 10 mm buys anything, so 10 mm is the lower bound and the choice.
+  #
+  # THE UPPER BOUND IS STILL OPEN, and it is the real risk. The only measured
+  # object-at-the-perch signal is ~11 mm (2026-10-09 hand test) and the
+  # empty-scene wind tail reaches p99 129 mm = +11 mm. Those are the same
+  # magnitude, so a sunbird -- smaller than a hand -- may depart by less than
+  # 10 mm and be missed. The two confirmed wild visits on 2026-10-09 fired at
+  # 7 mm; by how much they departed was not recorded.
+  #
+  # That gap is why every rising edge now logs its departure (capture.motion).
+  # Fit the upper bound from those lines against observer-confirmed visits, then
+  # revisit this number. Until then it trades an unknown amount of recall for a
+  # 17x cut in false triggers.
   #   too small -> empty-port triggers (cheap: clip discarded by the novelty gate)
   #   too large  -> missed visits (unrecoverable, and no log line is produced)
-  baseline_margin_mm: 7
+  baseline_margin_mm: 10
 
   # Clear-state readings in the running median. 30 at 10 Hz is a 3 s window:
   # enough to outvote single bad reads, short enough to re-learn within seconds

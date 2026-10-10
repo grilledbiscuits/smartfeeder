@@ -796,10 +796,26 @@ Refit needs real support for this class. Do it in the same pass as the
 
 ## A34 — a bird at the port reads FARTHER than the ToF baseline, not nearer
 
-Measured 2026-10-10 from the departure log: Cape White-eye +13 mm, Cape Bulbul
-+11 mm, against a 118 mm resting baseline; the 2026-10-09 hand test agrees at
-+11 mm. The resting return is the near furniture, and a body at the port
-scatters the beam so the dominant return comes from behind it.
+Measured 2026-10-10. **Every departure logged that day was positive**, with no
+exceptions: +11, +13 and +38 mm. The two cleanest are Amethyst Sunbird visits
+measured against a baseline independently corroborated at 117–118 mm:
+
+| visit | reading vs baseline | departure | confidence |
+|---|---|---|---|
+| 25, 10:42:36 | 128 vs 117 mm | **+11 mm** | 0.807 |
+| 26, 10:43:35 | 134 vs 121 mm | **+13 mm** | 0.714 |
+
+**Both are operator-confirmed**, 59 s apart. They may be one individual
+returning rather than two independent visits, so they are two correct publishes
+and not necessarily two visits.
+
+The 2026-10-09 hand test agrees at +11 mm. The resting return is the near
+furniture, and a body at the port scatters the beam so the dominant return
+comes from behind it.
+
+An earlier version of this entry cited +11/+13 mm figures attributed to a Cape
+White-eye and a Cape Bulbul, taken while the baseline was itself moving. Those
+did not support the claim; the table above replaces them and does.
 
 This contradicts the assumption written into `capture/motion.py` when the
 baseline trigger was built ("a bird perching reads NEARER than the bare rod"),
@@ -807,13 +823,19 @@ which was a guess. The symmetric margin was kept only because the direction had
 not been measured; had the proposed nearer-only optimisation been applied, it
 would have missed both birds above.
 
-**Consequence for the margin.** A bird clears the fitted 10 mm margin by 1–3 mm,
-while the empty-scene wind tail reaches +11 mm. Wind and birds occupy the same
-band on the far side, so the margin cannot be raised without losing visits.
-This is a standing limit of the ToF trigger, not a tuning deficit, and the
-remedy is mechanical (stop the furniture moving) or a different sensing
-geometry. Both bounds should be refitted from the departure log as
-observer-confirmed visits accumulate.
+**Consequence for the margin.** A confirmed bird clears the fitted 10 mm margin
+by **1–3 mm** — measured, not inferred — while the empty-scene wind tail reaches
++11 mm. Wind and birds occupy the same band on the far side, so the margin
+cannot be raised without losing visits. This is a standing limit of the ToF
+trigger, not a tuning deficit, and the remedy is mechanical (stop the furniture
+moving) or a different sensing geometry. Both bounds should be refitted from the
+departure log as observer-confirmed visits accumulate.
+
+**Open question, not a finding.** Across the busy 70 s spanning both visits the
+baseline rose 117 → 121 → 127 mm. A 120 s median absorbs occupied readings when
+occupancy is high, which raises the bar for the next bird — the mirror of the
+3 s window's fault. It is unquantified, it needs a trace across sustained
+activity, and nothing on the Pi has been changed for it.
 
 **Also: the two fits before this one were measured with a broken instrument.**
 `deploy/tof_baseline.py` reimplemented the trigger state machine in its replay

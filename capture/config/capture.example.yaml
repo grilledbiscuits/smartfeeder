@@ -52,17 +52,20 @@ motion:
   #
   # Nothing above 10 mm buys anything, so 10 mm is the lower bound and the choice.
   #
-  # THE UPPER BOUND IS STILL OPEN, and it is the real risk. The only measured
-  # object-at-the-perch signal is ~11 mm (2026-10-09 hand test) and the
-  # empty-scene wind tail reaches p99 129 mm = +11 mm. Those are the same
-  # magnitude, so a sunbird -- smaller than a hand -- may depart by less than
-  # 10 mm and be missed. The two confirmed wild visits on 2026-10-09 fired at
-  # 7 mm; by how much they departed was not recorded.
+  # UPPER BOUND, first real data 2026-10-10. The departure log shows birds at
+  # the port reading FARTHER than baseline, not nearer:
   #
-  # That gap is why every rising edge now logs its departure (capture.motion).
-  # Fit the upper bound from those lines against observer-confirmed visits, then
-  # revisit this number. Until then it trades an unknown amount of recall for a
-  # 17x cut in false triggers.
+  #   Cape White-eye   +13 mm   published, conf 0.880, novelty -6.69
+  #   Cape Bulbul      +11 mm   correctly discarded (not a capture target)
+  #   hand, 2026-10-09 +11 mm
+  #
+  # So 10 mm catches a bird by only 1-3 mm, and the empty-scene wind tail
+  # reaches +11 mm as well -- wind and birds sit in the SAME band on the far
+  # side. The margin cannot be raised without losing visits, and that is the
+  # standing limit of this trigger, not something tuning will remove. Keep
+  # fitting both bounds from the departure log as confirmed visits accumulate.
+  #
+  # A nearer-only margin would have missed both birds above. Do not add one.
   #   too small -> empty-port triggers (cheap: clip discarded by the novelty gate)
   #   too large  -> missed visits (unrecoverable, and no log line is produced)
   baseline_margin_mm: 10

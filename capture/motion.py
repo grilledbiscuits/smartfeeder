@@ -226,13 +226,17 @@ class ToFMotionSource:
         # Departure from the resting distance that counts as a detection, in mm.
         # None selects the absolute model instead (see the class docstring).
         #
-        # Symmetric on purpose: |reading - baseline| >= margin. A bird perching
-        # reads NEARER than the bare rod, and whatever static object dominates
-        # the return going away reads FARTHER; both are "the scene changed", and
-        # testing a direction would need geometry this mounting has not had
-        # measured. Direction can be added if the empty-port trigger rate
-        # justifies it -- a false trigger costs a discarded clip, a missed visit
-        # is unrecoverable and leaves no log line.
+        # Symmetric on purpose: |reading - baseline| >= margin.
+        #
+        # MEASURED 2026-10-10, and it is the opposite of what was assumed here
+        # first: a bird at the port reads FARTHER than the resting baseline, not
+        # nearer. Two confirmed visits logged +13 mm (Cape White-eye) and +11 mm
+        # (Cape Bulbul) against a 118 mm baseline, matching the +11 mm of the
+        # 2026-10-09 hand test. The resting return is the near furniture; a body
+        # at the port scatters the beam so the dominant return comes from behind
+        # it. A NEARER-ONLY margin would have missed both birds, so do not add
+        # one -- the earlier note claiming birds read nearer was a guess, and
+        # acting on it would have been the most expensive kind of wrong.
         #
         # FITTED 10 mm, 2026-10-10: 180 s at the feeder in SE wind, replayed
         # through poll_once. 0.3 false triggers/min against 5.2 at 7 mm, and

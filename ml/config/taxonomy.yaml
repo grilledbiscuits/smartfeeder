@@ -265,7 +265,17 @@ rollup:
     # Provenance: ml/reports/clean-20260921/operating_points.json.
     anthobaphes_violacea: 0.46   # val precision 0.801, n=221
     chalcomitra_amethystina: 0.43   # val precision 0.801, n=357
-    cinnyris_afer: 0.05   # val precision 0.813, n=48  -- thin, treat with care
+    # NOT the fitted value. The refit emitted 0.05 from n=48 validation
+    # predictions -- the fewest of any Tier A class by a factor of four -- and at
+    # that support the precision curve is lumpy enough that "lowest threshold
+    # reaching 80% precision" landed on the floor of the sweep. A 0.05 species
+    # threshold means any clip that spreads probability across Cinnyris publishes
+    # as Greater Double-collared instead of rolling up to cinnyris_indet, which
+    # is the worst possible place for this error: C. afer is the confusable
+    # congener of C. chalybeus, the common garden visitor at this feeder, and it
+    # is itself uncommon in an urban Cape Town garden. Held at the species-tier
+    # default until it is refit with real support.
+    cinnyris_afer: 0.55   # UNFITTED (species-tier default); fitted 0.05 rejected, n=48
     cinnyris_chalybeus: 0.66   # val precision 0.809, n=740
     nectarinia_famosa: 0.61   # val precision 0.800, n=195
     promerops_cafer: 0.43   # val precision 0.801, n=181

@@ -768,3 +768,28 @@ recorded as a rock-steady 13 cm. `deploy/tof_baseline.py` fits the lower bound
 unreachable. The upper bound -- the largest margin that still catches a perched
 sunbird -- needs a bird on the perch and is not measurable from a trace.
 Quote no detection rate until both are measured.
+
+## A33 — Greater Double-collared's fitted threshold is unusable; held at the default
+
+The 2026-09-21 refit emitted `cinnyris_afer: 0.05` from **n = 48** validation
+predictions, the thinnest support of any Tier A class by a factor of four. At
+that support the precision curve is lumpy and "lowest threshold reaching 80%
+precision" landed on the floor of the sweep; the 0.813 precision beside it is
+not a meaningful figure.
+
+A 0.05 species threshold is the worst available error here. Any clip spreading
+probability across *Cinnyris* publishes as Greater Double-collared rather than
+rolling up to `cinnyris_indet` — and *C. afer* is the confusable congener of
+*C. chalybeus*, the common visitor at this feeder, while being itself uncommon
+in an urban Cape Town garden. The failure would be a run of false records of
+the rarer species, in the one genus the project most needs to get right.
+
+Held at the species-tier default **0.55** (2026-10-10), flagged UNFITTED in
+`taxonomy.yaml`. Two `ml/tests/test_inference.py` genus-fallback tests pin this:
+they failed from 2026-10-09 (`d6eb066`) until the value was reverted, and were
+missed because only the `capture/` subset was run after that refit. **Run the
+whole suite after touching `taxonomy.yaml`** — it is read at runtime, so a bad
+value there changes labels silently.
+
+Refit needs real support for this class. Do it in the same pass as the
+`calibrate_capture` refit against the corrected camera (A28).

@@ -793,3 +793,32 @@ value there changes labels silently.
 
 Refit needs real support for this class. Do it in the same pass as the
 `calibrate_capture` refit against the corrected camera (A28).
+
+## A34 — a bird at the port reads FARTHER than the ToF baseline, not nearer
+
+Measured 2026-10-10 from the departure log: Cape White-eye +13 mm, Cape Bulbul
++11 mm, against a 118 mm resting baseline; the 2026-10-09 hand test agrees at
++11 mm. The resting return is the near furniture, and a body at the port
+scatters the beam so the dominant return comes from behind it.
+
+This contradicts the assumption written into `capture/motion.py` when the
+baseline trigger was built ("a bird perching reads NEARER than the bare rod"),
+which was a guess. The symmetric margin was kept only because the direction had
+not been measured; had the proposed nearer-only optimisation been applied, it
+would have missed both birds above.
+
+**Consequence for the margin.** A bird clears the fitted 10 mm margin by 1–3 mm,
+while the empty-scene wind tail reaches +11 mm. Wind and birds occupy the same
+band on the far side, so the margin cannot be raised without losing visits.
+This is a standing limit of the ToF trigger, not a tuning deficit, and the
+remedy is mechanical (stop the furniture moving) or a different sensing
+geometry. Both bounds should be refitted from the departure log as
+observer-confirmed visits accumulate.
+
+**Also: the two fits before this one were measured with a broken instrument.**
+`deploy/tof_baseline.py` reimplemented the trigger state machine in its replay
+loop and omitted the `max_hold_seconds` valve, so the replayed gate latched and
+reported 1 event for every margin from 5 to 15 mm. The 7 mm deployed on
+2026-10-09 and the 20 mm recommended on 2026-10-10 are both artifacts. The
+replay now drives the real `poll_once` and a test pins it. When a replay and a
+live service disagree by 6x, the replay is the thing to doubt first.

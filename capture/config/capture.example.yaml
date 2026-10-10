@@ -73,23 +73,31 @@ motion:
   # Readings in the running median -- ALL valid in-scene readings, not only the
   # ones taken while the gate is clear. 1200 at 10 Hz is a 120 s window.
   #
-  # Both of those were wrong on 2026-10-10 and both cost a confirmed visit:
+  # MEASURED 2026-10-10, and this is the whole case for the long window. The
+  # true resting distance, from a 180 s raw sensor trace, is a median of 118 mm.
+  #   30 samples  (3 s)   learned 126 mm  -- 8 mm off, most of a 10 mm margin
+  #   1200 samples (120 s) learned 117 mm  -- 1 mm off
+  # At a 10 mm margin an 8 mm error in the baseline is nearly a false trigger
+  # before anything moves.
   #
-  #  * 30 samples is a 3 s window, which a bird fills completely. The service
-  #    restarted while an observer-confirmed Southern Double-collared was at the
-  #    feeder, learned 126 mm from 30 readings OF THE BIRD, and then fired on its
-  #    departure. During the first learn there is no baseline yet, so nothing can
-  #    be excluded as "detected" -- window length is the only protection, and a
-  #    visit is 7-25% of a 120 s median.
-  #  * Updating only from clear readings made a wrong baseline self-reinforcing:
-  #    the gate stayed detected, detected readings were excluded, so the baseline
-  #    ratcheted 118 -> 126 -> 128 -> 130 -> 131 mm over four minutes until it was
-  #    firing on the empty port.
+  # The second change is that detected readings are no longer excluded. Updating
+  # only from clear readings is self-reinforcing in principle: a baseline that
+  # drifts off the resting distance keeps the gate detected, and excluded
+  # readings cannot pull it back. That is a property of the code with its own
+  # test, NOT something observed to have caused a failure here -- the 126->131 mm
+  # wander in the log on 2026-10-10 is a 3 s median jittering against a scene
+  # with 3.0 mm stdev, not a ratchet, and it was first written up as one in
+  # error.
+  #
+  # The first learn is the exposed case either way: there is no baseline yet, so
+  # nothing can be excluded as "detected" and whatever is at the port defines
+  # "empty". Window length is the only protection, and a visit is 7-25% of a
+  # 120 s median.
   #
   # Cost: the gate does not fire until the window fills, so there is a ~120 s
-  # blind period after each restart. Worth it against learning a bird as
-  # furniture. If restarts become frequent, persist the baseline across them
-  # rather than shortening this.
+  # blind period after each restart. Do not restart during daylight for a
+  # comment-only change. If restarts become frequent, persist the baseline
+  # across them rather than shortening this.
   baseline_samples: 1200
 
   # Outer bound on the feeder scene, in mm. In baseline mode this is no longer

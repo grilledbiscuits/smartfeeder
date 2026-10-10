@@ -52,6 +52,30 @@ rollback() {
 [ -d "$STAGE/capture" ] || { say "no staged build at $STAGE"; exit 1; }
 sudo -n true || { say "passwordless sudo is required"; exit 1; }
 
+# The stage must say which commit it is. Without this the live tree cannot be
+# compared to anything, and on 2026-10-10 that cost a whole run: a threshold was
+# added to ml/config/taxonomy.yaml while the inference.py that reads it stayed
+# behind, so the knob was a silent no-op all day and a clip published that it
+# would have held back. A missing config KEY raises CaptureConfigError; a key
+# whose code is missing fails silently and reads as a tuning result. See A35.
+[ -f "$STAGE/DEPLOYED_COMMIT" ] || {
+  say "$STAGE has no DEPLOYED_COMMIT -- stage it with deploy/push.sh, not by hand"
+  exit 1
+}
+STAGE_COMMIT=$(cat "$STAGE/DEPLOYED_COMMIT")
+say "staging commit: $STAGE_COMMIT"
+[ -f "$LIVE/DEPLOYED_COMMIT" ] && say "live commit:    $(cat "$LIVE/DEPLOYED_COMMIT")"
+
+# Config the Pi owns deliberately. swap_in.sh replaces ml/config wholesale, so
+# any local edit there is reverted -- that has happened before, reverting the
+# Zosterops virens Tier A promotion. Warn loudly; the backup below keeps them.
+for f in ml/config/species.yaml ml/config/taxonomy.yaml; do
+  if [ -f "$LIVE/$f" ] && [ -f "$STAGE/$f" ] && ! diff -q "$LIVE/$f" "$STAGE/$f" >/dev/null; then
+    say "WARNING: $f differs from the stage and WILL be replaced"
+    say "         live copy is kept in the backup; re-apply after the swap if intended"
+  fi
+done
+
 say "backing up live build to $BACKUP"
 mkdir -p "$BACKUP/ml/data" "$BACKUP/ml"
 for d in capture web deploy; do rsync -a "$LIVE/$d" "$BACKUP/"; done
@@ -68,6 +92,7 @@ for d in capture ml/src ml/config web deploy; do
 done
 rsync -a "$STAGE/ml/data/export/" "$LIVE/ml/data/export/"
 rsync -a "$STAGE/ml/reports/" "$LIVE/ml/reports/"
+printf '%s\n' "$STAGE_COMMIT" | sudo -n tee "$LIVE/DEPLOYED_COMMIT" >/dev/null
 
 say "validating as the service user"
 if ! (cd "$LIVE" && sudo -n -u birdcam "$PY" -m capture --check \
@@ -97,5 +122,5 @@ if awk -v m="$MARK" '$1" "$2 >= m' "$LIVE/var/capture/capture.log" 2>/dev/null \
   exit 1
 fi
 
-say "deployed. backup kept at $BACKUP"
+say "deployed $STAGE_COMMIT. backup kept at $BACKUP"
 say "to roll back by hand:  bash $LIVE/deploy/rollback.sh $BACKUP"

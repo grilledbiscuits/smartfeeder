@@ -22,6 +22,35 @@ Two categories, and both bite silently:
 
 * **`ml/data/` and `ml/reports/` are gitignored.** The ONNX export, its
   metadata sidecar and the fitted operating points must be copied by hand.
+## Deploying
+
+Deploy the **whole tree**, from the repo root, with the working tree committed:
+
+```bash
+bash deploy/push.sh            # stage HEAD to the Pi, then swap_in.sh
+bash deploy/push.sh --verify   # compare the live tree to HEAD, change nothing
+```
+
+`push.sh` stages every code directory with `rsync --delete`, writes the commit
+SHA to `DEPLOYED_COMMIT`, carries the live (gitignored) `capture.yaml` into the
+stage, then runs `swap_in.sh`, which backs up, validates with
+`python -m capture --check` as the service user, watches the log and rolls back
+on any error.
+
+**Never hand-copy individual files into `/opt/smartfeeder`.** On 2026-10-10 a
+threshold was copied into `ml/config/taxonomy.yaml` while the `inference.py`
+that reads it stayed behind, so the setting was a silent no-op for a whole field
+run and a clip published that it would have held back. A missing config *key*
+raises `CaptureConfigError`; a key whose *code* is missing fails silently and
+reads as a tuning result. `swap_in.sh` now refuses a stage without a
+`DEPLOYED_COMMIT`, and `--verify` is the check to run before quoting any field
+figure. See `ml/ASSUMPTIONS.md` A35.
+
+`swap_in.sh` replaces `ml/config` wholesale, so deliberate Pi-local edits there
+are reverted — this has already cost the *Zosterops virens* Tier A promotion
+once. It now warns and names the files before doing it, and the backup keeps the
+live copies.
+
 * **`capture/config/capture.yaml` is gitignored.** It is per-deployment and may
   carry `${VAR}`-expanded secrets. Copy `capture.example.yaml` on the device.
 

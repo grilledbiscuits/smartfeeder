@@ -253,22 +253,23 @@ class ToFMotionSource:
         # taken while the gate is clear. At 10 Hz, 1200 samples is a 120 s
         # window.
         #
-        # Both halves of that matter, and the first version got both wrong.
+        # MEASURED 2026-10-10, and this is the whole case for the long window.
+        # The true resting distance, from a 180 s raw trace, is a median of
+        # 118 mm. A 30-sample (3 s) window learned 126 mm, 8 mm off and most of
+        # a 10 mm margin; 1200 samples learned 117 mm.
         #
-        # Clear-state-only updating makes a wrong baseline self-reinforcing: a
-        # baseline that drifts off the true resting distance keeps the gate
-        # detected, detected readings were excluded, so only the rarer outliers
-        # could update it and it ratcheted further away. MEASURED 2026-10-10:
-        # 118 -> 126 -> 128 -> 130 -> 131 mm over four minutes, by which point
-        # the gate was firing on the empty port.
+        # Detected readings are no longer excluded either. Clear-state-only
+        # updating is self-reinforcing in principle -- a baseline that drifts
+        # keeps the gate detected, and excluded readings cannot pull it back --
+        # which is a property of the code with its own test, NOT a failure
+        # observed here. The 126->131 mm wander in that day's log is a 3 s median
+        # jittering against a 3.0 mm-stdev scene, and was written up as a
+        # ratchet in error.
         #
-        # A 3 s window is far too short to survive a bird. The service restarted
-        # while a confirmed Southern Double-collared was at the feeder, learned
-        # 126 mm from 30 readings of the BIRD, and then fired on its departure --
-        # the initial learn has no baseline yet, so nothing can be excluded as
-        # "detected" and whatever is at the port becomes the definition of empty.
-        # A 120 s median cannot be moved by an 8-30 s visit (7-25% of the window),
-        # which is the only protection that works during the first learn.
+        # The first learn is the exposed case regardless: there is no baseline
+        # yet, so nothing can be excluded as "detected" and whatever sits at the
+        # port defines "empty". Window length is the only protection there, and
+        # a visit is 7-25% of a 120 s median.
         #
         # Cost: the gate does not fire until the window is full, so there is a
         # ~120 s blind period after every restart. That is the trade for not

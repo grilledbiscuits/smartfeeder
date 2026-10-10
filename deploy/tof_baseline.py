@@ -28,6 +28,7 @@ import argparse
 import statistics
 import sys
 import time
+from pathlib import Path
 
 MARGINS_MM = (5, 7, 8, 10, 15, 20, 30)
 
@@ -60,7 +61,42 @@ def read_trace(seconds: float, rate_hz: float, roi_size: int | None, roi_center:
         sensor.stop_ranging()
 
 
-def report(trace: list[float | None], samples: int, rate_hz: float = 10.0) -> int:
+class _TraceSensor:
+    """A VL53L1X that plays back a recorded trace, for the replay above.
+
+    Mirrors the driver's contract exactly, because poll_once depends on it:
+    `distance` is in CENTIMETRES, None means an invalid read, and a new reading
+    only appears after `clear_interrupt()`.
+    """
+
+    def __init__(self, trace: list[float | None]) -> None:
+        self._trace = list(trace)
+
+    @property
+    def remaining(self) -> int:
+        return len(self._trace)
+
+    @property
+    def data_ready(self) -> bool:
+        return bool(self._trace)
+
+    @property
+    def distance(self) -> float | None:
+        mm = self._trace[0]
+        return None if mm is None else mm / 10.0
+
+    def clear_interrupt(self) -> None:
+        self._trace.pop(0)
+
+
+def report(
+    trace: list[float | None],
+    samples: int,
+    rate_hz: float = 10.0,
+    *,
+    release_seconds: float = 1.0,
+    max_hold_seconds: float | None = 60.0,
+) -> int:
     valid = [mm for mm in trace if mm is not None]
     pct = 100 * len(valid) / max(1, len(trace))
     print(f"\n{len(trace)} polls, {len(valid)} valid ({pct:.0f}%)")
@@ -80,33 +116,39 @@ def report(trace: list[float | None], samples: int, rate_hz: float = 10.0) -> in
 
     # Replay the real source against this trace, at each candidate margin, so
     # the rates come from the same code path that runs in the service.
-    sys.path.insert(0, "/opt/smartfeeder")
+    #
+    # "The same code path" has to mean poll_once, not a reimplementation of it.
+    # The first version of this script hand-rolled the state machine here and
+    # left out the max_hold_seconds valve, so the replayed gate latched on its
+    # first detection and never re-armed -- reporting exactly 1 event for every
+    # margin from 5 to 15 mm, which reads as "quiet" and is actually "stuck".
+    # Both the 7 mm and the 20 mm margins were fitted on that artifact.
+    for candidate in ("/opt/smartfeeder", str(Path(__file__).resolve().parent.parent)):
+        if candidate not in sys.path:
+            sys.path.append(candidate)
     from capture.motion import ToFMotionSource
 
     print(f"\nempty-port trigger rate by margin ({len(trace)} polls replayed):")
     print("  margin   events   per minute")
     best = None
     for margin in MARGINS_MM:
+        events: list = []
         src = ToFMotionSource(
             warmup_seconds=0,
+            read_rate_hz=rate_hz,
+            release_seconds=release_seconds,
+            max_hold_seconds=max_hold_seconds,
             baseline_margin_mm=margin,
             baseline_samples=samples,
-            sensor_factory=lambda: None,
+            sensor_factory=lambda: _TraceSensor(trace),
         )
-        events = 0
-        for mm in trace:
-            if src._detect(mm):
-                if not src._in_range:
-                    events += 1
-                src._in_range = True
-                src._clear_run = 0
-            else:
-                src._clear_run += 1
-                if src._clear_run >= src._release_polls:
-                    src._in_range = False
-        per_min = events / (len(trace) / rate_hz) * 60
-        print(f"  {margin:3d} mm   {events:6d}   {per_min:8.1f}")
-        if best is None and events == 0:
+        src._sensor = src._sensor_factory()
+        src._callback = events.append
+        while src._sensor.remaining:
+            src.poll_once()
+        per_min = len(events) / (len(trace) / rate_hz) * 60
+        print(f"  {margin:3d} mm   {len(events):6d}   {per_min:8.1f}")
+        if best is None and not events:
             best = margin
 
     if best is None:
@@ -133,6 +175,12 @@ def main() -> int:
     ap.add_argument("--roi-center", type=int, default=199)
     ap.add_argument("--samples", type=int, default=30, help="motion.baseline_samples")
     ap.add_argument("--note", default="", help="recorded in the output, e.g. 'bird present'")
+    # These MUST match the live capture.yaml: the valve in particular decides
+    # whether a latched gate re-arms, and leaving it out is what made the first
+    # two margin fits meaningless.
+    ap.add_argument("--release-seconds", type=float, default=1.0)
+    ap.add_argument("--max-hold-seconds", type=float, default=60.0)
+    ap.add_argument("--save-trace", default="", help="write the raw mm readings here")
     args = ap.parse_args()
 
     print(
@@ -142,7 +190,18 @@ def main() -> int:
     if args.note:
         print(f"note: {args.note}")
     trace = read_trace(args.seconds, args.rate_hz, args.roi_size, args.roi_center)
-    return report(trace, args.samples, args.rate_hz)
+    if args.save_trace:
+        Path(args.save_trace).write_text(
+            "\n".join("" if mm is None else f"{mm:.0f}" for mm in trace) + "\n"
+        )
+        print(f"raw trace saved to {args.save_trace} ({len(trace)} polls)")
+    return report(
+        trace,
+        args.samples,
+        args.rate_hz,
+        release_seconds=args.release_seconds,
+        max_hold_seconds=args.max_hold_seconds,
+    )
 
 
 if __name__ == "__main__":

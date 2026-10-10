@@ -308,3 +308,41 @@ def test_no_detection_until_the_baseline_is_learned():
     events, src = run_baseline([10.0] * 4, samples=5)
     assert events == []
     assert src._baseline is None
+
+
+def test_baseline_fitting_harness_drives_the_real_state_machine():
+    """deploy/tof_baseline.py must replay through poll_once, valve included.
+
+    Its first version hand-rolled the state machine and left out
+    max_hold_seconds, so a replayed gate latched on its first detection and
+    never re-armed -- reporting exactly 1 event for every margin from 5 to
+    15 mm. That reads as "quiet" and means "stuck", and two margins were fitted
+    on it before anyone noticed. A parked target must produce an event per valve
+    period, not one event ever.
+    """
+    import importlib.util
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[2] / "deploy" / "tof_baseline.py"
+    spec = importlib.util.spec_from_file_location("tof_baseline", path)
+    tb = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(tb)
+
+    # 30 clear reads to learn 120 mm, then a target parked at 200 mm for 120 s.
+    trace = [120.0] * 30 + [200.0] * 1200
+    sensor = tb._TraceSensor(trace)
+    events = []
+    src = ToFMotionSource(
+        warmup_seconds=0,
+        read_rate_hz=10.0,
+        release_seconds=1.0,
+        max_hold_seconds=60.0,
+        baseline_margin_mm=7,
+        baseline_samples=30,
+        sensor_factory=lambda: sensor,
+    )
+    src._sensor = src._sensor_factory()
+    src._callback = events.append
+    while src._sensor.remaining:
+        src.poll_once()
+    assert len(events) == 2, "the valve must re-arm a latched gate once per period"

@@ -1,0 +1,17 @@
+[Unit]
+Description=Bird feeder battery discharge runtime checkpoints
+After=local-fs.target
+RequiresMountsFor=/opt/smartfeeder/var
+
+[Service]
+Type=simple
+User=root
+Environment=BATTERY_RUNTIME_INTERVAL=2
+ExecStart=/usr/bin/python3 /opt/smartfeeder/deploy/battery_runtime.py /opt/smartfeeder/var/telemetry/battery-runtime
+NoNewPrivileges=yes
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/opt/smartfeeder/var
+
+[Install]
+WantedBy=multi-user.target

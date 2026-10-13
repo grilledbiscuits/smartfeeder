@@ -1,0 +1,6 @@
+{"trial": 0, "camera": "cold", "event_id": "20261012_224236_5eddd6c7", "trigger_at": "2026-10-12T22:42:36.401700", "first_frame_latency_ms": 1445.0, "record_duration_s": 8.51, "error": null}
+{"trial": 1, "camera": "warm", "event_id": "20261012_224247_be8ef789", "trigger_at": "2026-10-12T22:42:47.995643", "first_frame_latency_ms": 187.1, "record_duration_s": 8.51, "error": null}
+{"trial": 2, "camera": "cold", "event_id": "20261012_224258_557ee717", "trigger_at": "2026-10-12T22:42:58.517418", "first_frame_latency_ms": 1149.8, "record_duration_s": 8.56, "error": null}
+{"trial": 3, "camera": "warm", "event_id": "20261012_224310_53c1895d", "trigger_at": "2026-10-12T22:43:10.086385", "first_frame_latency_ms": 170.9, "record_duration_s": 8.59, "error": null}
+{"trial": 4, "camera": "cold", "event_id": "20261012_224320_c51df378", "trigger_at": "2026-10-12T22:43:20.574398", "first_frame_latency_ms": 1149.0, "record_duration_s": 8.55, "error": null}
+{"trial": 5, "camera": "warm", "event_id": "20261012_224331_af086f39", "trigger_at": "2026-10-12T22:43:31.871504", "first_frame_latency_ms": 182.1, "record_duration_s": 8.59, "error": null}

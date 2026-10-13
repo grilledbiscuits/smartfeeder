@@ -1,0 +1,21 @@
+{
+  "config_sha256": "d1d024ae1bace74faee4c3ebaf477c00904c2632865dccde66a6b84dfbb54551",
+  "runner_sha256": "d25a7c01bd139baa04e08210514387c738e0325fbcdc2cb14106bbf1c95b15a9",
+  "definition": "admitted software trigger to first encoded frame delivered to FFmpeg",
+  "limitation": "ToF sensor detection, GPIO callback, and queue delay are excluded",
+  "trials": 6,
+  "results": {
+    "cold": {
+      "n": 3,
+      "median_ms": 1149.8,
+      "max_ms": 1445.0,
+      "within_2s": 3
+    },
+    "warm": {
+      "n": 3,
+      "median_ms": 182.1,
+      "max_ms": 187.1,
+      "within_2s": 3
+    }
+  }
+}

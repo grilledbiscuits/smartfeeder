@@ -1,0 +1,89 @@
+requested providers ['XnnpackExecutionProvider', 'CPUExecutionProvider'], using ['CPUExecutionProvider'] (the rest are not built into this onnxruntime)
+[12:11:47.933382508] [54612]  INFO Camera camera_manager.cpp:340 libcamera v0.7.2+rpt20260817
+[12:11:48.067193422] [54621]  INFO RPI pipeline_base.cpp:1133 Using configuration file '/usr/share/libcamera/pipeline/rpi/vc4/rpi_apps.yaml'
+[12:11:48.251578860] [54621]  INFO IPAProxy ipa_proxy.cpp:184 Using tuning file /usr/share/libcamera/ipa/rpi/vc4/imx708.json
+[12:11:48.258233513] [54621]  INFO Camera camera_manager.cpp:223 Adding camera '/base/soc/i2c0mux/i2c@1/imx708@1a' for pipeline handler rpi/vc4
+[12:11:48.258308919] [54621]  INFO RPI vc4.cpp:445 Registered camera /base/soc/i2c0mux/i2c@1/imx708@1a to Unicam device /dev/media2 and ISP device /dev/media0
+[12:11:48.265648542] [54612]  INFO Camera camera.cpp:1216 configuring streams: (0) 1280x720-XBGR8888/Rec709/Rec709/None/Full (1) 1536x864-SBGGR10_CSI2P/RAW
+[12:11:48.266097461] [54621]  INFO RPI vc4.cpp:620 Sensor: /base/soc/i2c0mux/i2c@1/imx708@1a - Selected sensor format: 1536x864-SBGGR10_1X10/RAW - Selected unicam format: 1536x864-pBAA/RAW
+[mp4 @ 0x55b52db140] Timestamps are unset in a packet for stream 0. This is deprecated and will stop working in the future. Fix your code to set the timestamps properly
+[vost#0:0/copy @ 0x55b52db870] Non-monotonic DTS; previous: 159998, current: 34573; changing to 159999. This may result in incorrect timestamps in the output file.
+[vost#0:0/copy @ 0x55b52db870] Non-monotonic DTS; previous: 159999, current: 34573; changing to 160000. This may result in incorrect timestamps in the output file.
+[vost#0:0/copy @ 0x55b52db870] Non-monotonic DTS; previous: 160000, current: 74573; changing to 160001. This may result in incorrect timestamps in the output file.
+[vost#0:0/copy @ 0x55b52db870] Non-monotonic DTS; previous: 160001, current: 114572; changing to 160002. This may result in incorrect timestamps in the output file.
+[vost#0:0/copy @ 0x55b52db870] Non-monotonic DTS; previous: 160002, current: 50122; changing to 160003. This may result in incorrect timestamps in the output file.
+[vost#0:0/copy @ 0x55b52db870] Non-monotonic DTS; previous: 160003, current: 94016; changing to 160004. This may result in incorrect timestamps in the output file.
+[vost#0:0/copy @ 0x55b52db870] Non-monotonic DTS; previous: 160004, current: 142004; changing to 160005. This may result in incorrect timestamps in the output file.
+[mp4 @ 0x5570181140] Timestamps are unset in a packet for stream 0. This is deprecated and will stop working in the future. Fix your code to set the timestamps properly
+[vost#0:0/copy @ 0x5570181870] Non-monotonic DTS; previous: 159998, current: 27597; changing to 159999. This may result in incorrect timestamps in the output file.
+[vost#0:0/copy @ 0x5570181870] Non-monotonic DTS; previous: 159999, current: 67597; changing to 160000. This may result in incorrect timestamps in the output file.
+[vost#0:0/copy @ 0x5570181870] Non-monotonic DTS; previous: 160000, current: 107597; changing to 160001. This may result in incorrect timestamps in the output file.
+[vost#0:0/copy @ 0x5570181870] Non-monotonic DTS; previous: 160001, current: 47827; changing to 160002. This may result in incorrect timestamps in the output file.
+[vost#0:0/copy @ 0x5570181870] Non-monotonic DTS; previous: 160002, current: 94338; changing to 160003. This may result in incorrect timestamps in the output file.
+[vost#0:0/copy @ 0x5570181870] Non-monotonic DTS; previous: 160003, current: 142189; changing to 160004. This may result in incorrect timestamps in the output file.
+[12:12:10.048796530] [54625]  INFO Camera camera_manager.cpp:340 libcamera v0.7.2+rpt20260817
+[12:12:10.068227405] [54696]  INFO RPI pipeline_base.cpp:1133 Using configuration file '/usr/share/libcamera/pipeline/rpi/vc4/rpi_apps.yaml'
+[12:12:10.074652173] [54696]  INFO IPAProxy ipa_proxy.cpp:184 Using tuning file /usr/share/libcamera/ipa/rpi/vc4/imx708.json
+[12:12:10.079367542] [54696]  INFO Camera camera_manager.cpp:223 Adding camera '/base/soc/i2c0mux/i2c@1/imx708@1a' for pipeline handler rpi/vc4
+[12:12:10.079473373] [54696]  INFO RPI vc4.cpp:445 Registered camera /base/soc/i2c0mux/i2c@1/imx708@1a to Unicam device /dev/media2 and ISP device /dev/media0
+[12:12:10.086177747] [54625]  INFO Camera camera.cpp:1216 configuring streams: (0) 1280x720-XBGR8888/Rec709/Rec709/None/Full (1) 1536x864-SBGGR10_CSI2P/RAW
+[12:12:10.086619129] [54696]  INFO RPI vc4.cpp:620 Sensor: /base/soc/i2c0mux/i2c@1/imx708@1a - Selected sensor format: 1536x864-SBGGR10_1X10/RAW - Selected unicam format: 1536x864-pBAA/RAW
+[mp4 @ 0x55c00003d0] Timestamps are unset in a packet for stream 0. This is deprecated and will stop working in the future. Fix your code to set the timestamps properly
+[vost#0:0/copy @ 0x55bfefc4c0] Non-monotonic DTS; previous: 239998, current: 36214; changing to 239999. This may result in incorrect timestamps in the output file.
+[vost#0:0/copy @ 0x55bfefc4c0] Non-monotonic DTS; previous: 239999, current: 76213; changing to 240000. This may result in incorrect timestamps in the output file.
+[vost#0:0/copy @ 0x55bfefc4c0] Non-monotonic DTS; previous: 240000, current: 47977; changing to 240001. This may result in incorrect timestamps in the output file.
+[vost#0:0/copy @ 0x55bfefc4c0] Non-monotonic DTS; previous: 240001, current: 93901; changing to 240002. This may result in incorrect timestamps in the output file.
+[vost#0:0/copy @ 0x55bfefc4c0] Non-monotonic DTS; previous: 240002, current: 141733; changing to 240003. This may result in incorrect timestamps in the output file.
+[vost#0:0/copy @ 0x55bfefc4c0] Non-monotonic DTS; previous: 240003, current: 190011; changing to 240004. This may result in incorrect timestamps in the output file.
+[vost#0:0/copy @ 0x55bfefc4c0] Non-monotonic DTS; previous: 240004, current: 237804; changing to 240005. This may result in incorrect timestamps in the output file.
+[mp4 @ 0x5580289140] Timestamps are unset in a packet for stream 0. This is deprecated and will stop working in the future. Fix your code to set the timestamps properly
+[vost#0:0/copy @ 0x5580289870] Non-monotonic DTS; previous: 199998, current: 33101; changing to 199999. This may result in incorrect timestamps in the output file.
+[vost#0:0/copy @ 0x5580289870] Non-monotonic DTS; previous: 199999, current: 73100; changing to 200000. This may result in incorrect timestamps in the output file.
+[vost#0:0/copy @ 0x5580289870] Non-monotonic DTS; previous: 200000, current: 47624; changing to 200001. This may result in incorrect timestamps in the output file.
+[vost#0:0/copy @ 0x5580289870] Non-monotonic DTS; previous: 200001, current: 93624; changing to 200002. This may result in incorrect timestamps in the output file.
+[vost#0:0/copy @ 0x5580289870] Non-monotonic DTS; previous: 200002, current: 141723; changing to 200003. This may result in incorrect timestamps in the output file.
+[vost#0:0/copy @ 0x5580289870] Non-monotonic DTS; previous: 200003, current: 189699; changing to 200004. This may result in incorrect timestamps in the output file.
+[12:12:32.105666043] [54700]  INFO Camera camera_manager.cpp:340 libcamera v0.7.2+rpt20260817
+[12:12:32.124882884] [54758]  INFO RPI pipeline_base.cpp:1133 Using configuration file '/usr/share/libcamera/pipeline/rpi/vc4/rpi_apps.yaml'
+[12:12:32.131302078] [54758]  INFO IPAProxy ipa_proxy.cpp:184 Using tuning file /usr/share/libcamera/ipa/rpi/vc4/imx708.json
+[12:12:32.136054891] [54758]  INFO Camera camera_manager.cpp:223 Adding camera '/base/soc/i2c0mux/i2c@1/imx708@1a' for pipeline handler rpi/vc4
+[12:12:32.136130982] [54758]  INFO RPI vc4.cpp:445 Registered camera /base/soc/i2c0mux/i2c@1/imx708@1a to Unicam device /dev/media2 and ISP device /dev/media0
+[12:12:32.142704562] [54700]  INFO Camera camera.cpp:1216 configuring streams: (0) 1280x720-XBGR8888/Rec709/Rec709/None/Full (1) 1536x864-SBGGR10_CSI2P/RAW
+[12:12:32.143150703] [54758]  INFO RPI vc4.cpp:620 Sensor: /base/soc/i2c0mux/i2c@1/imx708@1a - Selected sensor format: 1536x864-SBGGR10_1X10/RAW - Selected unicam format: 1536x864-pBAA/RAW
+[mp4 @ 0x55892eb140] Timestamps are unset in a packet for stream 0. This is deprecated and will stop working in the future. Fix your code to set the timestamps properly
+[vost#0:0/copy @ 0x55893efaf0] Non-monotonic DTS; previous: 199998, current: 32951; changing to 199999. This may result in incorrect timestamps in the output file.
+[vost#0:0/copy @ 0x55893efaf0] Non-monotonic DTS; previous: 199999, current: 72950; changing to 200000. This may result in incorrect timestamps in the output file.
+[vost#0:0/copy @ 0x55893efaf0] Non-monotonic DTS; previous: 200000, current: 112950; changing to 200001. This may result in incorrect timestamps in the output file.
+[vost#0:0/copy @ 0x55893efaf0] Non-monotonic DTS; previous: 200001, current: 48141; changing to 200002. This may result in incorrect timestamps in the output file.
+[vost#0:0/copy @ 0x55893efaf0] Non-monotonic DTS; previous: 200002, current: 94240; changing to 200003. This may result in incorrect timestamps in the output file.
+[vost#0:0/copy @ 0x55893efaf0] Non-monotonic DTS; previous: 200003, current: 142217; changing to 200004. This may result in incorrect timestamps in the output file.
+[vost#0:0/copy @ 0x55893efaf0] Non-monotonic DTS; previous: 200004, current: 190291; changing to 200005. This may result in incorrect timestamps in the output file.
+[mp4 @ 0x55aa149140] Timestamps are unset in a packet for stream 0. This is deprecated and will stop working in the future. Fix your code to set the timestamps properly
+[vost#0:0/copy @ 0x55aa149870] Non-monotonic DTS; previous: 279997, current: 41612; changing to 279998. This may result in incorrect timestamps in the output file.
+[vost#0:0/copy @ 0x55aa149870] Non-monotonic DTS; previous: 279998, current: 81612; changing to 279999. This may result in incorrect timestamps in the output file.
+[vost#0:0/copy @ 0x55aa149870] Non-monotonic DTS; previous: 279999, current: 49952; changing to 280000. This may result in incorrect timestamps in the output file.
+[vost#0:0/copy @ 0x55aa149870] Non-monotonic DTS; previous: 280000, current: 93780; changing to 280001. This may result in incorrect timestamps in the output file.
+[vost#0:0/copy @ 0x55aa149870] Non-monotonic DTS; previous: 280001, current: 142416; changing to 280002. This may result in incorrect timestamps in the output file.
+[vost#0:0/copy @ 0x55aa149870] Non-monotonic DTS; previous: 280002, current: 190270; changing to 280003. This may result in incorrect timestamps in the output file.
+[vost#0:0/copy @ 0x55aa149870] Non-monotonic DTS; previous: 280003, current: 238196; changing to 280004. This may result in incorrect timestamps in the output file.
+{
+  "config_sha256": "d1d024ae1bace74faee4c3ebaf477c00904c2632865dccde66a6b84dfbb54551",
+  "runner_sha256": "d25a7c01bd139baa04e08210514387c738e0325fbcdc2cb14106bbf1c95b15a9",
+  "definition": "admitted software trigger to first encoded frame delivered to FFmpeg",
+  "limitation": "ToF sensor detection, GPIO callback, and queue delay are excluded",
+  "trials": 6,
+  "results": {
+    "cold": {
+      "n": 3,
+      "median_ms": 1149.8,
+      "max_ms": 1445.0,
+      "within_2s": 3
+    },
+    "warm": {
+      "n": 3,
+      "median_ms": 182.1,
+      "max_ms": 187.1,
+      "within_2s": 3
+    }
+  }
+}

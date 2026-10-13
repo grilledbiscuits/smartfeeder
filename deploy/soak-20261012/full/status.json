@@ -1,0 +1,25 @@
+{
+  "pid": 2473,
+  "root": "/home/grilledbiscuits/soak-20261012",
+  "started": 1791794534.7335594,
+  "onnx_sha256": "98dfed53ae32217264b238c04b7c736975f95007aa248bc00effc72c1186a33a",
+  "config_sha256": "d1d024ae1bace74faee4c3ebaf477c00904c2632865dccde66a6b84dfbb54551",
+  "calibration_sha256": "19f9f723401494a8b67486ab7b0ac772c3bc33708ea1ce07c761fe5ac6c7a274",
+  "taxonomy_sha256": "164d70dba006442ca5f75d62eaffeb191bdf79b63709c9aa113dca494988b972",
+  "manifest_sha256": "b9130f23042deded6293e150e5595593d0ea54fa05fbd2c2aa96c82df22d4551",
+  "runner_sha256": "28507fd58e9ff861c29beabc53ce831e89a1395806cfab839ecd0f2cc6c7cdf9",
+  "caveat": "Repeated replay stability test; not independent accuracy evidence.",
+  "state": "complete",
+  "counts": {
+    "events": 1440,
+    "errors": 0,
+    "identification_correct": 1368,
+    "action_correct": 1440
+  },
+  "finished": 1791837734.9456382,
+  "board": {
+    "temp_c": 52.1,
+    "arm_hz": "600117184",
+    "throttled": "0x0"
+  }
+}

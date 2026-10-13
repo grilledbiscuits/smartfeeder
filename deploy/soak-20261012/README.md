@@ -15,6 +15,8 @@ The ToF sensor is unpowered; the camera is not used by the replay runner.
   calibration, taxonomy, replay manifest, and runner.
 - `runner.log`: startup warnings and uncaught errors from the process.
 
-The completed full-run logs and separate software-trigger-to-first-camera-frame
-measurement will be added after the soak finishes. No USB-C power measurement
-is available from this laptop.
+## Completed run
+
+The full soak completed: 1440 events, 0 runtime errors, 1368 correct identifications, and 1440 correct actions. `full/` contains the complete event log, status, and runner log. Repeated clips test stability, not independent accuracy.
+
+Camera latency results and measurement code are in `latency/`. No USB-C power measurement was available from this laptop.

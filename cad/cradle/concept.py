@@ -11,6 +11,10 @@ Part frame (same as previous versions):
 
 Components, each exported separately so the render can colour-code them.
 """
+from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from shared.paths import export_part
 
 import math
 import cadquery as cq
@@ -631,10 +635,10 @@ def build():
         parts["side_beams"] = parts["side_beams"].cut(c)
 
     for nm, p in parts.items():
-        cq.exporters.export(p, "%s.stl" % nm)
-    cq.exporters.export(bottle(), "bottle.stl")
-    cq.exporters.export(whole, "whole.stl")
-    cq.exporters.export(whole, "concept.step")
+        export_part(p, "%s" % nm, 'stl')
+    export_part(bottle(), "bottle", 'stl')
+    export_part(whole, "whole", 'stl')
+    export_part(whole, "concept", 'step')
 
     x0, x1, y0, y1, z0b, z1b = tight_bb(whole)
     print("concept bounding box: %.0f x %.0f x %.0f mm"

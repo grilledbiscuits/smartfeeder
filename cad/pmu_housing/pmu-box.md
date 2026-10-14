@@ -48,8 +48,8 @@ the Pi housing's groove. The remaining floor thickness is 2.45 mm.
 
 Print the housing roof down and the lid flat with pads up, in white PLA.
 The lid has intake slots; the shell has high side vents under the roof brim.
-The bed-oriented exports are `stl/pmu_housing_roof_down.stl` and
-`stl/pmu_housing_lid_flat.stl`; [preview](pmu_full_print_preview.png).
+The bed-oriented exports are `pmu_housing_roof_down.stl` and
+`pmu_housing_lid_flat.stl`; [preview](pmu_full_print_preview.png).
 
 ## Model checks
 

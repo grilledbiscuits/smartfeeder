@@ -1,1 +1,1 @@
-cad/step/*.step -diff -whitespace
+cad/**/*.step -diff -whitespace

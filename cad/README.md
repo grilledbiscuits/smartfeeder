@@ -1,41 +1,44 @@
 # Smart Feeder CAD
 
-CadQuery designs for the v6 feeder cradle, Raspberry Pi 4B housing, PMU box,
-camera housing, and ToF sensor box. The cradle, Pi, and PMU share one dovetail
-geometry.
+Each component folder contains its model files, STEP/STL exports, notes and previews.
+Existing part names are preserved. Sources shared by several components live in `shared/`.
 
-| Folder | Contents |
+| Component folder | Contents / build entrypoint |
 |---|---|
-| [`src/`](src/) | Parametric CadQuery models and render scripts |
-| [`step/`](step/) | Editable STEP exports for the printable parts |
-| [`stl/`](stl/) | STL exports for slicing |
-| [`docs/`](docs/) | Part dimensions, assembly, and printing notes |
+| [cradle/](cradle/) | Cradle halves and pins; `split.py`, shared geometry in `concept.py` |
+| [rpi_housing/](rpi_housing/) | Raspberry Pi 4B body, lid and notes; `rpi_housing.py` |
+| [pmu_housing/](pmu_housing/) | PMU body, lid and test coupon; `pmu_housing.py`, `pmu_port_test_wall.py` |
+| [camera_housing/](camera_housing/) | Camera box and preview; built by `shared/sensor_housings.py` |
+| [tof_housing/](tof_housing/) | ToF box and preview; built by `shared/sensor_housings.py` |
+| [solar_panel_frame/](solar_panel_frame/) | Six flat frame sections and print layouts; `build.py` |
 
-The source scripts are `concept.py` (cradle), `split.py` (printable cradle
-halves), `rpi_housing.py`, `pmu_housing.py`, and `sensor_housings.py`. They require CadQuery; the
-render scripts also require Matplotlib, NumPy, and `numpy-stl`. Run the scripts
-in that order from `src/` to regenerate the models. Each build prints its
-geometry checks and should end with `ALL OK`. The scripts write exports to the
-current working directory; copy the printable STEP/STL outputs into `step/`
-and `stl/` after checking them.
+## Existing CadQuery models
 
-Run `pmu_port_test_wall.py` after `pmu_housing.py` to make a cropped PMU
-port-fit print. Its inner wall face is flat on the print bed; it includes the
-seven port openings with a 4 mm border, without awnings.
+Run the build entrypoints with CadQuery installed. The render scripts additionally
+use Matplotlib, NumPy and `numpy-stl`. Export paths now resolve to the component
+folders regardless of the current working directory; the shared models import
+the cradle's geometry to retain their existing interfaces.
 
-For the PMU full print, slice `stl/pmu_housing_roof_down.stl` and
-`stl/pmu_housing_lid_flat.stl`. The test coupon is
-`stl/pmu_port_test_wall.stl`. These include the corrected inside-facing port
-layout. See the [full-print preview](docs/pmu_full_print_preview.png).
+The PMU print orientations are `pmu_housing/pmu_housing_roof_down.stl` and
+`pmu_housing/pmu_housing_lid_flat.stl`. Its coupon is
+`pmu_housing/pmu_port_test_wall.stl`. For the camera and ToF, use
+`camera_housing/camera_housing_lens_down.stl` and
+`tof_housing/tof_housing_face_down.stl`. Their unsuffixed exports retain assembly
+coordinates. These pre-existing geometries were moved without changing them.
 
-For the camera and ToF boxes, slice `stl/camera_housing_lens_down.stl` and
-`stl/tof_housing_face_down.stl`. The unsuffixed STEP/STL files retain their CAD
-coordinates. The [camera render](docs/camera_housing_draft.png) shows its
-rails on the cradle's 38 × 32 × 5 mm arm pad and a 30 × 28 mm camera removal
-opening. The [ToF render](docs/tof_housing_draft.png) shows the 7 mm optical opening and
-four-wire exit. The ToF box uses the approximate 12 × 17 mm PCB size supplied
-by the user and has no mounting feature. Check board and connector clearance
-against the physical parts before a full print.
+## Solar panel frame
 
-The Pi housing fits the deployment board, a **Raspberry Pi 4B**. Confirm cable
-and connector clearance with the physical board before printing.
+See [frame dimensions and assembly](solar_panel_frame/solar-panel-frame.md).
+The frame fits a 340 × 232 × 17 mm panel, with 1 mm clearance per side,
+a 13 mm inner support ledge, an open center and four corner suspension holes.
+Its six pieces print flat and have plain faces for superglue assembly.
+
+The frame uses the text-to-cad skill's pinned cadgen environment. From the repo root:
+
+```bash
+uvx --no-config --managed-python --python 3.13 --from cadgen==0.7.21 python cad/solar_panel_frame/build.py
+uvx --no-config --managed-python --python 3.13 --from cadgen==0.7.21 python cad/solar_panel_frame/checks.py
+```
+
+The Ender-3 V3 SE build volume is 220 × 220 × 250 mm. Solar-frame print files
+are placed flat at Z=0; supports are not required by their modeled geometry.

@@ -16,9 +16,13 @@ Instead the groove is open at BOTH ends and the box seats, under gravity,
 against the Pi housing's aft face, which is itself stopped by the rail's front
 end. A grub screw stops it creeping back up the slope.
 """
+from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from shared.paths import export_part
 import cadquery as cq
-import concept as c
-import rpi_housing as R
+from cradle import concept as c
+from rpi_housing import rpi_housing as R
 
 # ------------------------------------------------ rail interface (shared) --
 X_TOP = R.X_TOP                        # -58.25, roof top just under the spine
@@ -304,9 +308,9 @@ def build(export=True):
 
     if export:
         for nm, part in (("pmu_housing", H), ("pmu_housing_lid", L)):
-            cq.exporters.export(part, nm + ".stl")
-            cq.exporters.export(part, nm + ".step")
-        cq.exporters.export(U, "pmu_keepout.stl")
+            export_part(part, nm + "", 'stl')
+            export_part(part, nm + "", 'step')
+        export_part(U, "pmu_keepout", 'stl')
     print("\nALL OK" if ok else "\n*** CHECK ***")
     return H, L
 

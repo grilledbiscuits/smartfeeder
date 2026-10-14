@@ -1,4 +1,8 @@
 """Renders of the RPi 4B housing, alone and hung on the cradle's front half."""
+from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from shared.paths import model_path
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
@@ -6,14 +10,14 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from stl import mesh as stlmesh
-from render_concept import hex2rgb, shade, tilt
+from cradle.render_concept import hex2rgb, shade, tilt
 
 
 def scene(png, title, items, elev, azim, hung=0.0, focus=None, zoom=1.0,
           legend=True, section_z=None):
     tris, cols, handles = [], [], []
     for (nm, col, lab, alpha, offset) in items:
-        t = stlmesh.Mesh.from_file(nm + ".stl").vectors.copy()
+        t = stlmesh.Mesh.from_file(str(model_path(nm, "stl"))).vectors.copy()
         t = t + np.array(offset, dtype=float)
         if section_z is not None:                      # drop everything aft of the cut
             t = t[t[..., 2].max(axis=1) <= section_z + 0.01]

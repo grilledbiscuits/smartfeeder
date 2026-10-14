@@ -16,9 +16,13 @@ Parts: housing body, lid. The Pi mounts upside-down on standoffs from the
 ceiling, component side facing the lid, so taking the lid off exposes the
 camera connector, GPIO header and USB-C without disturbing anything.
 """
+from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from shared.paths import export_part
 import math
 import cadquery as cq
-import concept as c
+from cradle import concept as c
 
 # ----------------------------------------------------------- rail interface --
 # Everything here is derived from the cradle's rail so the two cannot drift.
@@ -448,9 +452,9 @@ def build(export=True):
 
     if export:
         for nm, part in (("rpi_housing", H), ("rpi_housing_lid", L)):
-            cq.exporters.export(part, nm + ".stl")
-            cq.exporters.export(part, nm + ".step")
-        cq.exporters.export(P, "rpi4b_keepout.stl")
+            export_part(part, nm + "", 'stl')
+            export_part(part, nm + "", 'step')
+        export_part(P, "rpi4b_keepout", 'stl')
     print("\nALL OK" if ok else "\n*** CHECK ***")
     return H, L, P
 

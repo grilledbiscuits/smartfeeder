@@ -9,9 +9,13 @@ one direction a dovetail like this leaves free) is taken by a cross pin.
 
 Front part carries the tongues, rear part the sockets.
 """
+from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from shared.paths import export_part
 import math
 import cadquery as cq
-import concept as c
+from cradle import concept as c
 
 SPLIT_Z = 158.0
 TONGUE_L = 18.0
@@ -128,8 +132,8 @@ def main():
         fits = max(bb.xlen, bb.ylen, bb.zlen) <= BED
         solids = len(v.Solids())
         ok = ok and fits and solids == 1
-        cq.exporters.export(part, name + ".stl")
-        cq.exporters.export(part, name + ".step")
+        export_part(part, name + "", 'stl')
+        export_part(part, name + "", 'step')
         print("%-13s %6.0f x %6.0f x %6.0f mm   z %5.1f..%5.1f   %5.0f g   "
               "solids %d   %s"
               % (name, bb.xlen, bb.ylen, bb.zlen, bb.zmin, bb.zmax,

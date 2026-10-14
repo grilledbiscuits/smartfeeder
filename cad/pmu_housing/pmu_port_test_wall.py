@@ -1,7 +1,11 @@
 """Printable PMU end-wall coupon for checking port alignment before the box."""
+from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from shared.paths import export_part
 
 import cadquery as cq
-import pmu_housing as pmu
+from pmu_housing import pmu_housing as pmu
 
 
 def wall():
@@ -35,8 +39,8 @@ def build():
     assert abs(bb.zlen - pmu.WALL) < 0.01
     print("PMU port test wall: %.1f × %.1f × %.1f mm, %d solid" %
           (bb.xlen, bb.ylen, bb.zlen, len(printable.val().Solids())))
-    cq.exporters.export(printable, "pmu_port_test_wall.step")
-    cq.exporters.export(printable, "pmu_port_test_wall.stl")
+    export_part(printable, "pmu_port_test_wall", 'step')
+    export_part(printable, "pmu_port_test_wall", 'stl')
     print("ALL OK")
 
 

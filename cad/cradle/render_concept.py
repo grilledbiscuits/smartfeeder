@@ -1,4 +1,8 @@
 """Shaded, colour-coded renders of the v6 concept for design review."""
+from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from shared.paths import model_path
 import math
 import numpy as np
 import matplotlib
@@ -26,7 +30,7 @@ def hex2rgb(h):
 
 
 def load(name):
-    return stlmesh.Mesh.from_file(name + ".stl").vectors.copy()
+    return stlmesh.Mesh.from_file(str(model_path(name, "stl"))).vectors.copy()
 
 
 def shade(tris, rgb, alpha=1.0, light=(0.45, -0.75, 0.55)):

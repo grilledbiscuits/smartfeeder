@@ -4,9 +4,13 @@ The camera housing shares the cradle coordinate frame. Its local x follows
 the camera pad, local y points toward the feeder port, and local z rises from
 the pad's top. The ToF box is independent and has no mounting features.
 """
+from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from shared.paths import export_part
 
 import cadquery as cq
-import concept as cradle
+from cradle import concept as cradle
 
 
 def box(x0, x1, y0, y1, z0, z1):
@@ -73,11 +77,11 @@ def build():
         assert abs(part.val().BoundingBox().zmin) < 0.01
 
     for name, part in (("camera_housing", camera), ("tof_housing", tof)):
-        cq.exporters.export(part, name + ".step")
-        cq.exporters.export(part, name + ".stl")
+        export_part(part, name + "", 'step')
+        export_part(part, name + "", 'stl')
     for name, part in (("camera_housing_lens_down", camera_print),
                        ("tof_housing_face_down", tof_print)):
-        cq.exporters.export(part, name + ".stl")
+        export_part(part, name + "", 'stl')
     print("Camera box: 41 × 39 × 35 mm above pad; removal opening 30 × 28 mm")
     print("ToF box: 24 × 19 × 14 mm; optical hole Ø7 mm; wire exit 15 × 10 mm")
     print("Arm and slide path clear; both print STLs on the bed; ALL OK")

@@ -1,0 +1,18 @@
+[Unit]
+Description=Bird feeder battery inference replay (one clip every 120 seconds)
+After=local-fs.target birdcam-capture.service
+Conflicts=birdcam-capture.service
+RequiresMountsFor=/home/grilledbiscuits/soak-20261012
+
+[Service]
+Type=simple
+User=grilledbiscuits
+WorkingDirectory=/home/grilledbiscuits/soak-20261012
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/smartfeeder/.venv/bin/python /home/grilledbiscuits/soak-20261012/deploy/soak_replay.py --config /home/grilledbiscuits/soak-20261012/capture/config/capture.yaml --clips /home/grilledbiscuits/soak-20261012/field-replay --out /home/grilledbiscuits/soak-20261012/ml/reports/battery-inference-next --cycles 1000 --interval 120 --continue-on-throttle
+StandardOutput=append:/home/grilledbiscuits/soak-20261012/ml/reports/battery-inference-next/runner.log
+StandardError=inherit
+Restart=no
+
+[Install]
+WantedBy=multi-user.target

@@ -2,7 +2,7 @@
 """Bounded Pi-only replay soak. Repeated clips test stability, not new accuracy.
 
 Uses one pipeline throughout to expose accumulating memory/state errors. Writes
-one flushed JSONL row per event and atomically replaces status.json. No camera
+one fsynced JSONL row per event and atomically replaces status.json. No camera
 or GPIO is opened. Run in a separate staging checkout; never the live root.
 """
 
@@ -26,6 +26,7 @@ def main():
     from capture.build import build_service
     from capture.config import CaptureConfig
     from capture.events import MotionEvent, Trigger
+    from capture.spool import fsync_dir, fsync_file
     from deploy.bench_pi import board_state
     from deploy.replay_sequence import is_correct
     from web import paths
@@ -36,6 +37,7 @@ def main():
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--cycles", type=int, default=72)
     ap.add_argument("--interval", type=float, default=30)
+    ap.add_argument("--continue-on-throttle", action="store_true")
     args = ap.parse_args()
     if args.cycles < 1 or args.interval < 0:
         ap.error("cycles must be positive and interval nonnegative")
@@ -62,6 +64,9 @@ def main():
         pid=os.getpid(),
         root=str(ROOT),
         started=started,
+        boot_id=Path("/proc/sys/kernel/random/boot_id").read_text().strip(),
+        interval_s=args.interval,
+        continue_on_throttle=args.continue_on_throttle,
         onnx_sha256=hashlib.sha256(model.read_bytes()).hexdigest(),
         config_sha256=hashlib.sha256(args.config.read_bytes()).hexdigest(),
         calibration_sha256=file_hash(cfg.resolve_path("classifier.operating_points")),
@@ -75,7 +80,9 @@ def main():
         value = dict(provenance, state=state, counts=dict(counts), **fields)
         temp = args.out / "status.tmp"
         temp.write_text(json.dumps(value, indent=2))
+        fsync_file(temp)
         temp.replace(args.out / "status.json")
+        fsync_dir(args.out)
 
     status("running")
 
@@ -85,6 +92,7 @@ def main():
     signal.signal(signal.SIGTERM, stop_received)
     try:
         with (args.out / "events.jsonl").open("a", buffering=1) as log:
+            fsync_dir(args.out)
             for cycle in range(args.cycles):
                 for entry in manifest:
                     t = time.monotonic()
@@ -112,9 +120,12 @@ def main():
                         action_correct=action_correct,
                         rss_kb=int(rss) if rss else None,
                         seconds=time.monotonic() - t,
+                        uptime_s=float(Path("/proc/uptime").read_text().split()[0]),
                         board=board_state(),
                     )
                     log.write(json.dumps(row) + "\n")
+                    log.flush()
+                    os.fsync(log.fileno())
                     counts["events"] += 1
                     counts["errors"] += bool(rec.error)
                     counts["identification_correct"] += correct
@@ -127,7 +138,7 @@ def main():
                     # Stop on current voltage/thermal/capping flags; historical
                     # sticky flags are recorded but do not abort the experiment.
                     flags = row["board"].get("throttled")
-                    if flags and int(flags, 16) & 0xF:
+                    if flags and int(flags, 16) & 0xF and not args.continue_on_throttle:
                         raise RuntimeError(f"current board warning flags: {flags}")
                     time.sleep(max(0, args.interval - (time.monotonic() - t)))
         status("complete", finished=time.time(), board=board_state())

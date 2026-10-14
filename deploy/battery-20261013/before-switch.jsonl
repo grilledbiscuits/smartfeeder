@@ -1,0 +1,10 @@
+{"event":"start","time":"2026-10-13T05:49:09.819+02:00","elapsed_s":0.003,"boot_id":"cca4938e-1b52-4821-b7bd-5d97f074737d","throttled":"0x0"}
+{"event":"sample","time":"2026-10-13T05:49:11.829+02:00","elapsed_s":2.013,"boot_id":"cca4938e-1b52-4821-b7bd-5d97f074737d","throttled":"0x0"}
+{"event":"sample","time":"2026-10-13T05:49:13.843+02:00","elapsed_s":4.027,"boot_id":"cca4938e-1b52-4821-b7bd-5d97f074737d","throttled":"0x0"}
+{"event":"sample","time":"2026-10-13T05:49:15.852+02:00","elapsed_s":6.036,"boot_id":"cca4938e-1b52-4821-b7bd-5d97f074737d","throttled":"0x0"}
+{"event":"sample","time":"2026-10-13T05:49:17.861+02:00","elapsed_s":8.045,"boot_id":"cca4938e-1b52-4821-b7bd-5d97f074737d","throttled":"0x0"}
+{"event":"sample","time":"2026-10-13T05:49:19.870+02:00","elapsed_s":10.054,"boot_id":"cca4938e-1b52-4821-b7bd-5d97f074737d","throttled":"0x0"}
+{"event":"sample","time":"2026-10-13T05:49:21.884+02:00","elapsed_s":12.068,"boot_id":"cca4938e-1b52-4821-b7bd-5d97f074737d","throttled":"0x0"}
+{"event":"sample","time":"2026-10-13T05:49:23.891+02:00","elapsed_s":14.074,"boot_id":"cca4938e-1b52-4821-b7bd-5d97f074737d","throttled":"0x0"}
+{"event":"sample","time":"2026-10-13T05:49:25.899+02:00","elapsed_s":16.083,"boot_id":"cca4938e-1b52-4821-b7bd-5d97f074737d","throttled":"0x0"}
+{"event":"sample","time":"2026-10-13T05:49:27.905+02:00","elapsed_s":18.089,"boot_id":"cca4938e-1b52-4821-b7bd-5d97f074737d","throttled":"0x0"}

@@ -1,0 +1,1 @@
+requested providers ['XnnpackExecutionProvider', 'CPUExecutionProvider'], using ['CPUExecutionProvider'] (the rest are not built into this onnxruntime)

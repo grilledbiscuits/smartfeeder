@@ -1,0 +1,9 @@
+# Prepared battery camera and inference discharge
+
+**State, 2026-10-15:** runner and systemd unit installed in the isolated Pi checkout; unit verified, disabled and stopped while the battery charges. A charging-power smoke test recorded and classified one 8-second clip (12 frames, zero errors), deleted the clip and frames, and stopped cleanly. The battery discharge test has **not started**.
+
+The next run records a fresh **8-second, 1280 × 720 H.264 clip every 30 seconds** and classifies up to 12 sampled frames with the deployed INT8 model. It uses a mock trigger, so the unpowered ToF sensor cannot affect the cadence. The desk camera scene does not count as accuracy evidence; the empty-scene gate is bypassed to ensure every clip reaches ONNX inference.
+
+Clips, decoded frames and keyframes are written to the Pi's storage under the test output's `scratch/` directory and deleted after each event. This includes normal recording I/O in the battery load. A sudden power cut can leave the final in-progress clip and frames in `scratch/`; remove those after recovering the logs. The 30-second start-to-start cadence includes recording and classification; overruns appear in event timestamps and `seconds`. The fsynced `events.jsonl` and `status.json` live in `/home/grilledbiscuits/soak-20261012/ml/reports/battery-camera-inference-next/`, and the existing battery-runtime logger continues its 2-second durable checkpoints.
+
+The output directory already exists on the Pi because systemd opens `runner.log` before `ExecStart`. Keep the unit disabled and stopped while charging. After a full charge and the next battery-only switch, start the unit, verify one successful event and the independent runtime log, then leave it until power cuts out. If the switch does not reboot the Pi, restart the independent battery-runtime service at the switch to create a clean per-run log. The service conflicts with both live capture and the previous inference-only workload.

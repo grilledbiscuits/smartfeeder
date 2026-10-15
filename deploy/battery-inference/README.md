@@ -1,6 +1,6 @@
 # Prepared battery inference discharge
 
-**State:** installed on the Pi, disabled and stopped. Start only after the user switches the fully charged Waveshare Solar Power Manager (B) to battery-only output. Keep the solar charging input disconnected for comparison with the [Pi idle baseline](../battery-20261013/README.md).
+**Completed 2026-10-15:** the [discharge result and raw logs](../battery-inference-20261014/README.md) are archived. The protocol below used the fully charged Waveshare Solar Power Manager (B) with its charging input disconnected for comparison with the [Pi idle baseline](../battery-20261013/README.md).
 
 The `birdcam-battery-inference.service` reuses the isolated 2026-10-12 replay checkout and its deployed 37-class INT8 model. It replays one of 20 labelled saved clips every **120 seconds**, looping until the battery cuts out. It exercises video decoding, preprocessing, classification, and outcome handling; it does **not** power or read the ToF sensor or record with the camera. The service conflicts with live capture so that service cannot add an uncontrolled workload. The web and health telemetry services remain in their baseline configuration.
 

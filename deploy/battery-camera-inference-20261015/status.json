@@ -1,0 +1,37 @@
+{
+  "started": 1792078588.6909912,
+  "boot_id": "ccedd592-57c0-4084-a217-0a079f8e03f2",
+  "start_uptime_s": 117.56,
+  "interval_s": 30.0,
+  "clip_seconds": 8.0,
+  "config_sha256": "d1d024ae1bace74faee4c3ebaf477c00904c2632865dccde66a6b84dfbb54551",
+  "onnx_sha256": "98dfed53ae32217264b238c04b7c736975f95007aa248bc00effc72c1186a33a",
+  "runner_sha256": "65b72c76a686d82a3764302b7e0d90cf146f7f18462036268dd5401594fb5de5",
+  "scratch": "/home/grilledbiscuits/soak-20261012/ml/reports/battery-camera-inference-next/scratch",
+  "note": "Desk scene; labels are workload evidence, not accuracy evidence.",
+  "state": "running",
+  "counts": {
+    "events": 1702,
+    "errors": 0
+  },
+  "last": {
+    "event_id": "20261016_074658_c1cd1588",
+    "detected_at": "2026-10-16T07:46:58",
+    "trigger": "mock",
+    "record_s": 8.852,
+    "classify_s": 1.869,
+    "clip_bytes": 3296705,
+    "frames_scored": 12,
+    "label": "unknown",
+    "confidence": 0.0,
+    "is_unknown": true,
+    "error": null,
+    "seconds": 10.724,
+    "uptime_s": 51158.52,
+    "board": {
+      "temp_c": 60.4,
+      "arm_hz": "1800457088",
+      "throttled": "0x50000"
+    }
+  }
+}

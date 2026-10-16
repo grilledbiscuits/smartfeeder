@@ -1,6 +1,6 @@
 # Prepared battery camera and inference discharge
 
-**State, 2026-10-15:** runner and systemd unit installed in the isolated Pi checkout; unit verified, disabled and stopped while the battery charges. A charging-power smoke test recorded and classified one 8-second clip (12 frames, zero errors), deleted the clip and frames, and stopped cleanly. The battery discharge test has **not started**.
+**Completed 2026-10-16:** the [discharge result and raw logs](../battery-camera-inference-20261015/README.md) are archived. The Pi completed 1,702 camera recording and inference cycles at 30-second spacing with zero logged errors. Its last durable checkpoint gives a 14 h 11 m workload-runtime lower bound.
 
 The next run records a fresh **8-second, 1280 × 720 H.264 clip every 30 seconds** and classifies up to 12 sampled frames with the deployed INT8 model. It uses a mock trigger, so the unpowered ToF sensor cannot affect the cadence. The desk camera scene does not count as accuracy evidence; the empty-scene gate is bypassed to ensure every clip reaches ONNX inference.
 

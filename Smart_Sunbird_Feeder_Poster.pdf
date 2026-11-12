@@ -77,7 +77,7 @@ endobj
 endobj
 7 0 obj
 <<
-/Length 87598
+/Length 87405
 >>
 stream
 q
@@ -331,8 +331,6 @@ q
 BT 1 0 0 1 0 110.16 Tm 34.29 TL .082353 .243137 .203922 rg /F2+0 27 Tf 34.29 TL (7 of 10 acceptance tests passed; 3 partial.) Tj  T* (Improve cooldown triggering, non-bird rejection and) Tj T* (weather protection. Validate over longer, multi-site) Tj T* (deployments.) Tj T* ET
 Q
 Q
-.329412 .380392 .352941 rg
-BT 1 0 0 1 65 163.937 Tm /F2+0 16 Tf 19.2 TL (Source: J. Youens, EEE4022S final report \(2026\), Chapter 5, Tables 5.1 and 5.4. Photographs: thesis assets.) Tj T* ET
 .701961 .219608 .196078 rg
 n 65 142.937 1553.78 4 re f*
 .082353 .243137 .203922 rg
@@ -3675,16 +3673,16 @@ xref
 0000000644 00000 n 
 0000000850 00000 n 
 0000001034 00000 n 
-0000088685 00000 n 
-0005562444 00000 n 
-0007404140 00000 n 
-0007405274 00000 n 
-0007405533 00000 n 
-0007433833 00000 n 
-0007434583 00000 n 
-0007435674 00000 n 
-0007435920 00000 n 
-0007463462 00000 n 
+0000088492 00000 n 
+0005562251 00000 n 
+0007403947 00000 n 
+0007405081 00000 n 
+0007405340 00000 n 
+0007433640 00000 n 
+0007434390 00000 n 
+0007435481 00000 n 
+0007435727 00000 n 
+0007463269 00000 n 
 trailer
 <<
 /Size 18
@@ -3692,5 +3690,5 @@ trailer
 /Info 1 0 R
 >>
 startxref
-7464207
+7464014
 %%EOF

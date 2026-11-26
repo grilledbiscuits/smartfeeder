@@ -13,23 +13,16 @@ uses them to decide whether to record video.
 
 Deployment target: Raspberry Pi 4B, running fully on-device with CPU inference.
 
+## View the data
+
+**[DATA.md](DATA.md)** has the results, field and battery measurements, the model, and a
+[browser view of all image records](https://lite.datasette.io/?url=https://raw.githubusercontent.com/grilledbiscuits/smartfeeder/master/ml/data/manifest.sqlite)
+that needs nothing installed.
+
 ## Status
 
-| Phase | Scope | State |
-|---|---|---|
-| 1 | Repo scaffolding, config layer | **complete** |
-| 2 | Data acquisition (iNat, GBIF, Wikimedia, Flickr) | not started |
-| 3 | Preprocessing, dedup, grouped splits | not started |
-| 4 | Backbone selection | not started |
-| 5 | Fast iteration loop (cached embeddings) | not started |
-| 6 | Full training | not started |
-| 7 | Metrics and HTML report | not started |
-| 8 | Export + Pi capture application | not started |
-
-Modules for phases 2–8 exist as placeholders that raise `NotImplementedError`.
-They deliberately do not return empty results: a fetcher that quietly returns
-nothing is indistinguishable from a species that genuinely has no data, and that
-distinction is the whole point of the data report.
+Built and deployed on a Raspberry Pi 4B at a feeder, with field tests in October 2026:
+data pipeline, training, INT8 export, motion-triggered capture and a web dashboard.
 
 ## Setup
 
@@ -57,11 +50,14 @@ uv run pytest -q
 
 ## Repository layout
 
-Three project areas share this repo:
+The main areas of this repo:
 
 - **`ml/`** — the classifier: `src/birdcam/`, `config/`, `tests/`, `reports/`,
   the gitignored `data/` corpus, and the design docs (`DECISIONS.md`,
   `ASSUMPTIONS.md`, `RUNNING.md`). Paths below are relative to `ml/`.
+- **`capture/`** — the on-device service that detects motion, records, classifies
+  and publishes. See [its README](capture/README.md).
+- **`deploy/`** — deployment scripts, services and measurement logs.
 - **`web/`** — the dashboard, with its runtime state in `var/`. It imports
   nothing from `birdcam`; see the interface contract at the end of this file.
 - **`cad/`** — parametric feeder cradle, Raspberry Pi housing, and power box
@@ -93,8 +89,8 @@ These shape the design and are not incidental. See `DECISIONS.md` for reasoning
 and `ASSUMPTIONS.md` for what still needs verifying.
 
 - **Development is CPU-only.** The fast iteration loop (Phase 5) runs on cached
-  embeddings so head experiments finish in seconds. Full fine-tunes run on
-  Kaggle; `train_full.py` must stay runnable there unmodified.
+  embeddings so head experiments finish in seconds. `train_full.py` must stay
+  runnable on Kaggle unmodified.
 - **Benchmark inference latency on the Pi 4B.** Development-laptop latency
   does not predict performance on its CPU. Accuracy and quantisation delta can
   be measured off-target; runtime must be checked on the board.
@@ -112,8 +108,8 @@ stated, or any ND / all-rights-reserved variant, is excluded. CC-BY and CC-BY-NC
 both require attribution on downstream use, so the manifest records
 `license`, `rights_holder` and `attribution_text` for **every** image.
 
-`ml/data/` is gitignored. The manifest is the reproducible artefact, not the
-pixels.
+Most of `ml/data/` is gitignored. The manifest is published; the images are not.
+See [DATA.md](DATA.md).
 
 ## Web dashboard
 
@@ -125,9 +121,8 @@ feeder.
 **Interface contract:** the feeder/inference process saves an image and/or
 video under `var/media/{images,videos}/` and inserts one row per visit via
 `web.db.add_visit()`. The dashboard just reads `var/feeder.db` and serves
-whatever those filenames point to. That function isn't wired into the
-classifier yet — for now, `web/scripts/create_dummy_data.py` plays the role
-of the feeder process and writes realistic dummy visits.
+whatever those filenames point to. The capture service calls it. Without a
+feeder, `web/scripts/create_dummy_data.py` writes dummy visits instead.
 
 Install the dashboard's dependencies (kept separate from the ML stack — this
 doesn't pull in torch):

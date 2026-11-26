@@ -1,0 +1,139 @@
+{
+  "feature_file": "tf_efficientnetv2_b0.in1k_18146.npy",
+  "n_id_test": 2674,
+  "n_ood": 2486,
+  "scorers": [
+    {
+      "scorer": "max_softmax",
+      "auroc": 0.7139,
+      "tpr_at_fpr": {
+        "0.01": 0.0752,
+        "0.05": 0.1778,
+        "0.10": 0.2776
+      },
+      "thresholds": {
+        "0.01": 0.6879,
+        "0.05": 0.594,
+        "0.10": 0.523
+      },
+      "per_group": {
+        "insect": {
+          "n": 837,
+          "caught_at_5pct_fpr": 0.1243
+        },
+        "mammal": {
+          "n": 1258,
+          "caught_at_5pct_fpr": 0.1948
+        },
+        "reptile": {
+          "n": 391,
+          "caught_at_5pct_fpr": 0.2379
+        }
+      },
+      "realised_fpr_test": {
+        "0.01": 0.0157,
+        "0.05": 0.0426,
+        "0.10": 0.086
+      }
+    },
+    {
+      "scorer": "energy",
+      "auroc": 0.9273,
+      "tpr_at_fpr": {
+        "0.01": 0.2389,
+        "0.05": 0.681,
+        "0.10": 0.8061
+      },
+      "thresholds": {
+        "0.01": -6.313,
+        "0.05": -8.4859,
+        "0.10": -9.429
+      },
+      "per_group": {
+        "insect": {
+          "n": 837,
+          "caught_at_5pct_fpr": 0.5472
+        },
+        "mammal": {
+          "n": 1258,
+          "caught_at_5pct_fpr": 0.7393
+        },
+        "reptile": {
+          "n": 391,
+          "caught_at_5pct_fpr": 0.7801
+        }
+      },
+      "realised_fpr_test": {
+        "0.01": 0.0052,
+        "0.05": 0.0404,
+        "0.10": 0.0927
+      }
+    },
+    {
+      "scorer": "mahalanobis",
+      "auroc": 0.8761,
+      "tpr_at_fpr": {
+        "0.01": 0.0764,
+        "0.05": 0.292,
+        "0.10": 0.5229
+      },
+      "thresholds": {
+        "0.01": 335.851,
+        "0.05": 256.7642,
+        "0.10": 215.8451
+      },
+      "per_group": {
+        "insect": {
+          "n": 837,
+          "caught_at_5pct_fpr": 0.3214
+        },
+        "mammal": {
+          "n": 1258,
+          "caught_at_5pct_fpr": 0.3219
+        },
+        "reptile": {
+          "n": 391,
+          "caught_at_5pct_fpr": 0.133
+        }
+      },
+      "realised_fpr_test": {
+        "0.01": 0.0086,
+        "0.05": 0.0408,
+        "0.10": 0.0961
+      }
+    },
+    {
+      "scorer": "knn",
+      "auroc": 0.9793,
+      "tpr_at_fpr": {
+        "0.01": 0.7208,
+        "0.05": 0.9095,
+        "0.10": 0.959
+      },
+      "thresholds": {
+        "0.01": 0.6278,
+        "0.05": 0.5274,
+        "0.10": 0.469
+      },
+      "per_group": {
+        "insect": {
+          "n": 837,
+          "caught_at_5pct_fpr": 0.8949
+        },
+        "mammal": {
+          "n": 1258,
+          "caught_at_5pct_fpr": 0.9022
+        },
+        "reptile": {
+          "n": 391,
+          "caught_at_5pct_fpr": 0.9642
+        }
+      },
+      "realised_fpr_test": {
+        "0.01": 0.0082,
+        "0.05": 0.0385,
+        "0.10": 0.1028
+      }
+    }
+  ]
+}

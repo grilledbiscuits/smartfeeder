@@ -1,0 +1,159 @@
+{
+  "feature_file": "tf_efficientnetv2_b0.in1k_18146.npy",
+  "temperature": 2.332,
+  "target_precision": 0.8,
+  "per_class": [
+    {
+      "label": "cinnyris_chalybeus",
+      "common_name": "Southern Double-collared Sunbird",
+      "threshold": 0.82,
+      "test_precision": 0.7424,
+      "test_precision_ci": [
+        0.6257,
+        0.8325
+      ],
+      "test_recall": 0.2227,
+      "n_test": 220,
+      "fired": 66,
+      "target_achievable": true
+    },
+    {
+      "label": "anthobaphes_violacea",
+      "common_name": "Orange-breasted Sunbird",
+      "threshold": 0.51,
+      "test_precision": 0.8308,
+      "test_precision_ci": [
+        0.7729,
+        0.8764
+      ],
+      "test_recall": 0.7293,
+      "n_test": 229,
+      "fired": 201,
+      "target_achievable": true
+    },
+    {
+      "label": "nectarinia_famosa",
+      "common_name": "Malachite Sunbird",
+      "threshold": 0.69,
+      "test_precision": 0.875,
+      "test_precision_ci": [
+        0.8066,
+        0.9216
+      ],
+      "test_recall": 0.4766,
+      "n_test": 235,
+      "fired": 128,
+      "target_achievable": true
+    },
+    {
+      "label": "promerops_cafer",
+      "common_name": "Cape Sugarbird",
+      "threshold": 0.32,
+      "test_precision": 0.7586,
+      "test_precision_ci": [
+        0.6996,
+        0.8092
+      ],
+      "test_recall": 0.8111,
+      "n_test": 217,
+      "fired": 232,
+      "target_achievable": true
+    },
+    {
+      "label": "chalcomitra_amethystina",
+      "common_name": "Amethyst Sunbird",
+      "threshold": 0.41,
+      "test_precision": 0.8807,
+      "test_precision_ci": [
+        0.8245,
+        0.9206
+      ],
+      "test_recall": 0.6008,
+      "n_test": 258,
+      "fired": 176,
+      "target_achievable": true
+    },
+    {
+      "label": "cinnyris_afer",
+      "common_name": "Greater Double-collared Sunbird",
+      "threshold": 0.56,
+      "test_precision": 0.8407,
+      "test_precision_ci": [
+        0.7622,
+        0.8968
+      ],
+      "test_recall": 0.406,
+      "n_test": 234,
+      "fired": 113,
+      "target_achievable": true
+    }
+  ],
+  "false_trigger_curve": [
+    {
+      "target_far": 0.02,
+      "novelty_threshold": 0.6724,
+      "frame_bird_trigger": 0.3407,
+      "frame_ood_trigger": 0.0426,
+      "visit_bird_trigger": 0.4869,
+      "visit_ood_trigger": 0.0759,
+      "precision_of_fired_frames": 0.8211,
+      "n_bird_visits": 534,
+      "n_ood_visits": 540
+    },
+    {
+      "target_far": 0.05,
+      "novelty_threshold": 0.5916,
+      "frame_bird_trigger": 0.3355,
+      "frame_ood_trigger": 0.0161,
+      "visit_bird_trigger": 0.4775,
+      "visit_ood_trigger": 0.0259,
+      "precision_of_fired_frames": 0.8283,
+      "n_bird_visits": 534,
+      "n_ood_visits": 540
+    },
+    {
+      "target_far": 0.1,
+      "novelty_threshold": 0.5343,
+      "frame_bird_trigger": 0.3175,
+      "frame_ood_trigger": 0.0084,
+      "visit_bird_trigger": 0.4419,
+      "visit_ood_trigger": 0.0167,
+      "precision_of_fired_frames": 0.8492,
+      "n_bird_visits": 534,
+      "n_ood_visits": 540
+    },
+    {
+      "target_far": 0.15,
+      "novelty_threshold": 0.5073,
+      "frame_bird_trigger": 0.3033,
+      "frame_ood_trigger": 0.0056,
+      "visit_bird_trigger": 0.4195,
+      "visit_ood_trigger": 0.013,
+      "precision_of_fired_frames": 0.8681,
+      "n_bird_visits": 534,
+      "n_ood_visits": 540
+    },
+    {
+      "target_far": 0.2,
+      "novelty_threshold": 0.4844,
+      "frame_bird_trigger": 0.2891,
+      "frame_ood_trigger": 0.0036,
+      "visit_bird_trigger": 0.4045,
+      "visit_ood_trigger": 0.0093,
+      "precision_of_fired_frames": 0.8758,
+      "n_bird_visits": 534,
+      "n_ood_visits": 540
+    },
+    {
+      "target_far": 0.3,
+      "novelty_threshold": 0.4565,
+      "frame_bird_trigger": 0.2521,
+      "frame_ood_trigger": 0.0012,
+      "visit_bird_trigger": 0.3464,
+      "visit_ood_trigger": 0.0056,
+      "precision_of_fired_frames": 0.8961,
+      "n_bird_visits": 534,
+      "n_ood_visits": 540
+    }
+  ]
+}

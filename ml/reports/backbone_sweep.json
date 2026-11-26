@@ -1,0 +1,17 @@
+[
+  {
+    "backbone": "tf_efficientnetv2_b0.in1k",
+    "hailo_ok": true,
+    "params_m": 5.86,
+    "macs_g": 0.717,
+    "feature_dim": 1280,
+    "taxon_acc": 0.6904,
+    "taxon_ci_low": 0.6726,
+    "taxon_ci_high": 0.7076,
+    "sex_acc": 0.6283,
+    "tier_a_mean_recall": 0.6865,
+    "female_mean_recall": 0.4715,
+    "extract_seconds": 560.9,
+    "note": ""
+  }
+]

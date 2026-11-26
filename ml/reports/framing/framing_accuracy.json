@@ -1,0 +1,292 @@
+{
+  "suppressed_at_inference": [
+    "empty_feeder"
+  ],
+  "pillarboxed_frames": 2844,
+  "field_frames": 9139,
+  "caveat": "Argmax over the taxon head only: no prior, temperature, novelty gate, rollup, per-class thresholds or clip vote. Framing comparison, not deployment performance.",
+  "fp32_checkpoint": {
+    "test": {
+      "deployment_framing": {
+        "accuracy": 0.943,
+        "frames": 579
+      },
+      "pillarboxed": {
+        "accuracy": 0.9138,
+        "frames": 580
+      },
+      "per_class": {
+        "chalcomitra_amethystina": {
+          "deployment_framing": {
+            "accuracy": 0.8763,
+            "frames": 186
+          },
+          "pillarboxed": {
+            "accuracy": null,
+            "frames": 0
+          }
+        },
+        "cinnyris_chalybeus": {
+          "deployment_framing": {
+            "accuracy": 0.9886,
+            "frames": 264
+          },
+          "pillarboxed": {
+            "accuracy": 0.8775,
+            "frames": 400
+          }
+        },
+        "other_animal": {
+          "deployment_framing": {
+            "accuracy": 0.0,
+            "frames": 6
+          },
+          "pillarboxed": {
+            "accuracy": null,
+            "frames": 0
+          }
+        },
+        "pycnonotus_capensis": {
+          "deployment_framing": {
+            "accuracy": 0.9875,
+            "frames": 80
+          },
+          "pillarboxed": {
+            "accuracy": null,
+            "frames": 0
+          }
+        },
+        "zosterops_virens": {
+          "deployment_framing": {
+            "accuracy": 1.0,
+            "frames": 43
+          },
+          "pillarboxed": {
+            "accuracy": 0.9944,
+            "frames": 180
+          }
+        }
+      }
+    },
+    "train": {
+      "deployment_framing": {
+        "accuracy": 0.9971,
+        "frames": 4550
+      },
+      "pillarboxed": {
+        "accuracy": 0.9844,
+        "frames": 1539
+      },
+      "per_class": {
+        "chalcomitra_amethystina": {
+          "deployment_framing": {
+            "accuracy": 0.9867,
+            "frames": 450
+          },
+          "pillarboxed": {
+            "accuracy": 0.945,
+            "frames": 382
+          }
+        },
+        "cinnyris_chalybeus": {
+          "deployment_framing": {
+            "accuracy": 0.9986,
+            "frames": 2202
+          },
+          "pillarboxed": {
+            "accuracy": 0.9968,
+            "frames": 944
+          }
+        },
+        "dicrurus_adsimilis": {
+          "deployment_framing": {
+            "accuracy": 1.0,
+            "frames": 819
+          },
+          "pillarboxed": {
+            "accuracy": null,
+            "frames": 0
+          }
+        },
+        "other_animal": {
+          "deployment_framing": {
+            "accuracy": 1.0,
+            "frames": 20
+          },
+          "pillarboxed": {
+            "accuracy": 1.0,
+            "frames": 8
+          }
+        },
+        "pycnonotus_capensis": {
+          "deployment_framing": {
+            "accuracy": 1.0,
+            "frames": 313
+          },
+          "pillarboxed": {
+            "accuracy": null,
+            "frames": 0
+          }
+        },
+        "zosterops_virens": {
+          "deployment_framing": {
+            "accuracy": 0.9946,
+            "frames": 746
+          },
+          "pillarboxed": {
+            "accuracy": 1.0,
+            "frames": 205
+          }
+        }
+      }
+    },
+    "val": {
+      "deployment_framing": {
+        "accuracy": 0.9275,
+        "frames": 690
+      },
+      "pillarboxed": {
+        "accuracy": 0.88,
+        "frames": 725
+      },
+      "per_class": {
+        "chalcomitra_amethystina": {
+          "deployment_framing": {
+            "accuracy": 0.7624,
+            "frames": 202
+          },
+          "pillarboxed": {
+            "accuracy": null,
+            "frames": 0
+          }
+        },
+        "cinnyris_chalybeus": {
+          "deployment_framing": {
+            "accuracy": 0.9979,
+            "frames": 485
+          },
+          "pillarboxed": {
+            "accuracy": 0.8922,
+            "frames": 204
+          }
+        },
+        "dicrurus_adsimilis": {
+          "deployment_framing": {
+            "accuracy": null,
+            "frames": 0
+          },
+          "pillarboxed": {
+            "accuracy": 0.927,
+            "frames": 274
+          }
+        },
+        "other_animal": {
+          "deployment_framing": {
+            "accuracy": null,
+            "frames": 0
+          },
+          "pillarboxed": {
+            "accuracy": 0.7778,
+            "frames": 9
+          }
+        },
+        "pycnonotus_capensis": {
+          "deployment_framing": {
+            "accuracy": null,
+            "frames": 0
+          },
+          "pillarboxed": {
+            "accuracy": 0.2456,
+            "frames": 57
+          }
+        },
+        "zosterops_virens": {
+          "deployment_framing": {
+            "accuracy": 0.6667,
+            "frames": 3
+          },
+          "pillarboxed": {
+            "accuracy": 1.0,
+            "frames": 181
+          }
+        }
+      }
+    }
+  },
+  "fp32_checkpoint_sha": "0311dc3cf26ab84b48d858dcc94bf58d2d0929fcecb3264b20a4807201a0c47c",
+  "int8_capture_path": {
+    "val": {
+      "deployment_framing": {
+        "accuracy": 0.9333,
+        "frames": 690
+      },
+      "pillarboxed": {
+        "accuracy": 0.7931,
+        "frames": 725
+      },
+      "per_class": {
+        "chalcomitra_amethystina": {
+          "deployment_framing": {
+            "accuracy": 0.7822,
+            "frames": 202
+          },
+          "pillarboxed": {
+            "accuracy": null,
+            "frames": 0
+          }
+        },
+        "cinnyris_chalybeus": {
+          "deployment_framing": {
+            "accuracy": 0.9979,
+            "frames": 485
+          },
+          "pillarboxed": {
+            "accuracy": 0.7598,
+            "frames": 204
+          }
+        },
+        "dicrurus_adsimilis": {
+          "deployment_framing": {
+            "accuracy": null,
+            "frames": 0
+          },
+          "pillarboxed": {
+            "accuracy": 0.854,
+            "frames": 274
+          }
+        },
+        "other_animal": {
+          "deployment_framing": {
+            "accuracy": null,
+            "frames": 0
+          },
+          "pillarboxed": {
+            "accuracy": 0.7778,
+            "frames": 9
+          }
+        },
+        "pycnonotus_capensis": {
+          "deployment_framing": {
+            "accuracy": null,
+            "frames": 0
+          },
+          "pillarboxed": {
+            "accuracy": 0.0702,
+            "frames": 57
+          }
+        },
+        "zosterops_virens": {
+          "deployment_framing": {
+            "accuracy": 0.6667,
+            "frames": 3
+          },
+          "pillarboxed": {
+            "accuracy": 0.9669,
+            "frames": 181
+          }
+        }
+      }
+    }
+  },
+  "int8_source": "ml/reports/clean-20260921"
+}

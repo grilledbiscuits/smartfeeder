@@ -1,0 +1,189 @@
+version: 1
+taxon_head:
+  genus_family:
+    Cinnyris: Nectariniidae
+    Chalcomitra: Nectariniidae
+    Cyanomitra: Nectariniidae
+    Nectarinia: Nectariniidae
+    Anthobaphes: Nectariniidae
+    Hedydipna: Nectariniidae
+    Anthreptes: Nectariniidae
+    Promerops: Promeropidae
+    Zosterops: Zosteropidae
+    Dicrurus: Dicruridae
+    Ploceus: Ploceidae
+    Pycnonotus: Pycnonotidae
+    Passer: Passeridae
+    Sturnus: Sturnidae
+    Lamprotornis: Sturnidae
+    Onychognathus: Sturnidae
+    Colius: Coliidae
+    Urocolius: Coliidae
+    Lanius: Laniidae
+    Sigelus: Muscicapidae
+    Prinia: Cisticolidae
+    Serinus: Fringillidae
+  genus_fallback:
+    cinnyris_indet:
+      genus: Cinnyris
+    chalcomitra_indet:
+      genus: Chalcomitra
+    cyanomitra_indet:
+      genus: Cyanomitra
+    promerops_indet:
+      genus: Promerops
+    zosterops_indet:
+      genus: Zosterops
+    ploceus_indet:
+      genus: Ploceus
+    pycnonotus_indet:
+      genus: Pycnonotus
+    passer_indet:
+      genus: Passer
+  family_fallback:
+    nectariniidae_indet:
+      family: Nectariniidae
+      guild: nectarivore
+    promeropidae_indet:
+      family: Promeropidae
+      guild: nectarivore
+    zosteropidae_indet:
+      family: Zosteropidae
+      guild: non_target
+    dicruridae_indet:
+      family: Dicruridae
+      guild: non_target
+    ploceidae_indet:
+      family: Ploceidae
+      guild: non_target
+    pycnonotidae_indet:
+      family: Pycnonotidae
+      guild: non_target
+    passeridae_indet:
+      family: Passeridae
+      guild: non_target
+    sturnidae_indet:
+      family: Sturnidae
+      guild: non_target
+    coliidae_indet:
+      family: Coliidae
+      guild: non_target
+    laniidae_indet:
+      family: Laniidae
+      guild: non_target
+    muscicapidae_indet:
+      family: Muscicapidae
+      guild: non_target
+    cisticolidae_indet:
+      family: Cisticolidae
+      guild: non_target
+    fringillidae_indet:
+      family: Fringillidae
+      guild: non_target
+  guild_fallback:
+    nectarivore_indet:
+      members:
+      - Nectariniidae
+      - Promeropidae
+  negative:
+  - empty_feeder
+  - insect
+  - other_animal
+  - obstruction
+  trainable_negatives:
+  - empty_feeder
+  - other_animal
+  suppressed_at_inference:
+  - empty_feeder
+sex_plumage_head:
+  classes:
+  - male_breeding
+  - male_eclipse
+  - female
+  - juvenile
+  - indeterminate
+  - not_applicable
+  partial_label_groups:
+    male_unspecified:
+    - male_breeding
+    - male_eclipse
+  annotation_mapping:
+    inaturalist:
+      9|11: male_unspecified
+      9|10: female
+      9|20: indeterminate
+      1|8: juvenile
+    gbif:
+      MALE: male_unspecified
+      FEMALE: female
+  precedence:
+  - juvenile
+  - female
+  - male_unspecified
+  - indeterminate
+  unannotated_label: indeterminate
+  monomorphic_forced_na:
+  - Dicrurus adsimilis
+  - Zosterops virens
+  - Zosterops pallidus
+  - Pycnonotus capensis
+  - Pycnonotus nigricans
+  - Sturnus vulgaris
+  - Onychognathus morio
+  - Lamprotornis nitens
+  - Colius striatus
+  - Urocolius indicus
+  - Prinia maculosa
+  - Cyanomitra veroxii
+  - Cyanomitra olivacea
+rollup:
+  enabled: true
+  thresholds:
+    species: 0.55
+    genus: 0.65
+    family: 0.75
+    guild: 0.8
+  per_class_thresholds:
+    cinnyris_chalybeus: 0.66
+    anthobaphes_violacea: 0.46
+    nectarinia_famosa: 0.6100000000000001
+    promerops_cafer: 0.43
+    chalcomitra_amethystina: 0.43
+    cinnyris_afer: 0.05
+  abstain_label: uncertain
+class_size_policy:
+  min_species_images: 100
+  warn_species_images: 250
+  min_test_images_for_verdict: 50
+display:
+  genus:
+    Cinnyris: double-collared sunbird
+    Chalcomitra: sunbird
+    Cyanomitra: sunbird
+    Promerops: sugarbird
+    Zosterops: white-eye
+    Ploceus: weaver
+    Pycnonotus: bulbul
+    Passer: sparrow
+  family:
+    Nectariniidae: sunbird
+    Promeropidae: sugarbird
+    Zosteropidae: white-eye
+    Dicruridae: drongo
+    Ploceidae: weaver
+    Pycnonotidae: bulbul
+    Passeridae: sparrow
+    Sturnidae: starling
+    Coliidae: mousebird
+    Laniidae: shrike
+    Muscicapidae: flycatcher or chat
+    Cisticolidae: cisticola or prinia
+    Fringillidae: canary or finch
+  guild:
+    nectarivore: nectar-feeding bird
+  negative:
+    empty_feeder: Empty feeder
+    insect: Insect
+    other_animal: Other animal
+    obstruction: Obstruction
+  unknown: Unrecognised

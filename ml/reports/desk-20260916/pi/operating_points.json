@@ -1,0 +1,83 @@
+{
+  "temperature": 1.390693993330419,
+  "target_precision": 0.8,
+  "per_class": [
+    {
+      "label": "cinnyris_chalybeus",
+      "common_name": "Southern Double-collared Sunbird",
+      "threshold": 0.67,
+      "target_achievable": true,
+      "validation_predictions": 916,
+      "validation_precision": 0.8078602620087336
+    },
+    {
+      "label": "anthobaphes_violacea",
+      "common_name": "Orange-breasted Sunbird",
+      "threshold": 0.51,
+      "target_achievable": true,
+      "validation_predictions": 218,
+      "validation_precision": 0.8027522935779816
+    },
+    {
+      "label": "nectarinia_famosa",
+      "common_name": "Malachite Sunbird",
+      "threshold": 0.63,
+      "target_achievable": true,
+      "validation_predictions": 195,
+      "validation_precision": 0.8051282051282052
+    },
+    {
+      "label": "promerops_cafer",
+      "common_name": "Cape Sugarbird",
+      "threshold": 0.45,
+      "target_achievable": true,
+      "validation_predictions": 183,
+      "validation_precision": 0.8032786885245902
+    },
+    {
+      "label": "chalcomitra_amethystina",
+      "common_name": "Amethyst Sunbird",
+      "threshold": 0.54,
+      "target_achievable": true,
+      "validation_predictions": 342,
+      "validation_precision": 0.804093567251462
+    },
+    {
+      "label": "cinnyris_afer",
+      "common_name": "Greater Double-collared Sunbird",
+      "threshold": 0.05,
+      "target_achievable": true,
+      "validation_predictions": 48,
+      "validation_precision": 0.8125
+    }
+  ],
+  "energy_threshold": -4.763944288110461,
+  "energy_fit_field_bird_rows": 1406,
+  "calibration_rows": 6166,
+  "suppressed_rows": 81,
+  "conditional_nll_before": 1.3995314692462086,
+  "conditional_nll_after": 1.297789286075233,
+  "validation_diagnostics": {
+    "field": {
+      "rows": 1496,
+      "predicted_unknown": 147,
+      "would_publish": 790
+    },
+    "web": {
+      "rows": 4751,
+      "predicted_unknown": 562,
+      "would_publish": 1507
+    }
+  },
+  "empty_frames_would_publish_without_geometric_gate": 0,
+  "empty_validation_frames": 81,
+  "caveat": "Validation fitting diagnostics only; no held-out or live performance claim. Empty reference gate bypassed. Per-class precision does not guarantee genus precision.",
+  "source": "INT8 checkpoint student_best.pt @ 0311dc3cf26a",
+  "checkpoint_sha": "0311dc3cf26ab84b48d858dcc94bf58d2d0929fcecb3264b20a4807201a0c47c",
+  "onnx_sha256": "98dfed53ae32217264b238c04b7c736975f95007aa248bc00effc72c1186a33a",
+  "validation_fingerprint": "7ed57b035acb28ab0d4b00c1208ddd2491dee8e6b5cb1d6a2b8f6125c896ab1a",
+  "site_sha256": "cd54734fa21735de1d4f2a894243e25668863561d88a5b34b71f5a128fdc922a",
+  "suppressed_at_inference": [
+    "empty_feeder"
+  ]
+}

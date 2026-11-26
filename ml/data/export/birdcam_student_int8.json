@@ -1,0 +1,72 @@
+{
+  "backbone": "tf_efficientnetv2_b0",
+  "role": "student",
+  "trained": true,
+  "training": "fine-tuned checkpoint student_best.pt @ 0311dc3cf26a",
+  "checkpoint": "student_best.pt",
+  "checkpoint_sha": "0311dc3cf26ab84b48d858dcc94bf58d2d0929fcecb3264b20a4807201a0c47c",
+  "image_size": 224,
+  "opset": 17,
+  "taxon_classes": [
+    "anthobaphes_violacea",
+    "chalcomitra_amethystina",
+    "chalcomitra_senegalensis",
+    "cinnyris_afer",
+    "cinnyris_bifasciatus",
+    "cinnyris_chalybeus",
+    "cinnyris_cupreus",
+    "cinnyris_fuscus",
+    "cinnyris_manoensis",
+    "cinnyris_mariquensis",
+    "cinnyris_talatala",
+    "colius_striatus",
+    "cyanomitra_olivacea",
+    "cyanomitra_veroxii",
+    "dicrurus_adsimilis",
+    "hedydipna_collaris",
+    "lamprotornis_nitens",
+    "lanius_collaris",
+    "nectarinia_famosa",
+    "onychognathus_morio",
+    "passer_domesticus",
+    "passer_melanurus",
+    "ploceus_capensis",
+    "ploceus_velatus",
+    "prinia_maculosa",
+    "promerops_cafer",
+    "promerops_gurneyi",
+    "pycnonotus_capensis",
+    "pycnonotus_nigricans",
+    "serinus_canicollis",
+    "sigelus_silens",
+    "sturnus_vulgaris",
+    "urocolius_indicus",
+    "zosterops_pallidus",
+    "zosterops_virens",
+    "empty_feeder",
+    "other_animal"
+  ],
+  "sex_classes": [
+    "male_breeding",
+    "male_eclipse",
+    "female",
+    "juvenile",
+    "indeterminate",
+    "not_applicable"
+  ],
+  "partial_label_groups": {
+    "male_unspecified": [
+      "male_breeding",
+      "male_eclipse"
+    ]
+  },
+  "notes": "Logits only. Softmax, rollup and thresholding are applied by the caller. Input expects ImageNet-normalised NCHW float32. INT8 graph: same checkpoint and class order as the FP32 export.",
+  "quantisation": {
+    "format": "INT8 static PTQ, QDQ, per-channel weights, QUInt8 activations",
+    "calibrate_method": "Percentile",
+    "calibration_source": "field",
+    "calibration_size": 64,
+    "onnx_sha256": "98dfed53ae32217264b238c04b7c736975f95007aa248bc00effc72c1186a33a",
+    "measured": "field 0.8857 -> 0.8647 (-2.10pp), web 0.7300 -> 0.6955 (-3.45pp) on the test split"
+  }
+}

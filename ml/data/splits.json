@@ -1,0 +1,10 @@
+{
+  "seed": 20260731,
+  "group_key": "(observer_id, scientific_name)",
+  "counts": {
+    "train": 22529,
+    "val": 4764,
+    "test": 4707
+  },
+  "n_groups": 6518
+}

@@ -1,0 +1,21 @@
+{
+  "pid": 5138,
+  "root": "/home/grilledbiscuits/birdcam-next/desk-test",
+  "started": 1789583970.7761436,
+  "onnx_sha256": "98dfed53ae32217264b238c04b7c736975f95007aa248bc00effc72c1186a33a",
+  "config_sha256": "f41b3ac7c4989a6a926305a4ea30a1c9de0a99d676de4780cb56ef09ce0daef5",
+  "caveat": "Repeated replay stability test; not independent accuracy evidence.",
+  "state": "complete",
+  "counts": {
+    "events": 39,
+    "errors": 0,
+    "identification_correct": 33,
+    "action_correct": 34
+  },
+  "finished": 1789584014.4425833,
+  "board": {
+    "temp_c": 58.9,
+    "arm_hz": "1800457088",
+    "throttled": "0x80000"
+  }
+}

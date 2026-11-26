@@ -1,0 +1,1034 @@
+{
+  "by_method": {
+    "Percentile_calib32": {
+      "n_test": 800,
+      "fp32_accuracy": 0.6412,
+      "int8_accuracy": 0.6075,
+      "agreement": 0.7788,
+      "fp32_mb": 24.4,
+      "int8_mb": 7.5,
+      "calibration_source": "provisional_web_subset",
+      "per_class": [
+        {
+          "class": "chalcomitra_amethystina",
+          "n": 56,
+          "fp32": 0.7143,
+          "int8": 0.5893,
+          "delta": -0.125,
+          "flagged": true
+        },
+        {
+          "class": "cinnyris_afer",
+          "n": 171,
+          "fp32": 0.5088,
+          "int8": 0.4211,
+          "delta": -0.0877,
+          "flagged": true
+        },
+        {
+          "class": "promerops_cafer",
+          "n": 122,
+          "fp32": 0.8197,
+          "int8": 0.7541,
+          "delta": -0.0656,
+          "flagged": true
+        },
+        {
+          "class": "anthobaphes_violacea",
+          "n": 66,
+          "fp32": 0.803,
+          "int8": 0.7727,
+          "delta": -0.0303,
+          "flagged": true
+        },
+        {
+          "class": "nectarinia_famosa",
+          "n": 165,
+          "fp32": 0.6727,
+          "int8": 0.6667,
+          "delta": -0.0061,
+          "flagged": false
+        },
+        {
+          "class": "cinnyris_chalybeus",
+          "n": 220,
+          "fp32": 0.5545,
+          "int8": 0.5818,
+          "delta": 0.0273,
+          "flagged": false
+        }
+      ],
+      "calibrate_method": "Percentile",
+      "calibration_size": 32
+    },
+    "Percentile_calib64_field": {
+      "n_test": 5930,
+      "by_source": {
+        "field": {
+          "n": 1234,
+          "fp32": 0.8857,
+          "int8": 0.8647,
+          "agreement": 0.9376
+        },
+        "web": {
+          "n": 4696,
+          "fp32": 0.73,
+          "int8": 0.6955,
+          "agreement": 0.8226
+        }
+      },
+      "fp32_accuracy": 0.7624,
+      "int8_accuracy": 0.7307,
+      "agreement": 0.8465,
+      "fp32_mb": 24.2,
+      "int8_mb": 7.5,
+      "calibration_source": "field",
+      "per_class": [
+        {
+          "class": "cyanomitra_veroxii",
+          "n": 72,
+          "fp32": 0.6944,
+          "int8": 0.5278,
+          "delta": -0.1667,
+          "flagged": true
+        },
+        {
+          "class": "zosterops_pallidus",
+          "n": 73,
+          "fp32": 0.7534,
+          "int8": 0.6164,
+          "delta": -0.137,
+          "flagged": true
+        },
+        {
+          "class": "ploceus_velatus",
+          "n": 85,
+          "fp32": 0.7412,
+          "int8": 0.6235,
+          "delta": -0.1176,
+          "flagged": true
+        },
+        {
+          "class": "urocolius_indicus",
+          "n": 86,
+          "fp32": 0.8488,
+          "int8": 0.7442,
+          "delta": -0.1047,
+          "flagged": true
+        },
+        {
+          "class": "serinus_canicollis",
+          "n": 97,
+          "fp32": 0.7629,
+          "int8": 0.6598,
+          "delta": -0.1031,
+          "flagged": true
+        },
+        {
+          "class": "cinnyris_manoensis",
+          "n": 25,
+          "fp32": 0.4,
+          "int8": 0.32,
+          "delta": -0.08,
+          "flagged": true
+        },
+        {
+          "class": "cinnyris_mariquensis",
+          "n": 195,
+          "fp32": 0.6564,
+          "int8": 0.5795,
+          "delta": -0.0769,
+          "flagged": true
+        },
+        {
+          "class": "cinnyris_talatala",
+          "n": 200,
+          "fp32": 0.785,
+          "int8": 0.71,
+          "delta": -0.075,
+          "flagged": true
+        },
+        {
+          "class": "passer_domesticus",
+          "n": 99,
+          "fp32": 0.7677,
+          "int8": 0.697,
+          "delta": -0.0707,
+          "flagged": true
+        },
+        {
+          "class": "pycnonotus_nigricans",
+          "n": 72,
+          "fp32": 0.8611,
+          "int8": 0.7917,
+          "delta": -0.0694,
+          "flagged": true
+        },
+        {
+          "class": "lanius_collaris",
+          "n": 93,
+          "fp32": 0.7742,
+          "int8": 0.7097,
+          "delta": -0.0645,
+          "flagged": true
+        },
+        {
+          "class": "passer_melanurus",
+          "n": 87,
+          "fp32": 0.7011,
+          "int8": 0.6437,
+          "delta": -0.0575,
+          "flagged": true
+        },
+        {
+          "class": "cinnyris_afer",
+          "n": 234,
+          "fp32": 0.5556,
+          "int8": 0.5,
+          "delta": -0.0556,
+          "flagged": true
+        },
+        {
+          "class": "hedydipna_collaris",
+          "n": 219,
+          "fp32": 0.863,
+          "int8": 0.8082,
+          "delta": -0.0548,
+          "flagged": true
+        },
+        {
+          "class": "chalcomitra_senegalensis",
+          "n": 202,
+          "fp32": 0.7574,
+          "int8": 0.7079,
+          "delta": -0.0495,
+          "flagged": true
+        },
+        {
+          "class": "promerops_gurneyi",
+          "n": 44,
+          "fp32": 0.7727,
+          "int8": 0.7273,
+          "delta": -0.0455,
+          "flagged": true
+        },
+        {
+          "class": "lamprotornis_nitens",
+          "n": 71,
+          "fp32": 0.9296,
+          "int8": 0.8873,
+          "delta": -0.0423,
+          "flagged": true
+        },
+        {
+          "class": "cinnyris_cupreus",
+          "n": 72,
+          "fp32": 0.4722,
+          "int8": 0.4306,
+          "delta": -0.0417,
+          "flagged": true
+        },
+        {
+          "class": "sigelus_silens",
+          "n": 242,
+          "fp32": 0.814,
+          "int8": 0.7727,
+          "delta": -0.0413,
+          "flagged": true
+        },
+        {
+          "class": "cyanomitra_olivacea",
+          "n": 160,
+          "fp32": 0.7375,
+          "int8": 0.7,
+          "delta": -0.0375,
+          "flagged": true
+        },
+        {
+          "class": "chalcomitra_amethystina",
+          "n": 443,
+          "fp32": 0.7043,
+          "int8": 0.6727,
+          "delta": -0.0316,
+          "flagged": true
+        },
+        {
+          "class": "nectarinia_famosa",
+          "n": 235,
+          "fp32": 0.7574,
+          "int8": 0.7277,
+          "delta": -0.0298,
+          "flagged": true
+        },
+        {
+          "class": "promerops_cafer",
+          "n": 217,
+          "fp32": 0.8618,
+          "int8": 0.8387,
+          "delta": -0.023,
+          "flagged": true
+        },
+        {
+          "class": "colius_striatus",
+          "n": 60,
+          "fp32": 0.5333,
+          "int8": 0.5167,
+          "delta": -0.0167,
+          "flagged": false
+        },
+        {
+          "class": "dicrurus_adsimilis",
+          "n": 246,
+          "fp32": 0.8089,
+          "int8": 0.7927,
+          "delta": -0.0163,
+          "flagged": false
+        },
+        {
+          "class": "zosterops_virens",
+          "n": 285,
+          "fp32": 0.9368,
+          "int8": 0.9263,
+          "delta": -0.0105,
+          "flagged": false
+        },
+        {
+          "class": "cinnyris_chalybeus",
+          "n": 884,
+          "fp32": 0.8179,
+          "int8": 0.8145,
+          "delta": -0.0034,
+          "flagged": false
+        },
+        {
+          "class": "anthobaphes_violacea",
+          "n": 229,
+          "fp32": 0.8646,
+          "int8": 0.8646,
+          "delta": 0.0,
+          "flagged": false
+        },
+        {
+          "class": "pycnonotus_capensis",
+          "n": 165,
+          "fp32": 0.8485,
+          "int8": 0.8485,
+          "delta": 0.0,
+          "flagged": false
+        },
+        {
+          "class": "empty_feeder",
+          "n": 75,
+          "fp32": 0.3467,
+          "int8": 0.3467,
+          "delta": 0.0,
+          "flagged": false
+        },
+        {
+          "class": "other_animal",
+          "n": 6,
+          "fp32": 0.0,
+          "int8": 0.0,
+          "delta": 0.0,
+          "flagged": false
+        },
+        {
+          "class": "cinnyris_fuscus",
+          "n": 183,
+          "fp32": 0.765,
+          "int8": 0.776,
+          "delta": 0.0109,
+          "flagged": false
+        },
+        {
+          "class": "ploceus_capensis",
+          "n": 88,
+          "fp32": 0.7386,
+          "int8": 0.75,
+          "delta": 0.0114,
+          "flagged": false
+        },
+        {
+          "class": "prinia_maculosa",
+          "n": 81,
+          "fp32": 0.6914,
+          "int8": 0.7037,
+          "delta": 0.0123,
+          "flagged": false
+        },
+        {
+          "class": "onychognathus_morio",
+          "n": 68,
+          "fp32": 0.8529,
+          "int8": 0.8676,
+          "delta": 0.0147,
+          "flagged": false
+        },
+        {
+          "class": "cinnyris_bifasciatus",
+          "n": 163,
+          "fp32": 0.5092,
+          "int8": 0.546,
+          "delta": 0.0368,
+          "flagged": false
+        },
+        {
+          "class": "sturnus_vulgaris",
+          "n": 74,
+          "fp32": 0.7432,
+          "int8": 0.7838,
+          "delta": 0.0405,
+          "flagged": false
+        }
+      ],
+      "calibrate_method": "Percentile",
+      "calibration_size": 64
+    },
+    "Percentile_calib64_mixed": {
+      "n_test": 5930,
+      "by_source": {
+        "field": {
+          "n": 1234,
+          "fp32": 0.8857,
+          "int8": 0.8639,
+          "agreement": 0.9368
+        },
+        "web": {
+          "n": 4696,
+          "fp32": 0.73,
+          "int8": 0.6925,
+          "agreement": 0.8156
+        }
+      },
+      "fp32_accuracy": 0.7624,
+      "int8_accuracy": 0.7282,
+      "agreement": 0.8408,
+      "fp32_mb": 24.2,
+      "int8_mb": 7.5,
+      "calibration_source": "mixed",
+      "per_class": [
+        {
+          "class": "cinnyris_manoensis",
+          "n": 25,
+          "fp32": 0.4,
+          "int8": 0.16,
+          "delta": -0.24,
+          "flagged": true
+        },
+        {
+          "class": "zosterops_pallidus",
+          "n": 73,
+          "fp32": 0.7534,
+          "int8": 0.6027,
+          "delta": -0.1507,
+          "flagged": true
+        },
+        {
+          "class": "ploceus_velatus",
+          "n": 85,
+          "fp32": 0.7412,
+          "int8": 0.6118,
+          "delta": -0.1294,
+          "flagged": true
+        },
+        {
+          "class": "serinus_canicollis",
+          "n": 97,
+          "fp32": 0.7629,
+          "int8": 0.6392,
+          "delta": -0.1237,
+          "flagged": true
+        },
+        {
+          "class": "lanius_collaris",
+          "n": 93,
+          "fp32": 0.7742,
+          "int8": 0.6559,
+          "delta": -0.1183,
+          "flagged": true
+        },
+        {
+          "class": "cyanomitra_veroxii",
+          "n": 72,
+          "fp32": 0.6944,
+          "int8": 0.5833,
+          "delta": -0.1111,
+          "flagged": true
+        },
+        {
+          "class": "pycnonotus_nigricans",
+          "n": 72,
+          "fp32": 0.8611,
+          "int8": 0.7639,
+          "delta": -0.0972,
+          "flagged": true
+        },
+        {
+          "class": "colius_striatus",
+          "n": 60,
+          "fp32": 0.5333,
+          "int8": 0.45,
+          "delta": -0.0833,
+          "flagged": true
+        },
+        {
+          "class": "urocolius_indicus",
+          "n": 86,
+          "fp32": 0.8488,
+          "int8": 0.7674,
+          "delta": -0.0814,
+          "flagged": true
+        },
+        {
+          "class": "cinnyris_talatala",
+          "n": 200,
+          "fp32": 0.785,
+          "int8": 0.71,
+          "delta": -0.075,
+          "flagged": true
+        },
+        {
+          "class": "cyanomitra_olivacea",
+          "n": 160,
+          "fp32": 0.7375,
+          "int8": 0.6687,
+          "delta": -0.0688,
+          "flagged": true
+        },
+        {
+          "class": "cinnyris_mariquensis",
+          "n": 195,
+          "fp32": 0.6564,
+          "int8": 0.5949,
+          "delta": -0.0615,
+          "flagged": true
+        },
+        {
+          "class": "sigelus_silens",
+          "n": 242,
+          "fp32": 0.814,
+          "int8": 0.7562,
+          "delta": -0.0579,
+          "flagged": true
+        },
+        {
+          "class": "cinnyris_cupreus",
+          "n": 72,
+          "fp32": 0.4722,
+          "int8": 0.4167,
+          "delta": -0.0556,
+          "flagged": true
+        },
+        {
+          "class": "hedydipna_collaris",
+          "n": 219,
+          "fp32": 0.863,
+          "int8": 0.8128,
+          "delta": -0.0502,
+          "flagged": true
+        },
+        {
+          "class": "chalcomitra_senegalensis",
+          "n": 202,
+          "fp32": 0.7574,
+          "int8": 0.7079,
+          "delta": -0.0495,
+          "flagged": true
+        },
+        {
+          "class": "passer_melanurus",
+          "n": 87,
+          "fp32": 0.7011,
+          "int8": 0.6552,
+          "delta": -0.046,
+          "flagged": true
+        },
+        {
+          "class": "promerops_gurneyi",
+          "n": 44,
+          "fp32": 0.7727,
+          "int8": 0.7273,
+          "delta": -0.0455,
+          "flagged": true
+        },
+        {
+          "class": "lamprotornis_nitens",
+          "n": 71,
+          "fp32": 0.9296,
+          "int8": 0.8873,
+          "delta": -0.0423,
+          "flagged": true
+        },
+        {
+          "class": "promerops_cafer",
+          "n": 217,
+          "fp32": 0.8618,
+          "int8": 0.8203,
+          "delta": -0.0415,
+          "flagged": true
+        },
+        {
+          "class": "passer_domesticus",
+          "n": 99,
+          "fp32": 0.7677,
+          "int8": 0.7273,
+          "delta": -0.0404,
+          "flagged": true
+        },
+        {
+          "class": "cinnyris_afer",
+          "n": 234,
+          "fp32": 0.5556,
+          "int8": 0.5299,
+          "delta": -0.0256,
+          "flagged": true
+        },
+        {
+          "class": "nectarinia_famosa",
+          "n": 235,
+          "fp32": 0.7574,
+          "int8": 0.7319,
+          "delta": -0.0255,
+          "flagged": true
+        },
+        {
+          "class": "ploceus_capensis",
+          "n": 88,
+          "fp32": 0.7386,
+          "int8": 0.7159,
+          "delta": -0.0227,
+          "flagged": true
+        },
+        {
+          "class": "zosterops_virens",
+          "n": 285,
+          "fp32": 0.9368,
+          "int8": 0.9158,
+          "delta": -0.0211,
+          "flagged": true
+        },
+        {
+          "class": "dicrurus_adsimilis",
+          "n": 246,
+          "fp32": 0.8089,
+          "int8": 0.7927,
+          "delta": -0.0163,
+          "flagged": false
+        },
+        {
+          "class": "onychognathus_morio",
+          "n": 68,
+          "fp32": 0.8529,
+          "int8": 0.8382,
+          "delta": -0.0147,
+          "flagged": false
+        },
+        {
+          "class": "empty_feeder",
+          "n": 75,
+          "fp32": 0.3467,
+          "int8": 0.3333,
+          "delta": -0.0133,
+          "flagged": false
+        },
+        {
+          "class": "chalcomitra_amethystina",
+          "n": 443,
+          "fp32": 0.7043,
+          "int8": 0.693,
+          "delta": -0.0113,
+          "flagged": false
+        },
+        {
+          "class": "anthobaphes_violacea",
+          "n": 229,
+          "fp32": 0.8646,
+          "int8": 0.8559,
+          "delta": -0.0087,
+          "flagged": false
+        },
+        {
+          "class": "cinnyris_chalybeus",
+          "n": 884,
+          "fp32": 0.8179,
+          "int8": 0.8122,
+          "delta": -0.0057,
+          "flagged": false
+        },
+        {
+          "class": "prinia_maculosa",
+          "n": 81,
+          "fp32": 0.6914,
+          "int8": 0.6914,
+          "delta": 0.0,
+          "flagged": false
+        },
+        {
+          "class": "other_animal",
+          "n": 6,
+          "fp32": 0.0,
+          "int8": 0.0,
+          "delta": 0.0,
+          "flagged": false
+        },
+        {
+          "class": "pycnonotus_capensis",
+          "n": 165,
+          "fp32": 0.8485,
+          "int8": 0.8545,
+          "delta": 0.0061,
+          "flagged": false
+        },
+        {
+          "class": "cinnyris_fuscus",
+          "n": 183,
+          "fp32": 0.765,
+          "int8": 0.7814,
+          "delta": 0.0164,
+          "flagged": false
+        },
+        {
+          "class": "cinnyris_bifasciatus",
+          "n": 163,
+          "fp32": 0.5092,
+          "int8": 0.5399,
+          "delta": 0.0307,
+          "flagged": false
+        },
+        {
+          "class": "sturnus_vulgaris",
+          "n": 74,
+          "fp32": 0.7432,
+          "int8": 0.7838,
+          "delta": 0.0405,
+          "flagged": false
+        }
+      ],
+      "calibrate_method": "Percentile",
+      "calibration_size": 64
+    },
+    "Percentile_calib64_web": {
+      "n_test": 5930,
+      "by_source": {
+        "field": {
+          "n": 1234,
+          "fp32": 0.8857,
+          "int8": 0.8574,
+          "agreement": 0.9368
+        },
+        "web": {
+          "n": 4696,
+          "fp32": 0.73,
+          "int8": 0.6904,
+          "agreement": 0.8211
+        }
+      },
+      "fp32_accuracy": 0.7624,
+      "int8_accuracy": 0.7251,
+      "agreement": 0.8452,
+      "fp32_mb": 24.2,
+      "int8_mb": 7.5,
+      "calibration_source": "web",
+      "per_class": [
+        {
+          "class": "cinnyris_manoensis",
+          "n": 25,
+          "fp32": 0.4,
+          "int8": 0.16,
+          "delta": -0.24,
+          "flagged": true
+        },
+        {
+          "class": "zosterops_pallidus",
+          "n": 73,
+          "fp32": 0.7534,
+          "int8": 0.6164,
+          "delta": -0.137,
+          "flagged": true
+        },
+        {
+          "class": "cyanomitra_veroxii",
+          "n": 72,
+          "fp32": 0.6944,
+          "int8": 0.5833,
+          "delta": -0.1111,
+          "flagged": true
+        },
+        {
+          "class": "cyanomitra_olivacea",
+          "n": 160,
+          "fp32": 0.7375,
+          "int8": 0.6312,
+          "delta": -0.1063,
+          "flagged": true
+        },
+        {
+          "class": "serinus_canicollis",
+          "n": 97,
+          "fp32": 0.7629,
+          "int8": 0.6598,
+          "delta": -0.1031,
+          "flagged": true
+        },
+        {
+          "class": "cinnyris_mariquensis",
+          "n": 195,
+          "fp32": 0.6564,
+          "int8": 0.559,
+          "delta": -0.0974,
+          "flagged": true
+        },
+        {
+          "class": "lanius_collaris",
+          "n": 93,
+          "fp32": 0.7742,
+          "int8": 0.6774,
+          "delta": -0.0968,
+          "flagged": true
+        },
+        {
+          "class": "urocolius_indicus",
+          "n": 86,
+          "fp32": 0.8488,
+          "int8": 0.7558,
+          "delta": -0.093,
+          "flagged": true
+        },
+        {
+          "class": "cinnyris_talatala",
+          "n": 200,
+          "fp32": 0.785,
+          "int8": 0.7,
+          "delta": -0.085,
+          "flagged": true
+        },
+        {
+          "class": "pycnonotus_nigricans",
+          "n": 72,
+          "fp32": 0.8611,
+          "int8": 0.7778,
+          "delta": -0.0833,
+          "flagged": true
+        },
+        {
+          "class": "ploceus_velatus",
+          "n": 85,
+          "fp32": 0.7412,
+          "int8": 0.6588,
+          "delta": -0.0824,
+          "flagged": true
+        },
+        {
+          "class": "hedydipna_collaris",
+          "n": 219,
+          "fp32": 0.863,
+          "int8": 0.8037,
+          "delta": -0.0594,
+          "flagged": true
+        },
+        {
+          "class": "cinnyris_afer",
+          "n": 234,
+          "fp32": 0.5556,
+          "int8": 0.5,
+          "delta": -0.0556,
+          "flagged": true
+        },
+        {
+          "class": "chalcomitra_senegalensis",
+          "n": 202,
+          "fp32": 0.7574,
+          "int8": 0.7129,
+          "delta": -0.0446,
+          "flagged": true
+        },
+        {
+          "class": "passer_domesticus",
+          "n": 99,
+          "fp32": 0.7677,
+          "int8": 0.7273,
+          "delta": -0.0404,
+          "flagged": true
+        },
+        {
+          "class": "nectarinia_famosa",
+          "n": 235,
+          "fp32": 0.7574,
+          "int8": 0.7191,
+          "delta": -0.0383,
+          "flagged": true
+        },
+        {
+          "class": "promerops_cafer",
+          "n": 217,
+          "fp32": 0.8618,
+          "int8": 0.8249,
+          "delta": -0.0369,
+          "flagged": true
+        },
+        {
+          "class": "passer_melanurus",
+          "n": 87,
+          "fp32": 0.7011,
+          "int8": 0.6667,
+          "delta": -0.0345,
+          "flagged": true
+        },
+        {
+          "class": "ploceus_capensis",
+          "n": 88,
+          "fp32": 0.7386,
+          "int8": 0.7045,
+          "delta": -0.0341,
+          "flagged": true
+        },
+        {
+          "class": "chalcomitra_amethystina",
+          "n": 443,
+          "fp32": 0.7043,
+          "int8": 0.6704,
+          "delta": -0.0339,
+          "flagged": true
+        },
+        {
+          "class": "colius_striatus",
+          "n": 60,
+          "fp32": 0.5333,
+          "int8": 0.5,
+          "delta": -0.0333,
+          "flagged": true
+        },
+        {
+          "class": "sigelus_silens",
+          "n": 242,
+          "fp32": 0.814,
+          "int8": 0.781,
+          "delta": -0.0331,
+          "flagged": true
+        },
+        {
+          "class": "lamprotornis_nitens",
+          "n": 71,
+          "fp32": 0.9296,
+          "int8": 0.9014,
+          "delta": -0.0282,
+          "flagged": true
+        },
+        {
+          "class": "cinnyris_cupreus",
+          "n": 72,
+          "fp32": 0.4722,
+          "int8": 0.4444,
+          "delta": -0.0278,
+          "flagged": true
+        },
+        {
+          "class": "dicrurus_adsimilis",
+          "n": 246,
+          "fp32": 0.8089,
+          "int8": 0.7846,
+          "delta": -0.0244,
+          "flagged": true
+        },
+        {
+          "class": "promerops_gurneyi",
+          "n": 44,
+          "fp32": 0.7727,
+          "int8": 0.75,
+          "delta": -0.0227,
+          "flagged": true
+        },
+        {
+          "class": "cinnyris_chalybeus",
+          "n": 884,
+          "fp32": 0.8179,
+          "int8": 0.8054,
+          "delta": -0.0124,
+          "flagged": false
+        },
+        {
+          "class": "anthobaphes_violacea",
+          "n": 229,
+          "fp32": 0.8646,
+          "int8": 0.8603,
+          "delta": -0.0044,
+          "flagged": false
+        },
+        {
+          "class": "cinnyris_fuscus",
+          "n": 183,
+          "fp32": 0.765,
+          "int8": 0.765,
+          "delta": 0.0,
+          "flagged": false
+        },
+        {
+          "class": "onychognathus_morio",
+          "n": 68,
+          "fp32": 0.8529,
+          "int8": 0.8529,
+          "delta": 0.0,
+          "flagged": false
+        },
+        {
+          "class": "prinia_maculosa",
+          "n": 81,
+          "fp32": 0.6914,
+          "int8": 0.6914,
+          "delta": 0.0,
+          "flagged": false
+        },
+        {
+          "class": "sturnus_vulgaris",
+          "n": 74,
+          "fp32": 0.7432,
+          "int8": 0.7432,
+          "delta": 0.0,
+          "flagged": false
+        },
+        {
+          "class": "empty_feeder",
+          "n": 75,
+          "fp32": 0.3467,
+          "int8": 0.3467,
+          "delta": 0.0,
+          "flagged": false
+        },
+        {
+          "class": "other_animal",
+          "n": 6,
+          "fp32": 0.0,
+          "int8": 0.0,
+          "delta": 0.0,
+          "flagged": false
+        },
+        {
+          "class": "zosterops_virens",
+          "n": 285,
+          "fp32": 0.9368,
+          "int8": 0.9404,
+          "delta": 0.0035,
+          "flagged": false
+        },
+        {
+          "class": "pycnonotus_capensis",
+          "n": 165,
+          "fp32": 0.8485,
+          "int8": 0.8606,
+          "delta": 0.0121,
+          "flagged": false
+        },
+        {
+          "class": "cinnyris_bifasciatus",
+          "n": 163,
+          "fp32": 0.5092,
+          "int8": 0.5276,
+          "delta": 0.0184,
+          "flagged": false
+        }
+      ],
+      "calibrate_method": "Percentile",
+      "calibration_size": 64
+    }
+  }
+}

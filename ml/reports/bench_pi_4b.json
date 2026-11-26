@@ -1,0 +1,91 @@
+{
+  "before": {
+    "temp_c": 39.4,
+    "arm_hz": "1800404352",
+    "throttled": "0x0"
+  },
+  "size": 224,
+  "models": {
+    "int8_xnnpack": {
+      "providers_used": [
+        "CPUExecutionProvider"
+      ],
+      "fell_back": true,
+      "n": 1354,
+      "median_ms": 51.7,
+      "p95_ms": 67.3,
+      "first_third_median_ms": 51.7,
+      "last_third_median_ms": 51.8,
+      "clip_12_frames_s": 0.62,
+      "state_after": {
+        "temp_c": 68.2,
+        "arm_hz": "1800404352",
+        "throttled": "0x0"
+      }
+    },
+    "int8_cpu": {
+      "providers_used": [
+        "CPUExecutionProvider"
+      ],
+      "fell_back": false,
+      "n": 1347,
+      "median_ms": 52.0,
+      "p95_ms": 66.7,
+      "first_third_median_ms": 52.3,
+      "last_third_median_ms": 51.9,
+      "clip_12_frames_s": 0.62,
+      "state_after": {
+        "temp_c": 76.4,
+        "arm_hz": "1800404352",
+        "throttled": "0x0"
+      }
+    },
+    "fp32_xnnpack": {
+      "providers_used": [
+        "CPUExecutionProvider"
+      ],
+      "fell_back": true,
+      "n": 842,
+      "median_ms": 88.8,
+      "p95_ms": 90.6,
+      "first_third_median_ms": 88.9,
+      "last_third_median_ms": 88.7,
+      "clip_12_frames_s": 1.07,
+      "state_after": {
+        "temp_c": 80.3,
+        "arm_hz": "1800457088",
+        "throttled": "0x0"
+      }
+    },
+    "fp32_cpu": {
+      "providers_used": [
+        "CPUExecutionProvider"
+      ],
+      "fell_back": false,
+      "n": 836,
+      "median_ms": 88.8,
+      "p95_ms": 93.3,
+      "first_third_median_ms": 88.3,
+      "last_third_median_ms": 89.7,
+      "clip_12_frames_s": 1.07,
+      "state_after": {
+        "temp_c": 82.3,
+        "arm_hz": "1775408256",
+        "throttled": "0x80008"
+      }
+    }
+  },
+  "empty_gate": {
+    "first_background_full_frame_ms": 414.6,
+    "rolling_background_port_box_ms": 62.4,
+    "port_check_ms": 0.367
+  },
+  "after": {
+    "temp_c": 71.6,
+    "arm_hz": "1800457088",
+    "throttled": "0x80000"
+  },
+  "board": "Raspberry Pi 4 Model B Rev 1.5, 8GB, Debian 13 aarch64, onnxruntime 1.29.0",
+  "measured": "2026-09-16",
+  "note": "XNNPACK is not built into the installed onnxruntime wheel; the configured provider list falls back to CPUExecutionProvider and the fallback costs nothing measurable (51.7 vs 52.0 ms). ONNX Runtime's own MLAS kernels already use NEON INT8 on aarch64."
+}

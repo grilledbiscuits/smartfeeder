@@ -1,0 +1,23 @@
+clip                        truth                 gate   label                           conf     nov  outcome   sec  verdict
+------------------------------------------------------------------------------------------------------------------------------------
+00_empty1.mp4               empty_feeder          -      cinnyris_chalybeus              0.68   -6.15  publish  1.22  XX empty clip kept
+01_empty2.mp4               empty_feeder          -      cinnyris_indet                  0.66   -6.23  publish  1.13  XX empty clip kept
+02_doublecollared14.mp4     cinnyris_chalybeus    -      cinnyris_chalybeus              0.92   -6.69  publish  0.80  ok exact
+03_empty3.mp4               empty_feeder          -      cinnyris_indet                  0.66   -6.22  publish  1.13  XX empty clip kept
+04_doublecollared15.mp4     cinnyris_chalybeus    -      cinnyris_chalybeus              0.89   -6.40  publish  0.70  ok exact
+05_empty4.mp4               empty_feeder          -      cinnyris_indet                  0.66   -6.18  publish  2.96  XX empty clip kept
+06_doublecollared16.mp4     cinnyris_chalybeus    -      cinnyris_chalybeus              0.78   -5.88  publish  2.92  ok exact
+07_doublecollared17.mp4     cinnyris_chalybeus    -      cinnyris_chalybeus              0.89   -6.24  publish  5.97  ok exact
+08_doublecollared18.mp4     cinnyris_chalybeus    -      cinnyris_chalybeus              0.81   -6.14  publish  1.16  ok exact
+09_capebulbul5.mp4          pycnonotus_capensis   -      pycnonotus_capensis             0.88   -7.14  discard  1.38  ok exact
+
+{
+  "clips": 10,
+  "correct": 6,
+  "empty_clips_discarded": "0/4",
+  "bird_clips_correct": "6/6",
+  "median_seconds_recorded_event": 1.22,
+  "median_seconds_gated_event": null
+}
+
+wrote ml/reports/replay_results.json

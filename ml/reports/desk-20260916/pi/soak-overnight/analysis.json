@@ -1,0 +1,54 @@
+{
+  "events": 741,
+  "distinct_clips": 39,
+  "cycles": 19,
+  "elapsed_hours": 6.175039335158136,
+  "finished_sast": "2026-09-17T02:52:27.471990+02:00",
+  "rss_mib_min": 97.98828125,
+  "rss_mib_max": 162.79296875,
+  "rss_mib_first_cycle_median": 157.3515625,
+  "rss_mib_last_cycle_median": 162.79296875,
+  "temperature_min": 39.4,
+  "temperature_max": 47.7,
+  "flags": [
+    "0x80000"
+  ],
+  "decision_variations": [],
+  "wrong_actions": [
+    {
+      "file": "original_05_empty4.mp4",
+      "truth": "empty_feeder",
+      "label": "cinnyris_indet",
+      "outcome": "publish",
+      "count": 19
+    },
+    {
+      "file": "field_02_20260816_133907_amethyst3.mp4",
+      "truth": "chalcomitra_amethystina",
+      "label": "nectariniidae_indet",
+      "outcome": "discard",
+      "count": 19
+    },
+    {
+      "file": "field_03_20260816_133907_amethyst4.mp4",
+      "truth": "chalcomitra_amethystina",
+      "label": "nectariniidae_indet",
+      "outcome": "discard",
+      "count": 19
+    },
+    {
+      "file": "field_18_20260828_155630_doublecollared21.mp4",
+      "truth": "cinnyris_chalybeus",
+      "label": "other_animal",
+      "outcome": "discard",
+      "count": 19
+    },
+    {
+      "file": "field_25_20260828_155630_doublecollared3.mp4",
+      "truth": "cinnyris_chalybeus",
+      "label": "other_animal",
+      "outcome": "discard",
+      "count": 19
+    }
+  ]
+}

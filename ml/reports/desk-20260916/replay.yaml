@@ -1,0 +1,59 @@
+version: 1
+gpio:
+  pin: 4
+  sample_rate_hz: 10.0
+  queue_len: 1
+  warmup_seconds: 60.0
+camera:
+  width: 1280
+  height: 720
+  framerate: 25
+  bitrate_kbps: 4000
+  warmup_seconds: 1.0
+capture:
+  clip_seconds: 8.0
+  cooldown_seconds: 30.0
+  on_busy: queue
+  max_queued: 1
+storage:
+  work_dir: var/capture/work
+  pending_dir: var/capture/pending
+  review_dir: var/capture/review
+  min_free_mb: 1024
+  max_pending_clips: 200
+  max_review_clips: 100
+  delete_after_publish: true
+classifier:
+  enabled: true
+  onnx_path: ml/data/export/birdcam_student_int8.onnx
+  operating_points: ml/reports/operating_points.json
+  site_prior: ml/config/sites/rondebosch.yaml
+  sample_fps: 2.0
+  max_frames: 12
+  providers:
+  - CPUExecutionProvider
+  expect_source: null
+  allow_artefact_mismatch: false
+  keep_frames: false
+  novelty:
+    enabled: true
+    scorer: energy
+    threshold: -4.763944288110461
+    reference: null
+publish:
+  retain_uncertain: true
+  escalate_after_attempts: 5
+  backoff_initial_seconds: 5.0
+  backoff_max_seconds: 900.0
+  backoff_factor: 2.0
+logging:
+  level: INFO
+  file: var/capture/capture.log
+  max_bytes: 5000000
+  backup_count: 5
+  format: text
+empty_gate:
+  enabled: false
+  placement: after_record
+  reference: null
+  threshold: 12.0
